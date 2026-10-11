@@ -39,6 +39,7 @@ class PaneContainer @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
+    val toolbar: LinearLayout = LinearLayout(context)
     val webView: EBWebView = EBWebView(context)
     val urlInput: EditText = EditText(context)
     val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
@@ -47,6 +48,12 @@ class PaneContainer @JvmOverloads constructor(
     val btnForward: ImageButton = ImageButton(context)
     val btnSendToOther: ImageButton = ImageButton(context)
     val btnClosePane: ImageButton = ImageButton(context)
+
+    var isToolbarVisible: Boolean
+        get() = toolbar.visibility == View.VISIBLE
+        set(value) {
+            toolbar.visibility = if (value) View.VISIBLE else View.GONE
+        }
 
     var onSendUrlToOtherPaneRequested: ((url: String) -> Unit)? = null
     var onClosePaneRequested: (() -> Unit)? = null
@@ -71,11 +78,11 @@ class PaneContainer @JvmOverloads constructor(
     }
 
     private fun initToolbar() {
-        val toolbar = LinearLayout(context).apply {
+        toolbar.apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
-            setBackgroundColor(Color.parseColor("#F5F5F5"))
+            setPadding(dpToPx(6f), dpToPx(4f), dpToPx(6f), dpToPx(4f))
+            setBackgroundColor(Color.parseColor("#F8FAFC"))
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(42f))
         }
 
@@ -104,10 +111,12 @@ class PaneContainer @JvmOverloads constructor(
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 cornerRadius = dpToPx(16f).toFloat()
-                setStroke(dpToPx(1f), Color.parseColor("#E0E0E0"))
+                setStroke(dpToPx(1f), Color.parseColor("#E2E8F0"))
             }
-            setPadding(dpToPx(10f), 0, dpToPx(10f), 0)
+            setPadding(dpToPx(12f), 0, dpToPx(12f), 0)
             textSize = 12f
+            setTextColor(Color.parseColor("#0F172A"))
+            setHintTextColor(Color.parseColor("#94A3B8"))
             setSingleLine(true)
             imeOptions = EditorInfo.IME_ACTION_GO
             hint = "输入网址或搜索内容"

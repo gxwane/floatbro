@@ -49,21 +49,21 @@ class FloatingBubbleView(
     private var isDragging = false
 
     init {
-        val sizePx = dpToPx(56f)
-        val iconSizePx = dpToPx(32f)
+        val sizePx = dpToPx(52f)
+        val iconSizePx = dpToPx(30f)
 
-        // Circle container background
+        // Pure circular container: #FFFFFF background, 2dp #2563EB border (Matching Prototype .edge-bubble)
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#2563EB"))
-            setStroke(dpToPx(2f), Color.WHITE)
+            setColor(Color.WHITE)
+            setStroke(dpToPx(2f), Color.parseColor("#2563EB"))
         }
-        elevation = dpToPx(10f).toFloat()
+        elevation = dpToPx(12f).toFloat()
 
         val icon = ImageView(context).apply {
             layoutParams = LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
             setImageResource(R.drawable.ic_bubble_logo)
-            setColorFilter(Color.WHITE)
+            // Preserves dual-brand colors (#2563EB & #10B981) without monochrome tint
         }
         addView(icon)
 
@@ -127,20 +127,25 @@ class FloatingBubbleView(
     private fun snapToEdge() {
         val displayMetrics = context.resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
-        val bubbleWidth = width.takeIf { it > 0 } ?: dpToPx(56f)
+        val bubbleWidth = width.takeIf { it > 0 } ?: dpToPx(52f)
 
         val currentX = layoutParams.x
         val centerX = currentX + bubbleWidth / 2
-        val edgeMargin = dpToPx(8f)
+        val edgeMargin = dpToPx(12f)
 
         val targetX = if (centerX < screenWidth / 2) {
-            edgeMargin // Snap to left
+            edgeMargin
         } else {
-            screenWidth - bubbleWidth - edgeMargin // Snap to right
+            screenWidth - bubbleWidth - edgeMargin
         }
 
+        // Clamp Y to safe screen bounds (avoid status bar and gesture navigation bar)
+        val minY = dpToPx(36f)
+        val maxY = displayMetrics.heightPixels - dpToPx(72f) - bubbleWidth
+        layoutParams.y = layoutParams.y.coerceIn(minY, maxY)
+
         val animator = ValueAnimator.ofInt(currentX, targetX)
-        animator.duration = 220
+        animator.duration = 240
         animator.interpolator = DecelerateInterpolator()
         animator.addUpdateListener { animation ->
             layoutParams.x = animation.animatedValue as Int

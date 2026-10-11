@@ -147,7 +147,7 @@ class FloatBrowserService : LifecycleService() {
             .setSmallIcon(R.drawable.ic_bubble_logo)
             .setContentIntent(showPendingIntent)
             .addAction(R.drawable.ic_bubble_logo, "还原浮窗", showPendingIntent)
-            .addAction(R.drawable.ic_minimize, "最小化", minimizePendingIntent)
+            .addAction(R.drawable.ic_bubble_logo, "悬浮气泡", minimizePendingIntent)
             .addAction(R.drawable.ic_close, "关闭", closePendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

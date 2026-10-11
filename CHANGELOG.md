@@ -39,3 +39,14 @@
   - 固化 `docs/ARCHITECTURE.md` 元架构契约与单向无环依赖图；
   - 搭建跨平台 L1 质量手套执行门禁 (`scripts/verify_gauntlet.ps1` & `scripts/verify_gauntlet.sh`)；
   - 建立领域层纯 JVM 毫秒级 TDD 单元测试套件与 PAMP 防偷懒变异存证。
+
+- **Phase 5: 交互原型 100% 视觉还原与整洁工艺终验 (Clean Craftsmanship Tier 3)**
+  - 彻底根除单字母方块 (`title.take(1)`) 与 emoji 调试按钮等非正式演示代码，重构为生产级探索主页；
+  - 引入 Android (`#3DDC84`)、Wikipedia (`#2563EB`)、Bilibili (`#00AEEC`)、GitHub 官方品牌矢量资产与 SSL 盾牌安全指示；
+  - 建立 Slate/Blue 设计令牌系统 (`Theme.kt`)，全量对齐 `interactive_prototype.html` 交互原型；
+  - 彻底解决 86dp 双层顶栏堆叠缺陷：悬浮窗统一为单个 44dp 整合胶囊 Omni-bar，单视口模式自动抑制 `pane1` 内部冗余 Toolbar；
+  - 实现全边沿拦截拖拽分发与无感右下角对角线缩放 (`WindowBoundsHelper` 0.45~2.20 纵横比边界保护)；
+  - 悬浮球重构为 52dp 纯白正圆球体、2dp 品牌蓝描边，完整呈现双环品牌标识 (`#2563EB` 与 `#10B981`)；
+  - 覆盖 `WindowBoundsHelperTest` 纯 JVM 单元测试，杀灭 `[OP-BOUND]` 与 `[OP-VOID]` 变异体；
+  - 通过独立 PR Reviewer 审查全量通过 (PASS)，Gauntlet 质量流水线 100% 绿灯。
+

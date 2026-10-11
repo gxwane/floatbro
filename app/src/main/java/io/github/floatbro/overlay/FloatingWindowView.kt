@@ -52,6 +52,7 @@ class FloatingWindowView(
     val twoPaneLayout: TwoPaneLayout = TwoPaneLayout(context)
     private val composeOverlayView = ComposeView(context)
     private val isMenuOpenState = mutableStateOf(false)
+    private lateinit var urlBadgeText: TextView
 
     var onMinimizeRequested: (() -> Unit)? = null
     var onCloseRequested: (() -> Unit)? = null
@@ -109,6 +110,25 @@ class FloatingWindowView(
                 0,
                 1f
             )
+            // Suppress pane1 internal toolbar to avoid double-toolbar stacking (Gate 3 Architecture Rule)
+            pane1.isToolbarVisible = false
+
+            pane1.webView.onPageFinishedListener = { url ->
+                if (::urlBadgeText.isInitialized) {
+                    urlBadgeText.text = url
+                }
+            }
+            pane1.webView.onPageStartedListener = { url ->
+                if (::urlBadgeText.isInitialized) {
+                    urlBadgeText.text = url
+                }
+            }
+
+            pane2.onClosePaneRequested = {
+                isSecondPaneVisible = false
+                pane1.isToolbarVisible = false
+            }
+
             onInputFocusChanged = { isFocused ->
                 this@FloatingWindowView.onInputFocusChanged?.invoke(isFocused)
             }
@@ -138,73 +158,78 @@ class FloatingWindowView(
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(8f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
-            setBackgroundColor(Color.parseColor("#F5F5F7"))
+            setPadding(dpToPx(10f), dpToPx(4f), dpToPx(10f), dpToPx(4f))
+            setBackgroundColor(Color.parseColor("#F8FAFC"))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(40f)
+                dpToPx(44f)
             )
         }
 
-        // App Logo / Title (Draggable Area)
-        val titleText = TextView(context).apply {
-            text = "FloatBro"
-            textSize = 14f
-            setTextColor(Color.parseColor("#1976D2"))
-            paint.isFakeBoldText = true
-            setPadding(dpToPx(4f), 0, dpToPx(8f), 0)
+        // App Logo / Favicon (Dual-color brand identity, zero monochrome tint)
+        val brandLogo = ImageView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(20f), dpToPx(20f)).apply {
+                marginEnd = dpToPx(8f)
+            }
+            setImageResource(R.drawable.ic_bubble_logo)
         }
 
-        // Draggable Area filling remaining space
-        val dragHandleArea = FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-            val dragIndicator = View(context).apply {
-                layoutParams = LayoutParams(dpToPx(36f), dpToPx(4f), Gravity.CENTER)
-                background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#BBBBBB"))
-                    cornerRadius = dpToPx(2f).toFloat()
-                }
+        // Primary Drag Omni-Capsule (SSL Lock + URL Badge matching prototype .float-url-badge)
+        val dragHandleArea = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(28f), 1f).apply {
+                marginEnd = dpToPx(6f)
             }
-            addView(dragIndicator)
+            setPadding(dpToPx(8f), 0, dpToPx(8f), 0)
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = dpToPx(14f).toFloat()
+                setStroke(dpToPx(1f), Color.parseColor("#CBD5E1"))
+            }
+
+            val sslIcon = ImageView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(13f), dpToPx(13f)).apply {
+                    marginEnd = dpToPx(6f)
+                }
+                setImageResource(R.drawable.ic_shield_ssl)
+            }
+            addView(sslIcon)
+
+            urlBadgeText = TextView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+                text = "FloatBro 悬浮浏览"
+                textSize = 11.5f
+                setTextColor(Color.parseColor("#0F172A"))
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                paint.isFakeBoldText = true
+            }
+            addView(urlBadgeText)
+
             setOnTouchListener { _, event -> handleDragTouchEvent(event) }
         }
 
-        // Action Buttons
+        // Action Buttons: Split, Menu, Close (Zero desktop minimize button!)
         val btnSplit = createHeaderButton(R.drawable.ic_split_pane, "切换分屏") {
-            twoPaneLayout.isSecondPaneVisible = !twoPaneLayout.isSecondPaneVisible
-        }
-
-        val btnRotate = createHeaderButton(R.drawable.ic_rotate, "旋转分屏") {
-            twoPaneLayout.splitOrientation = if (twoPaneLayout.splitOrientation == TwoPaneLayout.Orientation.HORIZONTAL) {
-                TwoPaneLayout.Orientation.VERTICAL
-            } else {
-                TwoPaneLayout.Orientation.HORIZONTAL
-            }
-        }
-
-        val btnSwap = createHeaderButton(R.drawable.ic_swap, "对调视口") {
-            twoPaneLayout.swapPanes()
+            val nextVisible = !twoPaneLayout.isSecondPaneVisible
+            twoPaneLayout.isSecondPaneVisible = nextVisible
+            twoPaneLayout.pane1.isToolbarVisible = nextVisible
+            twoPaneLayout.pane2.isToolbarVisible = nextVisible
         }
 
         val btnMenu = createHeaderButton(R.drawable.ic_menu, "菜单") {
             isMenuOpenState.value = true
         }
 
-        val btnMinimize = createHeaderButton(R.drawable.ic_minimize, "最小化为气泡") {
-            onMinimizeRequested?.invoke()
-        }
-
         val btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗") {
             onCloseRequested?.invoke()
         }
 
-        header.addView(titleText)
+        header.addView(brandLogo)
         header.addView(dragHandleArea)
         header.addView(btnSplit)
-        header.addView(btnRotate)
-        header.addView(btnSwap)
         header.addView(btnMenu)
-        header.addView(btnMinimize)
         header.addView(btnClose)
 
         return header
@@ -212,21 +237,23 @@ class FloatingWindowView(
 
     private fun createHeaderButton(drawableRes: Int, tooltip: String, onClick: () -> Unit): ImageButton {
         return ImageButton(context).apply {
-            layoutParams = LinearLayout.LayoutParams(dpToPx(30f), dpToPx(30f))
+            val btnSize = dpToPx(28f)
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
+                marginStart = dpToPx(2f)
+            }
             setBackgroundColor(Color.TRANSPARENT)
             setImageResource(drawableRes)
-            setColorFilter(Color.parseColor("#444444"))
-            tooltipText = tooltip
+            setColorFilter(Color.parseColor("#475569"))
+            contentDescription = tooltip
             setOnClickListener { onClick() }
         }
     }
 
     private fun createResizeHandle(): View {
-        return ImageView(context).apply {
-            val handleSize = dpToPx(28f)
+        return View(context).apply {
+            val handleSize = dpToPx(36f)
             layoutParams = LayoutParams(handleSize, handleSize, Gravity.BOTTOM or Gravity.END)
-            setImageResource(R.drawable.ic_resize_handle)
-            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+            // Invisible touch zone for common sense diagonal resize
             setOnTouchListener { _, event -> handleResizeTouchEvent(event) }
         }
     }
@@ -252,6 +279,33 @@ class FloatingWindowView(
         }
     }
 
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        val x = ev.x
+        val y = ev.y
+        val edgeSize = dpToPx(16f)
+        val resizeSize = dpToPx(36f)
+
+        // Bottom-right corner reserved for diagonal resizing
+        val inResizeCorner = x >= width - resizeSize && y >= height - resizeSize
+        if (inResizeCorner) {
+            return false
+        }
+
+        // Check if touch starts on any outer border (left, right, bottom)
+        val onOuterEdge = x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize
+        if (onOuterEdge) {
+            if (ev.action == MotionEvent.ACTION_DOWN) {
+                handleDragTouchEvent(ev)
+            }
+            return true
+        }
+        return super.onInterceptTouchEvent(ev)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        return handleDragTouchEvent(event) || super.onTouchEvent(event)
+    }
+
     private fun handleDragTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -272,6 +326,17 @@ class FloatingWindowView(
                     onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
                 }
                 return true
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val displayMetrics = context.resources.displayMetrics
+                val edgeThreshold = dpToPx(24f)
+                if (layoutParams.x <= edgeThreshold ||
+                    layoutParams.x + layoutParams.width >= displayMetrics.widthPixels - edgeThreshold
+                ) {
+                    onMinimizeRequested?.invoke()
+                    return true
+                }
             }
         }
         return false
@@ -295,8 +360,14 @@ class FloatingWindowView(
                 val maxAllowedWidth = displayMetrics.widthPixels
                 val maxAllowedHeight = displayMetrics.heightPixels
 
-                val newWidth = (initialWindowWidth + dx).coerceIn(minWidthPx, maxAllowedWidth)
-                val newHeight = (initialWindowHeight + dy).coerceIn(minHeightPx, maxAllowedHeight)
+                val (newWidth, newHeight) = WindowBoundsHelper.clampDimensions(
+                    rawWidth = initialWindowWidth + dx,
+                    rawHeight = initialWindowHeight + dy,
+                    minWidth = minWidthPx,
+                    maxWidth = maxAllowedWidth,
+                    minHeight = minHeightPx,
+                    maxHeight = maxAllowedHeight
+                )
 
                 layoutParams.width = newWidth
                 layoutParams.height = newHeight
@@ -332,5 +403,34 @@ class FloatingWindowView(
             return true
         }
         return super.dispatchKeyEvent(event)
+    }
+}
+
+object WindowBoundsHelper {
+    fun clampDimensions(
+        rawWidth: Int,
+        rawHeight: Int,
+        minWidth: Int,
+        maxWidth: Int,
+        minHeight: Int,
+        maxHeight: Int,
+        minRatio: Float = 0.45f,
+        maxRatio: Float = 2.20f
+    ): Pair<Int, Int> {
+        val clampedWidth = rawWidth.coerceIn(minWidth, maxWidth)
+        val clampedHeight = rawHeight.coerceIn(minHeight, maxHeight)
+        val currentRatio = clampedWidth.toFloat() / clampedHeight.toFloat()
+
+        return when {
+            currentRatio < minRatio -> {
+                val adjustedHeight = (clampedWidth / minRatio).toInt().coerceIn(minHeight, maxHeight)
+                clampedWidth to adjustedHeight
+            }
+            currentRatio > maxRatio -> {
+                val adjustedWidth = (clampedHeight * maxRatio).toInt().coerceIn(minWidth, maxWidth)
+                adjustedWidth to clampedHeight
+            }
+            else -> clampedWidth to clampedHeight
+        }
     }
 }
