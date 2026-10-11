@@ -1,0 +1,83 @@
+name: 🐛 Bug 反馈 (Bug Report)
+description: 提交在使用 FloatBro 时遇到的缺陷或异常崩溃
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你为 FloatBro 贡献问题报告！
+        由于 FloatBro 强依赖 Android 系统悬浮窗与各厂商深度定制的 ROM 策略，请务必准确填写以下设备信息。
+
+  - type: input
+    id: version
+    attributes:
+      label: FloatBro 版本号
+      description: 如 v1.0.0-alpha.1，或填入 Commit SHA
+      placeholder: "例如: v1.0.0 (Build 1000000)"
+    validations:
+      required: true
+
+  - type: input
+    id: device_info
+    attributes:
+      label: 运行设备与操作系统
+      description: 包含手机型号、Android 系统版本及 ROM 名称
+      placeholder: "例如: Xiaomi 14 Pro, Android 15 (HyperOS 2.0) / Pixel 8, Android 14"
+    validations:
+      required: true
+
+  - type: input
+    id: webview_version
+    attributes:
+      label: 系统 WebView 版本
+      description: 可在系统设置或关于页面中查看
+      placeholder: "例如: Android System WebView 130.0.6723.102"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: window_mode
+    attributes:
+      label: 出现问题时的窗口模式
+      options:
+        - 单浮窗模式 (Single Floating Window)
+        - Windows Snap 真分屏模式 (Split Screen TwoPane)
+        - 边缘气泡收起状态 (Floating Bubble)
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 (Steps to Reproduce)
+      description: 请详细描述如何复现该问题
+      value: |
+        1. 启动悬浮窗，访问 URL: ...
+        2. 拖动右下角缩放手柄 / 拖动分屏中线 ...
+        3. 点击 ...
+        4. 出现异常 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_vs_actual
+    attributes:
+      label: 期望行为与实际行为 (Expected vs Actual)
+      placeholder: "期望：点击输入框正常调起软键盘；实际：键盘未弹出且页面被遮挡"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 崩溃日志 / Logcat (Crash Logs)
+      description: 如发生崩溃，请抓取并粘贴 Logcat（特别是包含 BadTokenException 或 WindowManager 的日志）
+      render: shell
+
+  - type: textarea
+    id: media
+    attributes:
+      label: 截图或录屏 (Screenshots / Screen Recording)
+      description: 请将图片或视频拖拽至此处上传，这能帮助我们极快定位悬浮交互问题。

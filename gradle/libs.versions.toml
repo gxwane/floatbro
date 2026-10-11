@@ -1,0 +1,118 @@
+[versions]
+# --- 核心构建工具链 ---
+agp = "8.13.2"
+kotlin = "2.1.20"
+ksp = "2.1.20-1.0.32"
+
+# --- Kotlin 协程与序列化 ---
+coroutines = "1.10.2"
+kotlinxSerializationJson = "1.6.3"
+
+# --- Jetpack Compose & Material 3 (FloatBro 现代化悬浮 UI) ---
+compose = "1.7.8"
+composeBom = "2026.09.00"
+composeMaterial3 = "1.4.0"
+activityCompose = "1.9.1"
+navigation = "2.8.9"
+
+# --- AndroidX 核心库 ---
+coreKtx = "1.16.0"
+fragment = "1.8.9"
+constraintlayout = "2.1.4"
+swiperefreshlayout = "1.1.0"
+documentfile = "1.1.0"
+
+# --- 悬浮窗 Service 核心：Lifecycle 与 DataStore ---
+lifecycle = "2.8.7"
+datastore = "1.2.1"
+
+# --- Web 内核与网络通信 ---
+webkit = "1.17.1"
+okhttp = "4.12.0"
+okhttpSse = "4.11.0"
+httpRequest = "0.2"
+jsoup = "1.17.2"
+
+# --- 持久化与依赖注入 ---
+room = "2.6.1"
+koin = "3.5.6"
+
+# --- 工具与辅助库 ---
+timber = "4.7.1"
+reorderable = "2.3.3"
+orgJson = "20240303"
+accompanistDrawablepainter = "0.31.0-alpha"
+
+# --- 测试组件 ---
+junit = "4.13.2"
+mockk = "1.13.12"
+turbine = "1.0.0"
+archCoreTesting = "2.2.0"
+
+[libraries]
+# AndroidX 核心基础
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment" }
+androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
+androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
+
+# 悬浮窗与生命周期管理 (FloatBrowserService 核心)
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }
+
+# 设置与状态持久化 (浮窗尺寸/分屏状态存储)
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+
+# Web 内核扩展
+androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
+
+# Compose BOM 与 UI 组件 (悬浮内嵌设置/书签/现代主题)
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "composeMaterial3" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "compose" }
+
+# Kotlin 协程与序列化
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
+# 网络请求与 SSE (:ad-filter 订阅与云端更新)
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-sse = { group = "com.squareup.okhttp3", name = "okhttp-sse", version.ref = "okhttpSse" }
+http-request = { module = "com.github.Edsuns:HttpRequest", version.ref = "httpRequest" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+
+# 数据库存储
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+
+# 依赖注入与工具
+koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
+accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanistDrawablepainter" }
+org-json = { module = "org.json:json", version.ref = "orgJson" }
+
+# 测试
+junit = { module = "junit:junit", version.ref = "junit" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
