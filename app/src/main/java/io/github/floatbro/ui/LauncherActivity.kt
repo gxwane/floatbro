@@ -29,6 +29,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -60,6 +62,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,10 +74,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,10 +89,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -95,8 +104,15 @@ import androidx.core.view.WindowCompat
 import io.github.floatbro.R
 import io.github.floatbro.core.webview.EBWebView
 import io.github.floatbro.service.FloatBrowserService
+import io.github.floatbro.ui.theme.BrandBlue
+import io.github.floatbro.ui.theme.BrandEmerald
 import io.github.floatbro.ui.theme.FloatBroTheme
+import io.github.floatbro.ui.theme.Slate200
+import io.github.floatbro.ui.theme.Slate50
+import io.github.floatbro.ui.theme.Slate600
+import io.github.floatbro.ui.theme.Slate900
 import java.util.UUID
+import kotlin.math.roundToInt
 
 enum class OpenMode {
     FLOATING, // 默认直接弹射为独立悬浮窗
@@ -167,6 +183,12 @@ class LauncherActivity : ComponentActivity() {
                                 onOpenSettings = {
                                     previousTabId = activeTabId
                                     activeTabId = "settings"
+                                },
+                                onTearOffToFloating = { tab ->
+                                    tabs.removeAll { it.id == tab.id }
+                                    activeTabId = "home"
+                                    startOverlayService(FloatBrowserService.ACTION_SHOW, tab.url)
+                                    Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
                                 }
                             )
                         }
@@ -349,7 +371,8 @@ fun AppTabStrip(
     onSelectTab: (String) -> Unit,
     onCloseTab: (String) -> Unit,
     onNewTab: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onTearOffToFloating: (BrowserTab) -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -385,8 +408,9 @@ fun AppTabStrip(
                 color = if (isHomeActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
                 modifier = Modifier
                     .height(36.dp)
-                    .clickable { onSelectTab("home") }
                     .padding(end = 4.dp)
+                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                    .clickable { onSelectTab("home") }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp),
@@ -408,16 +432,42 @@ fun AppTabStrip(
                 }
             }
 
-            // Web Tabs
+            // Web Tabs (Supports clean rounded ripple and downward drag-to-tear-off)
             tabs.forEach { tab ->
                 val isActive = tab.id == activeTabId
+                var dragOffsetY by remember { mutableFloatStateOf(0f) }
+                val haptic = LocalHapticFeedback.current
+
                 Surface(
                     shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
                     color = if (isActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
                     modifier = Modifier
                         .height(36.dp)
-                        .clickable { onSelectTab(tab.id) }
+                        .offset { IntOffset(0, dragOffsetY.roundToInt().coerceAtLeast(0)) }
                         .padding(end = 4.dp)
+                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                        .pointerInput(tab.id) {
+                            detectDragGestures(
+                                onDragStart = { dragOffsetY = 0f },
+                                onDrag = { change, dragAmount ->
+                                    if (dragAmount.y > 0 || dragOffsetY > 0f) {
+                                        change.consume()
+                                        dragOffsetY = (dragOffsetY + dragAmount.y).coerceAtLeast(0f)
+                                        if (dragOffsetY > 48f) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    }
+                                },
+                                onDragEnd = {
+                                    if (dragOffsetY > 48f) {
+                                        onTearOffToFloating(tab)
+                                    }
+                                    dragOffsetY = 0f
+                                },
+                                onDragCancel = { dragOffsetY = 0f }
+                            )
+                        }
+                        .clickable { onSelectTab(tab.id) }
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp),
@@ -509,17 +559,58 @@ fun SettingsScreen(
     onClearData: () -> Unit,
     onBack: () -> Unit
 ) {
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = {
+                Text(
+                    text = "清除所有浏览数据？",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = Slate900
+                )
+            },
+            text = {
+                Text(
+                    text = "此操作将彻底清空当前所有已缓存的网页、Cookies 与本地存储数据，操作不可撤销。",
+                    fontSize = 13.sp,
+                    color = Slate600,
+                    lineHeight = 18.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearConfirmDialog = false
+                        onClearData()
+                    }
+                ) {
+                    Text("确认清除", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text("取消", color = Slate600)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Slate50)
     ) {
         // Standard Secondary Page Top Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .background(MaterialTheme.colorScheme.surface)
+                .background(Color.White)
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -527,7 +618,7 @@ fun SettingsScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "返回",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = Slate900
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -535,44 +626,48 @@ fun SettingsScreen(
                 text = "设置",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = Slate900
             )
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(color = Slate200)
 
         // Settings Preferences Group List
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            // Group 1: 浏览与交互偏好
+            // Group 1: 浏览偏好
             Text(
-                text = "浏览与交互偏好",
-                fontSize = 13.sp,
+                text = "浏览偏好",
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = BrandBlue,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Slate200),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "默认打开网页方式",
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
+                        fontSize = 14.5.sp,
+                        color = Slate900
                     )
                     Text(
-                        text = "选择点击常用导航或搜索链接时，默认采用悬浮窗弹出或在应用内打开",
+                        text = "选择点击常用导航或搜索链接时，默认采用悬浮窗弹出或在应用内标签打开",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 10.dp)
+                        color = Slate600,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -592,23 +687,25 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Group 2: 悬浮窗高级特性
             Text(
                 text = "悬浮窗高级特性",
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = BrandBlue,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Slate200),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -618,12 +715,14 @@ fun SettingsScreen(
                             Text(
                                 text = "系统悬浮窗权限",
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
+                                fontSize = 14.5.sp,
+                                color = Slate900
                             )
                             Text(
                                 text = if (hasOverlayPermission) "悬浮权限已正常开启" else "尚未授权，点击跳转系统设置授权",
                                 fontSize = 12.sp,
-                                color = if (hasOverlayPermission) Color(0xFF10B981) else Color(0xFFEF4444)
+                                color = if (hasOverlayPermission) BrandEmerald else Color(0xFFEF4444),
+                                modifier = Modifier.padding(top = 2.dp)
                             )
                         }
                         if (!hasOverlayPermission) {
@@ -633,44 +732,50 @@ fun SettingsScreen(
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = Slate200
+                    )
 
                     Text(
-                        text = "贴边吸附交互逻辑",
+                        text = "贴边吸附与手势交互",
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
+                        fontSize = 14.5.sp,
+                        color = Slate900
                     )
                     Text(
-                        text = "• 靠边停放：拖到屏幕边缘松手，窗口自动贴边吸附停靠。\n• 收拢为悬浮球：推入边缘超过 40% 面积时自动折叠为悬浮球。\n• 拖拽收回：拖动悬浮窗向下滑动至屏幕底部，自动收回为主应用标签页。",
+                        text = "支持靠边磁吸停靠、推入屏幕外超过 40% 折叠为悬浮球，以及向下拉至底部收回应用内。",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.outline,
-                        lineHeight = 18.sp,
+                        color = Slate600,
+                        lineHeight = 16.sp,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Group 3: 隐私与清理
+            // Group 3: 数据与隐私
             Text(
-                text = "隐私与清理",
-                fontSize = 13.sp,
+                text = "数据与隐私",
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = BrandBlue,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Slate200),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onClearData() }
-                        .padding(14.dp),
+                        .clickable { showClearConfirmDialog = true }
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -678,62 +783,68 @@ fun SettingsScreen(
                         Text(
                             text = "清除浏览数据与缓存",
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
+                            fontSize = 14.5.sp,
+                            color = Slate900
                         )
                         Text(
-                            text = "清除所有网页缓存、Cookies 与临时存储",
+                            text = "清除所有已保存的网页缓存、Cookies 与临时存储",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.outline
+                            color = Slate600,
+                            modifier = Modifier.padding(top = 2.dp)
                         )
                     }
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "清除",
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = Color(0xFFEF4444),
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Group 4: 关于 FloatBro
+            // Group 4: 关于应用
             Text(
                 text = "关于应用",
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = BrandBlue,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Slate200),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_bubble_logo),
                         contentDescription = null,
                         tint = Color.Unspecified,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(36.dp)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
                             text = "FloatBro 浮窗浏览器",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 15.sp,
+                            color = Slate900
                         )
                         Text(
-                            text = "版本 1.0.0-CleanCraft (Tier 3) · 纯粹、极简、高性能",
+                            text = "版本 1.0.0 · 遵循 Tier 3 Clean Craftsmanship 规范",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.outline
+                            color = Slate600,
+                            modifier = Modifier.padding(top = 2.dp)
                         )
                     }
                 }

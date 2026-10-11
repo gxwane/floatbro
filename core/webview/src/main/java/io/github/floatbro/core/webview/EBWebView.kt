@@ -60,10 +60,17 @@ open class EBWebView @JvmOverloads constructor(
             domStorageEnabled = true
             databaseEnabled = true
             useWideViewPort = true
-            loadWithOverviewMode = true
+            loadWithOverviewMode = false
+            layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
+
+            // Modern Chrome Mobile User-Agent without embedded webview artifacts
+            val defaultUa = WebSettings.getDefaultUserAgent(context)
+            userAgentString = defaultUa
+                .replace("; wv", "")
+                .replace(Regex("Version/\\d+\\.\\d+\\s?"), "")
 
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT
