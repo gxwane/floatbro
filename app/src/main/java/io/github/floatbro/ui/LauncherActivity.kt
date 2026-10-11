@@ -108,8 +108,14 @@ data class BrowserTab(
 
 class LauncherActivity : ComponentActivity() {
 
+    companion object {
+        const val ACTION_DOCK_TAB = "io.github.floatbro.action.DOCK_TAB"
+        const val EXTRA_TAB_URL = "extra_tab_url"
+        const val EXTRA_TAB_TITLE = "extra_tab_title"
+    }
+
     private var hasOverlayPermission by mutableStateOf(false)
-    private var openMode by mutableStateOf(OpenMode.FLOATING)
+    private var openMode by mutableStateOf(OpenMode.TAB)
     private val tabs = mutableStateListOf<BrowserTab>()
     private var activeTabId by mutableStateOf("home")
 
@@ -117,6 +123,7 @@ class LauncherActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         loadPreferences()
         checkPermission()
+        handleIncomingIntent(intent)
 
         setContent {
             FloatBroTheme {
@@ -125,16 +132,7 @@ class LauncherActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // 1. App Top Header
-                        MainAppHeader(
-                            openMode = openMode,
-                            onToggleOpenMode = {
-                                openMode = if (openMode == OpenMode.FLOATING) OpenMode.TAB else OpenMode.FLOATING
-                                savePreferences()
-                            }
-                        )
-
-                        // 2. PC-Style Tab Strip with Tear-Off Gesture
+                        // 1. PC-Style Tab Strip directly at the top (Sole 42dp Top Bar)
                         AppTabStrip(
                             tabs = tabs,
                             activeTabId = activeTabId,
@@ -192,6 +190,23 @@ class LauncherActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         checkPermission()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent?.action == ACTION_DOCK_TAB) {
+            val url = intent.getStringExtra(EXTRA_TAB_URL) ?: return
+            val title = intent.getStringExtra(EXTRA_TAB_TITLE) ?: "已收回网页"
+            val newTab = BrowserTab(title = title, url = url)
+            tabs.add(newTab)
+            activeTabId = newTab.id
+            Toast.makeText(this, "网页已吸附收回至标签页", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun handleOpenUrl(url: String, title: String) {
@@ -268,64 +283,6 @@ class LauncherActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainAppHeader(
-    openMode: OpenMode,
-    onToggleOpenMode: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_bubble_logo),
-                contentDescription = "FloatBro",
-                tint = Color.Unspecified,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "FloatBro",
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        // Open Mode Switcher Capsule
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.clickable { onToggleOpenMode() }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Tune,
-                    contentDescription = "模式配置",
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (openMode == OpenMode.FLOATING) "默认弹射悬浮" else "默认内部标签",
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
 fun AppTabStrip(
     tabs: List<BrowserTab>,
     activeTabId: String,
@@ -362,13 +319,13 @@ fun AppTabStrip(
             ) {
                 Icon(
                     imageVector = Icons.Default.Home,
-                    contentDescription = "起始主页",
+                    contentDescription = "主页",
                     modifier = Modifier.size(15.dp),
                     tint = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "起始主页",
+                    text = "主页",
                     fontSize = 12.sp,
                     fontWeight = if (isHomeActive) FontWeight.Bold else FontWeight.Normal,
                     color = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -465,38 +422,26 @@ fun BrowserHomeView(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(20.dp),
+            .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Hero Brand Mark (Unfiltered dual-brand rings)
-        Icon(
-            painter = painterResource(id = R.drawable.ic_bubble_logo),
-            contentDescription = "Logo",
-            tint = Color.Unspecified,
-            modifier = Modifier.size(54.dp)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "FloatBro 探索主页",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = "主应用为稳固基座 · 网页支持并列与自由悬浮撕裂",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline
-        )
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Search Bar Capsule
+        // Hero Brand Logo (Dual-color rings, pure minimal)
+        Icon(
+            painter = painterResource(id = R.drawable.ic_bubble_logo),
+            contentDescription = "FloatBro",
+            tint = Color.Unspecified,
+            modifier = Modifier.size(56.dp)
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Clean Search Bar Capsule
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("搜索关键词或输入网址...", fontSize = 13.sp) },
+            placeholder = { Text("搜索或输入网址", fontSize = 13.sp) },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -524,15 +469,7 @@ fun BrowserHomeView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Quick Dials Grid
-        Text(
-            text = "快捷常用导航",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(10.dp))
+        // Speed Dials (Clean direct row, no redundant label above)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -553,7 +490,7 @@ fun BrowserHomeView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Overlay Permission Banner
+        // Overlay Permission Warning Banner (Only visible when permission is missing)
         if (!hasPermission) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -575,43 +512,6 @@ fun BrowserHomeView(
                     Button(onClick = onRequestPermission) {
                         Text("去授权", fontSize = 12.sp)
                     }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // Clean Feature Introduction Card (Zero debug buttons, 100% prototype fidelity)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_bubble_logo),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "多网页自由悬浮引擎",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "点击上方导航直接弹射独立网页，或打开内部标签后向下拖拽撕裂悬浮。贴边自动收拢为完整悬浮球。",
-                        fontSize = 11.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 16.sp
-                    )
                 }
             }
         }

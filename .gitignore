@@ -117,6 +117,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 scratch/
+qa_evidence/
 
 # ------------------------------------------------------------------------------
 # 8. Internal Planning & Design Specs (Private Working Drafts)

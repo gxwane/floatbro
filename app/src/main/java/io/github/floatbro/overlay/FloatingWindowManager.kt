@@ -115,10 +115,20 @@ class FloatingWindowManager(private val context: Context) {
                 onInputFocusChanged = { isFocused -> setWindowFocusable(isFocused) }
                 
                 val defaultUrl = url ?: "https://www.google.com"
-                twoPaneLayout.pane1.loadUrl(defaultUrl)
+                webView.loadUrlSafely(defaultUrl)
+                onDockRequested = { dockUrl, dockTitle ->
+                    hide()
+                    val intent = android.content.Intent(context, io.github.floatbro.ui.LauncherActivity::class.java).apply {
+                        action = io.github.floatbro.ui.LauncherActivity.ACTION_DOCK_TAB
+                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_URL, dockUrl)
+                        putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_TITLE, dockTitle)
+                    }
+                    context.startActivity(intent)
+                }
             }
         } else if (url != null) {
-            windowView?.twoPaneLayout?.pane1?.loadUrl(url)
+            windowView?.webView?.loadUrlSafely(url)
         }
 
         // 3. Attach to WindowManager
@@ -228,17 +238,13 @@ class FloatingWindowManager(private val context: Context) {
     fun onTrimMemory(level: Int) {
         Timber.d("FloatingWindowManager onTrimMemory: level=$level")
         if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
-            val pane2 = windowView?.twoPaneLayout?.pane2
-            if (windowView?.twoPaneLayout?.isSecondPaneVisible == false) {
-                pane2?.webView?.clearCache(false)
-            }
+            windowView?.webView?.clearCache(false)
         }
     }
 
     fun onDestroy() {
         hide()
-        windowView?.twoPaneLayout?.pane1?.webView?.destroy()
-        windowView?.twoPaneLayout?.pane2?.webView?.destroy()
+        windowView?.webView?.destroy()
         windowView = null
         bubbleView = null
         lifecycleContext.onDestroy()

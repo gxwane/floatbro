@@ -58,4 +58,8 @@ object BackNavigationDispatcher {
             else -> BackAction.MINIMIZE_TO_BUBBLE
         }
     }
+
+    fun resolveBackAction(canGoBack: Boolean): BackAction {
+        return if (canGoBack) BackAction.GO_BACK_PANE1 else BackAction.MINIMIZE_TO_BUBBLE
+    }
 }

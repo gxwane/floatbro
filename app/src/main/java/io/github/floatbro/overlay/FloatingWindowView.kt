@@ -27,19 +27,19 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.ComposeView
 import io.github.floatbro.R
-import io.github.floatbro.core.webview.twopane.TwoPaneLayout
+import io.github.floatbro.core.webview.EBWebView
 
 /**
- * Main floating window container.
+ * Clean Single-Viewport Floating Window Container.
  * Features:
- * 1. Top drag handle & window control buttons (Split, Rotate, Swap, Menu, Minimize, Close);
- * 2. Embedded TwoPaneLayout with symmetric dual-pane viewports;
- * 3. Bottom-right ResizeHandle supporting smooth gesture scaling;
- * 4. Embedded ComposeView overlay host eliminating BadTokenException.
+ * 1. Single 42dp Omni-bar (Logo, SSL lock, URL drag handle, Dock-back, Close);
+ * 2. Dedicated EBWebView viewport with progress indicator;
+ * 3. Bidirectional interaction: Dock back to host app tab via onDockRequested;
+ * 4. Outer 16dp border dragging and invisible 36dp bottom-right corner resize;
+ * 5. Edge snapping into 52dp circular floating bubble.
  */
 @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
 class FloatingWindowView(
@@ -49,17 +49,17 @@ class FloatingWindowView(
     private val lifecycleContext: OverlayLifecycleContext
 ) : FrameLayout(context) {
 
-    val twoPaneLayout: TwoPaneLayout = TwoPaneLayout(context)
-    private val composeOverlayView = ComposeView(context)
-    private val isMenuOpenState = mutableStateOf(false)
+    val webView: EBWebView = EBWebView(context)
+    private val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
     private lateinit var urlBadgeText: TextView
 
     var onMinimizeRequested: (() -> Unit)? = null
     var onCloseRequested: (() -> Unit)? = null
+    var onDockRequested: ((url: String, title: String) -> Unit)? = null
     var onInputFocusChanged: ((Boolean) -> Unit)? = null
     var onBoundsChanged: ((width: Int, height: Int, x: Int, y: Int) -> Unit)? = null
 
-    // Drag move coordinates
+    // Drag coordinates
     private var dragStartX = 0f
     private var dragStartY = 0f
     private var initialWindowX = 0
@@ -75,10 +75,9 @@ class FloatingWindowView(
     private val minHeightPx = dpToPx(340f)
 
     init {
-        // Bind Lifecycle, ViewModelStore, and SavedStateRegistry owners to the top-level root view
+        // Bind Lifecycle owners to prevent BadTokenException
         lifecycleContext.attachToView(this)
 
-        // Set rounded corners and elevation
         val cornerRadius = dpToPx(16f).toFloat()
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
@@ -91,7 +90,7 @@ class FloatingWindowView(
         background = GradientDrawable().apply {
             setColor(Color.WHITE)
             setCornerRadius(cornerRadius)
-            setStroke(dpToPx(1f), Color.parseColor("#CCCCCC"))
+            setStroke(dpToPx(1f), Color.parseColor("#CBD5E1"))
         }
 
         val mainLayout = LinearLayout(context).apply {
@@ -99,51 +98,60 @@ class FloatingWindowView(
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         }
 
-        // 1. Top Window Control Header
+        // 1. Single 42dp Header Bar
         val headerView = createHeaderView()
         mainLayout.addView(headerView)
 
-        // 2. Central TwoPaneLayout
-        twoPaneLayout.apply {
+        // 2. 2dp Progress Bar
+        progressBar.apply {
+            layoutParams = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(2f))
+            max = 100
+            progress = 0
+            visibility = GONE
+        }
+        mainLayout.addView(progressBar)
+
+        // 3. Central Web Content
+        webView.apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             )
-            // Suppress pane1 internal toolbar to avoid double-toolbar stacking (Gate 3 Architecture Rule)
-            pane1.isToolbarVisible = false
 
-            pane1.webView.onPageFinishedListener = { url ->
-                if (::urlBadgeText.isInitialized) {
-                    urlBadgeText.text = url
-                }
-            }
-            pane1.webView.onPageStartedListener = { url ->
+            onPageStartedListener = { url ->
                 if (::urlBadgeText.isInitialized) {
                     urlBadgeText.text = url
                 }
             }
 
-            pane2.onClosePaneRequested = {
-                isSecondPaneVisible = false
-                pane1.isToolbarVisible = false
+            onPageFinishedListener = { url ->
+                if (::urlBadgeText.isInitialized) {
+                    val resolvedTitle = title?.takeIf { it.isNotBlank() } ?: url
+                    urlBadgeText.text = resolvedTitle
+                }
             }
 
-            onInputFocusChanged = { isFocused ->
+            onProgressChangedListener = { progress ->
+                if (progress in 1..99) {
+                    progressBar.visibility = VISIBLE
+                    progressBar.progress = progress
+                } else {
+                    progressBar.visibility = GONE
+                }
+            }
+
+            onInputFocusListener = { isFocused ->
                 this@FloatingWindowView.onInputFocusChanged?.invoke(isFocused)
             }
         }
-        mainLayout.addView(twoPaneLayout)
+        mainLayout.addView(webView)
 
         addView(mainLayout)
 
-        // 3. Bottom-Right Resize Handle
+        // 4. Invisible 36dp Bottom-Right Resize Handle
         val resizeHandle = createResizeHandle()
         addView(resizeHandle)
-
-        // 4. Compose In-Window Overlay Host (for crash-free menus/dialogs)
-        setupComposeOverlay()
-        addView(composeOverlayView)
     }
 
     private fun dpToPx(dp: Float): Int {
@@ -162,11 +170,11 @@ class FloatingWindowView(
             setBackgroundColor(Color.parseColor("#F8FAFC"))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(44f)
+                dpToPx(42f)
             )
         }
 
-        // App Logo / Favicon (Dual-color brand identity, zero monochrome tint)
+        // App Logo / Favicon (Unfiltered dual-brand rings)
         val brandLogo = ImageView(context).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(20f), dpToPx(20f)).apply {
                 marginEnd = dpToPx(8f)
@@ -174,7 +182,7 @@ class FloatingWindowView(
             setImageResource(R.drawable.ic_bubble_logo)
         }
 
-        // Primary Drag Omni-Capsule (SSL Lock + URL Badge matching prototype .float-url-badge)
+        // Primary Drag Omni-Capsule (SSL Lock + URL Badge)
         val dragHandleArea = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -210,16 +218,11 @@ class FloatingWindowView(
             setOnTouchListener { _, event -> handleDragTouchEvent(event) }
         }
 
-        // Action Buttons: Split, Menu, Close (Zero desktop minimize button!)
-        val btnSplit = createHeaderButton(R.drawable.ic_split_pane, "切换分屏") {
-            val nextVisible = !twoPaneLayout.isSecondPaneVisible
-            twoPaneLayout.isSecondPaneVisible = nextVisible
-            twoPaneLayout.pane1.isToolbarVisible = nextVisible
-            twoPaneLayout.pane2.isToolbarVisible = nextVisible
-        }
-
-        val btnMenu = createHeaderButton(R.drawable.ic_menu, "菜单") {
-            isMenuOpenState.value = true
+        // Action Buttons: Dock-Back to In-App Tab & Close
+        val btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
+            val currentUrl = webView.url ?: "about:blank"
+            val currentTitle = webView.title ?: "已收回网页"
+            onDockRequested?.invoke(currentUrl, currentTitle)
         }
 
         val btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗") {
@@ -228,8 +231,7 @@ class FloatingWindowView(
 
         header.addView(brandLogo)
         header.addView(dragHandleArea)
-        header.addView(btnSplit)
-        header.addView(btnMenu)
+        header.addView(btnDock)
         header.addView(btnClose)
 
         return header
@@ -253,29 +255,7 @@ class FloatingWindowView(
         return View(context).apply {
             val handleSize = dpToPx(36f)
             layoutParams = LayoutParams(handleSize, handleSize, Gravity.BOTTOM or Gravity.END)
-            // Invisible touch zone for common sense diagonal resize
             setOnTouchListener { _, event -> handleResizeTouchEvent(event) }
-        }
-    }
-
-    private fun setupComposeOverlay() {
-        composeOverlayView.apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            lifecycleContext.attachToView(this)
-            setContent {
-                InWindowOverlayMenu(
-                    isOpen = isMenuOpenState.value,
-                    onClose = { isMenuOpenState.value = false },
-                    onResetSplit = { twoPaneLayout.resetSplitRatio() },
-                    onToggleSplit = {
-                        twoPaneLayout.isSecondPaneVisible = !twoPaneLayout.isSecondPaneVisible
-                    },
-                    onClearCache = {
-                        twoPaneLayout.pane1.webView.clearCache(true)
-                        twoPaneLayout.pane2.webView.clearCache(true)
-                    }
-                )
-            }
         }
     }
 
@@ -291,7 +271,7 @@ class FloatingWindowView(
             return false
         }
 
-        // Check if touch starts on any outer border (left, right, bottom)
+        // Outer borders intercept for dragging
         val onOuterEdge = x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize
         if (onOuterEdge) {
             if (ev.action == MotionEvent.ACTION_DOWN) {
@@ -383,22 +363,9 @@ class FloatingWindowView(
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-            val canPane2Back = twoPaneLayout.isSecondPaneVisible && twoPaneLayout.pane2.webView.canGoBack()
-            val canPane1Back = twoPaneLayout.pane1.webView.canGoBack()
-
-            when (BackNavigationDispatcher.resolveBackAction(isMenuOpenState.value, canPane2Back, canPane1Back)) {
-                BackAction.CLOSE_MENU -> {
-                    isMenuOpenState.value = false
-                }
-                BackAction.GO_BACK_PANE2 -> {
-                    twoPaneLayout.pane2.webView.goBack()
-                }
-                BackAction.GO_BACK_PANE1 -> {
-                    twoPaneLayout.pane1.webView.goBack()
-                }
-                BackAction.MINIMIZE_TO_BUBBLE -> {
-                    onMinimizeRequested?.invoke()
-                }
+            when (BackNavigationDispatcher.resolveBackAction(webView.canGoBack())) {
+                BackAction.GO_BACK_PANE1 -> webView.goBack()
+                else -> onMinimizeRequested?.invoke()
             }
             return true
         }
