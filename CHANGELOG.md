@@ -27,10 +27,12 @@
   - 实现 `InputFocusBridge`：网页表单输入时动态移除 `FLAG_NOT_FOCUSABLE` 唤起输入法，失焦恢复底层穿透；
   - 挂载 `ComposeOverlayHost`：在悬浮窗内嵌层渲染菜单与设置，彻底根除 `BadTokenException`。
 
-- **Phase 4: 多级返回键分发与系统内存回收 (Tiered Back Navigation & Memory Trimming)**
+- **Phase 4: 多级返回键分发、内存修剪与生产级 Release 终验**
   - 落地 `BackNavigationDispatcher` 纯领域返回决策器：四级优先级分发（浮层菜单关闭 -> 副屏网页后退 -> 主屏网页后退 -> 智能最小化为边缘气泡）；
   - 覆盖 `OverlayBackNavigationTest` 纯 JVM 毫秒级断言套件与反向保护；
   - 挂载 `onTrimMemory` 监听与临界内存缓存修剪 (`TRIM_MEMORY_RUNNING_CRITICAL`)；
+  - 建立生产级 `app/proguard-rules.pro` 混淆规则，完成 R8 代码混淆与资源缩减（Release APK 瘦身至 2.23MB）；
+  - 全架构（arm64-v8a, armeabi-v7a, x86, x86_64）完成 Android 15 16KB Page Size (`0x4000`) ELF 内存对齐终审；
   - 完成 Android 10 真机 ADB 悬浮窗启动、渲染与交互全流程实测验证。
 
 - **Craftsmanship Infrastructure: 整洁工艺门禁建设**
