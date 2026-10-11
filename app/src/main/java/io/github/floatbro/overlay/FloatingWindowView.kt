@@ -73,6 +73,9 @@ class FloatingWindowView(
     private val minHeightPx = dpToPx(340f)
 
     init {
+        // Bind Lifecycle, ViewModelStore, and SavedStateRegistry owners to the top-level root view
+        lifecycleContext.attachToView(this)
+
         // Set rounded corners and elevation
         val cornerRadius = dpToPx(16f).toFloat()
         outlineProvider = object : ViewOutlineProvider() {

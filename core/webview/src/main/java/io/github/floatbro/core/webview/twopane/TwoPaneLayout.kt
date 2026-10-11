@@ -34,28 +34,34 @@ class TwoPaneLayout @JvmOverloads constructor(
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     enum class Orientation {
-        HORIZONTAL, // Side-by-side
-        VERTICAL    // Top-and-bottom
+        HORIZONTAL,
+        VERTICAL
     }
 
-    var splitOrientation: Orientation = Orientation.HORIZONTAL
+    val state = TwoPaneState()
+
+    var splitOrientation: Orientation
+        get() = if (state.orientation == SplitOrientation.HORIZONTAL) Orientation.HORIZONTAL else Orientation.VERTICAL
         set(value) {
-            if (field != value) {
-                field = value
+            val target = if (value == Orientation.HORIZONTAL) SplitOrientation.HORIZONTAL else SplitOrientation.VERTICAL
+            if (state.orientation != target) {
+                state.orientation = target
                 updateSplitterAppearance()
                 requestLayout()
             }
         }
 
-    var splitRatio: Float = 0.5f
+    var splitRatio: Float
+        get() = state.splitRatio
         set(value) {
-            field = value.coerceIn(0.15f, 0.85f)
+            state.updateRatio(value)
             requestLayout()
         }
 
-    var isSecondPaneVisible: Boolean = false
+    var isSecondPaneVisible: Boolean
+        get() = state.isSecondPaneVisible
         set(value) {
-            field = value
+            state.isSecondPaneVisible = value
             pane2.btnClosePane.visibility = if (value) View.VISIBLE else View.GONE
             requestLayout()
         }
