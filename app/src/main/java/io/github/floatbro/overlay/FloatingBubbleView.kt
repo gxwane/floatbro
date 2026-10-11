@@ -55,7 +55,7 @@ class FloatingBubbleView(
         // Circle container background
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#1E88E5"))
+            setColor(Color.parseColor("#2563EB"))
             setStroke(dpToPx(2f), Color.WHITE)
         }
         elevation = dpToPx(10f).toFloat()

@@ -1,17 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Float Window Browser icon symbol -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,30h48v48h-48z" />
-    <path
-        android:fillColor="#1565C0"
-        android:pathData="M34,42h40v32h-40z" />
-    <path
-        android:fillColor="#90CAF9"
-        android:pathData="M34,34h8v4h-8zM46,34h8v4h-8z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="-22">
+        <!-- Ring 1: Electric Cobalt (Passes OVER at top, gap at bottom) -->
+        <path
+            android:pathData="M 49.8,67.2 A 16,16 0 1,1 57.1,59.2"
+            android:strokeWidth="5.8"
+            android:strokeLineCap="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="26"
+                    android:startY="38"
+                    android:endX="58"
+                    android:endY="70">
+                    <item android:color="#38BDF8" android:offset="0.0" />
+                    <item android:color="#2563EB" android:offset="0.45" />
+                    <item android:color="#1D4ED8" android:offset="1.0" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Ring 2: Vibrant Mint Cyan (Passes OVER at bottom, gap at top) -->
+        <path
+            android:pathData="M 58.2,40.8 A 16,16 0 1,1 50.9,48.8"
+            android:strokeWidth="5.8"
+            android:strokeLineCap="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="50"
+                    android:startY="70"
+                    android:endX="82"
+                    android:endY="38">
+                    <item android:color="#06B6D4" android:offset="0.0" />
+                    <item android:color="#10B981" android:offset="0.55" />
+                    <item android:color="#34D399" android:offset="1.0" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
 </vector>
