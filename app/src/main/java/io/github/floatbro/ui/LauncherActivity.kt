@@ -13,18 +13,22 @@ package io.github.floatbro.ui
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.webkit.CookieManager
+import android.webkit.WebStorage
+import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,12 +38,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -50,24 +54,27 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,24 +83,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import io.github.floatbro.R
 import io.github.floatbro.core.webview.EBWebView
 import io.github.floatbro.service.FloatBrowserService
 import io.github.floatbro.ui.theme.FloatBroTheme
 import java.util.UUID
-import kotlin.math.roundToInt
 
 enum class OpenMode {
     FLOATING, // 默认直接弹射为独立悬浮窗
@@ -102,8 +105,9 @@ enum class OpenMode {
 
 data class BrowserTab(
     val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val url: String
+    var title: String,
+    val url: String,
+    var favicon: Bitmap? = null
 )
 
 class LauncherActivity : ComponentActivity() {
@@ -118,66 +122,105 @@ class LauncherActivity : ComponentActivity() {
     private var openMode by mutableStateOf(OpenMode.TAB)
     private val tabs = mutableStateListOf<BrowserTab>()
     private var activeTabId by mutableStateOf("home")
+    private var previousTabId by mutableStateOf("home")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Ensure light status bar icons (dark icons on light background) for clear battery/signal visibility
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+
         loadPreferences()
         checkPermission()
         handleIncomingIntent(intent)
 
         setContent {
             FloatBroTheme {
+                // BackHandler for dedicated Settings secondary page
+                BackHandler(enabled = activeTabId == "settings") {
+                    activeTabId = previousTabId
+                }
+
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding(), // Safe inset padding avoiding status bar and camera hole
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // 1. PC-Style Tab Strip directly at the top (Sole 42dp Top Bar)
-                        AppTabStrip(
-                            tabs = tabs,
-                            activeTabId = activeTabId,
-                            onSelectTab = { activeTabId = it },
-                            onCloseTab = { tabId ->
-                                tabs.removeAll { it.id == tabId }
-                                if (activeTabId == tabId) {
-                                    activeTabId = "home"
-                                }
-                            },
-                            onNewTab = {
-                                val newTab = BrowserTab(title = "新标签页", url = "about:blank")
-                                tabs.add(newTab)
-                                activeTabId = newTab.id
-                            },
-                            onTearOffToFloating = { tab ->
-                                tabs.removeAll { it.id == tab.id }
-                                activeTabId = "home"
-                                startOverlayService(FloatBrowserService.ACTION_SHOW, tab.url)
-                                Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-
-                        // 3. Viewport Content
-                        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
-                            if (activeTabId == "home") {
-                                BrowserHomeView(
-                                    hasPermission = hasOverlayPermission,
-                                    openMode = openMode,
-                                    onRequestPermission = { requestOverlayPermission() },
-                                    onOpenUrl = { url, title ->
-                                        handleOpenUrl(url, title)
+                        // 1. Tab Strip (Sole Top Bar when browsing)
+                        if (activeTabId != "settings") {
+                            AppTabStrip(
+                                tabs = tabs,
+                                activeTabId = activeTabId,
+                                onSelectTab = { activeTabId = it },
+                                onCloseTab = { tabId ->
+                                    tabs.removeAll { it.id == tabId }
+                                    if (activeTabId == tabId) {
+                                        activeTabId = "home"
                                     }
-                                )
-                            } else {
-                                val currentTab = tabs.find { it.id == activeTabId }
-                                if (currentTab != null) {
-                                    InAppWebViewPane(
-                                        tab = currentTab,
-                                        onTearOff = {
-                                            tabs.removeAll { it.id == currentTab.id }
-                                            activeTabId = "home"
-                                            startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url)
+                                },
+                                onNewTab = {
+                                    val newTab = BrowserTab(title = "新标签页", url = "about:blank")
+                                    tabs.add(newTab)
+                                    activeTabId = newTab.id
+                                },
+                                onOpenSettings = {
+                                    previousTabId = activeTabId
+                                    activeTabId = "settings"
+                                }
+                            )
+                        }
+
+                        // 2. Main Viewport Content
+                        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+                            when (activeTabId) {
+                                "settings" -> {
+                                    SettingsScreen(
+                                        openMode = openMode,
+                                        onOpenModeChange = { mode ->
+                                            openMode = mode
+                                            savePreferences()
+                                        },
+                                        hasOverlayPermission = hasOverlayPermission,
+                                        onRequestOverlayPermission = { requestOverlayPermission() },
+                                        onClearData = { clearBrowsingData() },
+                                        onBack = { activeTabId = previousTabId }
+                                    )
+                                }
+                                "home" -> {
+                                    BrowserHomeView(
+                                        hasPermission = hasOverlayPermission,
+                                        onRequestPermission = { requestOverlayPermission() },
+                                        onOpenUrl = { url, title ->
+                                            handleOpenUrl(url, title)
                                         }
                                     )
+                                }
+                                else -> {
+                                    val currentTab = tabs.find { it.id == activeTabId }
+                                    if (currentTab != null) {
+                                        InAppWebViewPane(
+                                            tab = currentTab,
+                                            onTearOff = {
+                                                tabs.removeAll { it.id == currentTab.id }
+                                                activeTabId = "home"
+                                                startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url)
+                                                Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
+                                            },
+                                            onTitleReceived = { newTitle ->
+                                                val idx = tabs.indexOfFirst { it.id == currentTab.id }
+                                                if (idx >= 0) {
+                                                    tabs[idx] = tabs[idx].copy(title = newTitle)
+                                                }
+                                            },
+                                            onFaviconReceived = { icon ->
+                                                val idx = tabs.indexOfFirst { it.id == currentTab.id }
+                                                if (idx >= 0) {
+                                                    tabs[idx] = tabs[idx].copy(favicon = icon)
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -210,10 +253,11 @@ class LauncherActivity : ComponentActivity() {
     }
 
     private fun handleOpenUrl(url: String, title: String) {
-        val resolvedUrl = if (url.startsWith("http://") || url.startsWith("https://")) {
-            url
-        } else {
-            "https://www.google.com/search?q=" + Uri.encode(url)
+        val resolvedUrl = when {
+            url.startsWith("http://") || url.startsWith("https://") -> url
+            url.startsWith("www.") -> "https://$url"
+            url.contains(".") && !url.contains(" ") -> "https://$url"
+            else -> "https://cn.bing.com/search?q=" + Uri.encode(url)
         }
 
         if (openMode == OpenMode.FLOATING) {
@@ -226,13 +270,29 @@ class LauncherActivity : ComponentActivity() {
         }
     }
 
+    private fun clearBrowsingData() {
+        try {
+            WebView(this).apply {
+                clearCache(true)
+                clearHistory()
+                clearFormData()
+            }
+            WebStorage.getInstance().deleteAllData()
+            CookieManager.getInstance().removeAllCookies(null)
+            CookieManager.getInstance().flush()
+            Toast.makeText(this, "所有网页缓存与 Cookie 已彻底清理", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "缓存已清理", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun loadPreferences() {
         val sp = getSharedPreferences("floatbro_prefs", Context.MODE_PRIVATE)
-        val modeStr = sp.getString("pref_open_mode", OpenMode.FLOATING.name)
+        val modeStr = sp.getString("pref_open_mode", OpenMode.TAB.name)
         openMode = try {
-            OpenMode.valueOf(modeStr ?: OpenMode.FLOATING.name)
+            OpenMode.valueOf(modeStr ?: OpenMode.TAB.name)
         } catch (_: Exception) {
-            OpenMode.FLOATING
+            OpenMode.TAB
         }
     }
 
@@ -289,121 +349,395 @@ fun AppTabStrip(
     onSelectTab: (String) -> Unit,
     onCloseTab: (String) -> Unit,
     onNewTab: () -> Unit,
-    onTearOffToFloating: (BrowserTab) -> Unit
+    onOpenSettings: () -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
     val scrollState = rememberScrollState()
+
+    // Smooth auto-scroll when active tab changes or new tab is added
+    LaunchedEffect(activeTabId, tabs.size) {
+        if (activeTabId != "home" && activeTabId != "settings") {
+            val idx = tabs.indexOfFirst { it.id == activeTabId }
+            if (idx >= 0) {
+                scrollState.animateScrollTo((idx * 260).coerceAtMost(scrollState.maxValue))
+            }
+        }
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(42.dp)
+            .height(44.dp)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .horizontalScroll(scrollState)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        // Home Tab (Fixed, Not Tearable)
-        val isHomeActive = activeTabId == "home"
-        Surface(
-            shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
-            color = if (isHomeActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
+        // Horizontally scrolling tabs container
+        Row(
             modifier = Modifier
-                .height(34.dp)
-                .clickable { onSelectTab("home") }
-                .padding(end = 4.dp)
+                .weight(1f)
+                .horizontalScroll(scrollState),
+            verticalAlignment = Alignment.Bottom
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Home Tab
+            val isHomeActive = activeTabId == "home"
+            Surface(
+                shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
+                color = if (isHomeActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
+                modifier = Modifier
+                    .height(36.dp)
+                    .clickable { onSelectTab("home") }
+                    .padding(end = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "主页",
+                        modifier = Modifier.size(15.dp),
+                        tint = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "主页",
+                        fontSize = 12.sp,
+                        fontWeight = if (isHomeActive) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Web Tabs
+            tabs.forEach { tab ->
+                val isActive = tab.id == activeTabId
+                Surface(
+                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
+                    color = if (isActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier
+                        .height(36.dp)
+                        .clickable { onSelectTab(tab.id) }
+                        .padding(end = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Favicon or Web Globe Icon
+                        if (tab.favicon != null) {
+                            Image(
+                                bitmap = tab.favicon!!.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Text(
+                            text = tab.title,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.widthIn(min = 60.dp, max = 110.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = { onCloseTab(tab.id) },
+                            modifier = Modifier.size(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "关闭标签",
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            // New Tab Button
+            IconButton(
+                onClick = onNewTab,
+                modifier = Modifier
+                    .size(36.dp)
+                    .padding(bottom = 2.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "主页",
-                    modifier = Modifier.size(15.dp),
-                    tint = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "主页",
-                    fontSize = 12.sp,
-                    fontWeight = if (isHomeActive) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "新建标签页",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        // Opened Tabs (Supports Drag-out Tear-Off)
-        tabs.forEach { tab ->
-            var offsetY by remember { mutableFloatStateOf(0f) }
-            val isActive = tab.id == activeTabId
+        // Settings Button pinned at top-right
+        IconButton(
+            onClick = onOpenSettings,
+            modifier = Modifier
+                .size(36.dp)
+                .padding(bottom = 2.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "设置",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
-            Surface(
-                shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
-                color = if (isActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
-                modifier = Modifier
-                    .height(34.dp)
-                    .offset { IntOffset(0, offsetY.roundToInt()) }
-                    .padding(end = 4.dp)
-                    .pointerInput(tab.id) {
-                        detectDragGestures(
-                            onDragEnd = {
-                                if (offsetY > 48f || offsetY < -48f) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onTearOffToFloating(tab)
-                                }
-                                offsetY = 0f
-                            },
-                            onDragCancel = { offsetY = 0f },
-                            onDrag = { _, dragAmount ->
-                                offsetY += dragAmount.y
-                            }
-                        )
-                    }
-                    .clickable { onSelectTab(tab.id) }
+@Composable
+fun SettingsScreen(
+    openMode: OpenMode,
+    onOpenModeChange: (OpenMode) -> Unit,
+    hasOverlayPermission: Boolean,
+    onRequestOverlayPermission: () -> Unit,
+    onClearData: () -> Unit,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Standard Secondary Page Top Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "设置",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        // Settings Preferences Group List
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            // Group 1: 浏览与交互偏好
+            Text(
+                text = "浏览与交互偏好",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = tab.title,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(80.dp)
+                        text = "默认打开网页方式",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(
-                        onClick = { onCloseTab(tab.id) },
-                        modifier = Modifier.size(16.dp)
+                    Text(
+                        text = "选择点击常用导航或搜索链接时，默认采用悬浮窗弹出或在应用内打开",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 10.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "关闭标签",
-                            modifier = Modifier.size(12.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        FilterChip(
+                            selected = openMode == OpenMode.TAB,
+                            onClick = { onOpenModeChange(OpenMode.TAB) },
+                            label = { Text("内部标签页") }
+                        )
+                        FilterChip(
+                            selected = openMode == OpenMode.FLOATING,
+                            onClick = { onOpenModeChange(OpenMode.FLOATING) },
+                            label = { Text("独立悬浮窗") }
                         )
                     }
                 }
             }
-        }
 
-        // New Tab Button
-        IconButton(
-            onClick = onNewTab,
-            modifier = Modifier
-                .size(34.dp)
-                .padding(bottom = 2.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "新建标签",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Group 2: 悬浮窗高级特性
+            Text(
+                text = "悬浮窗高级特性",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "系统悬浮窗权限",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (hasOverlayPermission) "悬浮权限已正常开启" else "尚未授权，点击跳转系统设置授权",
+                                fontSize = 12.sp,
+                                color = if (hasOverlayPermission) Color(0xFF10B981) else Color(0xFFEF4444)
+                            )
+                        }
+                        if (!hasOverlayPermission) {
+                            Button(onClick = onRequestOverlayPermission) {
+                                Text("去授权", fontSize = 12.sp)
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                    Text(
+                        text = "贴边吸附交互逻辑",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "• 靠边停放：拖到屏幕边缘松手，窗口自动贴边吸附停靠。\n• 收拢为悬浮球：推入边缘超过 40% 面积时自动折叠为悬浮球。\n• 拖拽收回：拖动悬浮窗向下滑动至屏幕底部，自动收回为主应用标签页。",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Group 3: 隐私与清理
+            Text(
+                text = "隐私与清理",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onClearData() }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "清除浏览数据与缓存",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "清除所有网页缓存、Cookies 与临时存储",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "清除",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Group 4: 关于 FloatBro
+            Text(
+                text = "关于应用",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_bubble_logo),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "FloatBro 浮窗浏览器",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "版本 1.0.0-CleanCraft (Tier 3) · 纯粹、极简、高性能",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -411,7 +745,6 @@ fun AppTabStrip(
 @Composable
 fun BrowserHomeView(
     hasPermission: Boolean,
-    openMode: OpenMode,
     onRequestPermission: () -> Unit,
     onOpenUrl: (String, String) -> Unit
 ) {
@@ -469,7 +802,7 @@ fun BrowserHomeView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Speed Dials (Clean direct row, no redundant label above)
+        // Speed Dials (Android, Bing, Wikipedia, GitHub)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -477,11 +810,11 @@ fun BrowserHomeView(
             QuickDialItem("Android", R.drawable.ic_brand_android) {
                 onOpenUrl("https://developer.android.com", "Android Docs")
             }
+            QuickDialItem("必应", R.drawable.ic_brand_bing) {
+                onOpenUrl("https://cn.bing.com", "必应搜索")
+            }
             QuickDialItem("百科", R.drawable.ic_brand_wikipedia) {
                 onOpenUrl("https://wikipedia.org", "维基百科")
-            }
-            QuickDialItem("B站", R.drawable.ic_brand_bilibili) {
-                onOpenUrl("https://bilibili.com", "哔哩哔哩")
             }
             QuickDialItem("GitHub", R.drawable.ic_brand_github) {
                 onOpenUrl("https://github.com/floatbro", "GitHub · FloatBro")
@@ -556,7 +889,9 @@ fun QuickDialItem(title: String, iconRes: Int, onClick: () -> Unit) {
 @Composable
 fun InAppWebViewPane(
     tab: BrowserTab,
-    onTearOff: () -> Unit
+    onTearOff: () -> Unit,
+    onTitleReceived: (String) -> Unit,
+    onFaviconReceived: (Bitmap) -> Unit
 ) {
     var webViewInstance by remember { mutableStateOf<EBWebView?>(null) }
 
@@ -630,6 +965,8 @@ fun InAppWebViewPane(
         AndroidView(
             factory = { ctx ->
                 EBWebView(ctx).apply {
+                    onTitleChangedListener = { title -> onTitleReceived(title) }
+                    onReceivedIconListener = { icon -> onFaviconReceived(icon) }
                     loadUrl(tab.url)
                     webViewInstance = this
                 }

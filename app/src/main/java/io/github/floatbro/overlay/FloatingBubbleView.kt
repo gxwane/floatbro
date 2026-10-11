@@ -14,6 +14,7 @@ package io.github.floatbro.overlay
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
@@ -48,6 +49,8 @@ class FloatingBubbleView(
     private var initialTouchY = 0f
     private var isDragging = false
 
+    private val iconView: ImageView
+
     init {
         val sizePx = dpToPx(52f)
         val iconSizePx = dpToPx(30f)
@@ -60,15 +63,23 @@ class FloatingBubbleView(
         }
         elevation = dpToPx(12f).toFloat()
 
-        val icon = ImageView(context).apply {
+        iconView = ImageView(context).apply {
             layoutParams = LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
             setImageResource(R.drawable.ic_bubble_logo)
-            // Preserves dual-brand colors (#2563EB & #10B981) without monochrome tint
+            scaleType = ImageView.ScaleType.FIT_CENTER
         }
-        addView(icon)
+        addView(iconView)
 
         setOnTouchListener { _, event ->
             handleTouchEvent(event)
+        }
+    }
+
+    fun updateFavicon(favicon: Bitmap?) {
+        if (favicon != null) {
+            iconView.setImageBitmap(favicon)
+        } else {
+            iconView.setImageResource(R.drawable.ic_bubble_logo)
         }
     }
 

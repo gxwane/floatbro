@@ -11,12 +11,14 @@
 
 package io.github.floatbro.core.webview.client
 
+import android.graphics.Bitmap
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 
 class FloatWebChromeClient(
     private val onProgressChangedCallback: ((progress: Int) -> Unit)? = null,
-    private val onTitleReceivedCallback: ((title: String) -> Unit)? = null
+    private val onTitleReceivedCallback: ((title: String) -> Unit)? = null,
+    private val onIconReceivedCallback: ((icon: Bitmap) -> Unit)? = null
 ) : WebChromeClient() {
 
     override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -27,5 +29,10 @@ class FloatWebChromeClient(
     override fun onReceivedTitle(view: WebView?, title: String?) {
         super.onReceivedTitle(view, title)
         title?.let { onTitleReceivedCallback?.invoke(it) }
+    }
+
+    override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
+        super.onReceivedIcon(view, icon)
+        icon?.let { onIconReceivedCallback?.invoke(it) }
     }
 }

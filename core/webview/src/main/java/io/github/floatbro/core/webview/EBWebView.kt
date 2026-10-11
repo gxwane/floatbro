@@ -11,6 +11,7 @@
 
 package io.github.floatbro.core.webview
 
+import android.graphics.Bitmap
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
@@ -32,6 +33,7 @@ open class EBWebView @JvmOverloads constructor(
 
     var onProgressChangedListener: ((Int) -> Unit)? = null
     var onTitleChangedListener: ((String) -> Unit)? = null
+    var onReceivedIconListener: ((Bitmap) -> Unit)? = null
     var onInputFocusListener: ((Boolean) -> Unit)? = null
     var onPageStartedListener: ((String) -> Unit)? = null
     var onPageFinishedListener: ((String) -> Unit)? = null
@@ -85,7 +87,8 @@ open class EBWebView @JvmOverloads constructor(
 
         webChromeClient = FloatWebChromeClient(
             onProgressChangedCallback = { progress -> onProgressChangedListener?.invoke(progress) },
-            onTitleReceivedCallback = { title -> onTitleChangedListener?.invoke(title) }
+            onTitleReceivedCallback = { title -> onTitleChangedListener?.invoke(title) },
+            onIconReceivedCallback = { icon -> onReceivedIconListener?.invoke(icon) }
         )
     }
 

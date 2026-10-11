@@ -12,6 +12,7 @@
 package io.github.floatbro.overlay
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
@@ -38,6 +39,7 @@ class FloatingWindowManager(private val context: Context) {
 
     private var windowView: FloatingWindowView? = null
     private var bubbleView: FloatingBubbleView? = null
+    private var currentFavicon: Bitmap? = null
 
     var currentMode: OverlayMode = OverlayMode.HIDDEN
         private set
@@ -113,8 +115,12 @@ class FloatingWindowManager(private val context: Context) {
                 onMinimizeRequested = { minimizeToBubble() }
                 onCloseRequested = { hide() }
                 onInputFocusChanged = { isFocused -> setWindowFocusable(isFocused) }
+                onFaviconReceived = { icon ->
+                    currentFavicon = icon
+                    bubbleView?.updateFavicon(icon)
+                }
                 
-                val defaultUrl = url ?: "https://www.google.com"
+                val defaultUrl = url ?: "https://cn.bing.com"
                 webView.loadUrlSafely(defaultUrl)
                 onDockRequested = { dockUrl, dockTitle ->
                     hide()
@@ -163,6 +169,7 @@ class FloatingWindowManager(private val context: Context) {
                 onBubbleClicked = { showWindow() }
             }
         }
+        bubbleView?.updateFavicon(currentFavicon)
 
         // 3. Attach to WindowManager
         val bubble = bubbleView ?: return

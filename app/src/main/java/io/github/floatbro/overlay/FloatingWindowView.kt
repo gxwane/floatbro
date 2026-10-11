@@ -13,6 +13,7 @@ package io.github.floatbro.overlay
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
@@ -56,6 +57,7 @@ class FloatingWindowView(
     var onMinimizeRequested: (() -> Unit)? = null
     var onCloseRequested: (() -> Unit)? = null
     var onDockRequested: ((url: String, title: String) -> Unit)? = null
+    var onFaviconReceived: ((Bitmap) -> Unit)? = null
     var onInputFocusChanged: ((Boolean) -> Unit)? = null
     var onBoundsChanged: ((width: Int, height: Int, x: Int, y: Int) -> Unit)? = null
 
@@ -143,6 +145,10 @@ class FloatingWindowView(
 
             onInputFocusListener = { isFocused ->
                 this@FloatingWindowView.onInputFocusChanged?.invoke(isFocused)
+            }
+
+            onReceivedIconListener = { icon ->
+                this@FloatingWindowView.onFaviconReceived?.invoke(icon)
             }
         }
         mainLayout.addView(webView)
@@ -310,13 +316,48 @@ class FloatingWindowView(
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 val displayMetrics = context.resources.displayMetrics
-                val edgeThreshold = dpToPx(24f)
-                if (layoutParams.x <= edgeThreshold ||
-                    layoutParams.x + layoutParams.width >= displayMetrics.widthPixels - edgeThreshold
-                ) {
+                val screenWidth = displayMetrics.widthPixels
+                val screenHeight = displayMetrics.heightPixels
+                val winWidth = layoutParams.width
+
+                // 1. Check Downward Drag-to-Dock (into host app tab)
+                val bottomDockThreshold = screenHeight - dpToPx(90f)
+                if (layoutParams.y > bottomDockThreshold) {
+                    val currentUrl = webView.url ?: "about:blank"
+                    val currentTitle = webView.title ?: "已收回网页"
+                    onDockRequested?.invoke(currentUrl, currentTitle)
+                    return true
+                }
+
+                // 2. Check Push Off-Screen (>= 40% window width pushed outside) to collapse into bubble
+                val isPushedOffLeft = layoutParams.x < -(winWidth * 0.40f)
+                val isPushedOffRight = (layoutParams.x + winWidth) > (screenWidth + winWidth * 0.40f)
+
+                if (isPushedOffLeft || isPushedOffRight) {
                     onMinimizeRequested?.invoke()
                     return true
                 }
+
+                // 3. Magnetic Edge Snapping: Stay as window, clamp smoothly against edges
+                val snapMargin = dpToPx(8f)
+                val edgeDetectRange = dpToPx(36f)
+
+                if (layoutParams.x < edgeDetectRange) {
+                    layoutParams.x = snapMargin
+                } else if (layoutParams.x + winWidth > screenWidth - edgeDetectRange) {
+                    layoutParams.x = screenWidth - winWidth - snapMargin
+                }
+
+                // Clamp Y in safe bounds (avoid status bar and system navigation)
+                val minY = dpToPx(36f)
+                val maxY = screenHeight - dpToPx(120f)
+                layoutParams.y = layoutParams.y.coerceIn(minY, maxY)
+
+                if (isAttachedToWindow) {
+                    windowManager.updateViewLayout(this, layoutParams)
+                    onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                }
+                return true
             }
         }
         return false
