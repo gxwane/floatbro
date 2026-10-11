@@ -225,6 +225,16 @@ class FloatingWindowManager(private val context: Context) {
         }
     }
 
+    fun onTrimMemory(level: Int) {
+        Timber.d("FloatingWindowManager onTrimMemory: level=$level")
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+            val pane2 = windowView?.twoPaneLayout?.pane2
+            if (windowView?.twoPaneLayout?.isSecondPaneVisible == false) {
+                pane2?.webView?.clearCache(false)
+            }
+        }
+    }
+
     fun onDestroy() {
         hide()
         windowView?.twoPaneLayout?.pane1?.webView?.destroy()

@@ -18,6 +18,7 @@ import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -307,5 +308,29 @@ class FloatingWindowView(
             }
         }
         return false
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+            val canPane2Back = twoPaneLayout.isSecondPaneVisible && twoPaneLayout.pane2.webView.canGoBack()
+            val canPane1Back = twoPaneLayout.pane1.webView.canGoBack()
+
+            when (BackNavigationDispatcher.resolveBackAction(isMenuOpenState.value, canPane2Back, canPane1Back)) {
+                BackAction.CLOSE_MENU -> {
+                    isMenuOpenState.value = false
+                }
+                BackAction.GO_BACK_PANE2 -> {
+                    twoPaneLayout.pane2.webView.goBack()
+                }
+                BackAction.GO_BACK_PANE1 -> {
+                    twoPaneLayout.pane1.webView.goBack()
+                }
+                BackAction.MINIMIZE_TO_BUBBLE -> {
+                    onMinimizeRequested?.invoke()
+                }
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 }

@@ -84,6 +84,12 @@ class FloatBrowserService : LifecycleService() {
         return null
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        Timber.d("FloatBrowserService onTrimMemory: level=$level")
+        overlayManager.onTrimMemory(level)
+    }
+
     override fun onDestroy() {
         Timber.d("FloatBrowserService onDestroy called")
         overlayManager.onDestroy()
