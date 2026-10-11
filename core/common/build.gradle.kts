@@ -44,7 +44,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     // Jetpack Compose & Material 3
-    implementation(platform(libs.androidx.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)

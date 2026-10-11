@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.floatbro.adfilter"
+    namespace = "io.github.edsuns.adfilter"
     compileSdk = 36
 
     defaultConfig {
@@ -25,6 +25,17 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
+    packaging {
+        resources {
+            pickFirsts.add("META-INF/AL2.0")
+            pickFirsts.add("META-INF/LGPL2.1")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -37,7 +48,6 @@ android {
 
 dependencies {
     implementation(project(":adblock-client"))
-    implementation(project(":core:common"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)

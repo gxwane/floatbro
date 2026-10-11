@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.floatbro.adblock"
+    namespace = "io.github.edsuns.adblockclient"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
