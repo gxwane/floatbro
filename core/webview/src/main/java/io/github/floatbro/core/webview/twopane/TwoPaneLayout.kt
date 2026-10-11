@@ -256,4 +256,8 @@ class TwoPaneLayout @JvmOverloads constructor(
         if (url1.isNotEmpty()) pane2.loadUrl(url1)
         if (url2.isNotEmpty()) pane1.loadUrl(url2)
     }
+
+    fun resetSplitRatio() {
+        splitRatio = 0.5f
+    }
 }

@@ -16,40 +16,71 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.floatbro.service.FloatBrowserService
 
 class LauncherActivity : ComponentActivity() {
 
+    private var hasOverlayPermission by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        checkPermission()
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     LauncherView(
-                        onStartService = { startOverlayService() },
+                        hasPermission = hasOverlayPermission,
                         onRequestPermission = { requestOverlayPermission() },
+                        onStartServiceWindow = { startOverlayService(FloatBrowserService.ACTION_SHOW) },
+                        onStartServiceBubble = { startOverlayService(FloatBrowserService.ACTION_MINIMIZE) },
                         onOpenDualPaneDemo = {
                             startActivity(Intent(this, DualPaneDemoActivity::class.java))
                         }
                     )
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkPermission()
+    }
+
+    private fun checkPermission() {
+        hasOverlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(this)
+        } else {
+            true
         }
     }
 
@@ -60,11 +91,21 @@ class LauncherActivity : ComponentActivity() {
                 Uri.parse("package:$packageName")
             )
             startActivity(intent)
+        } else {
+            Toast.makeText(this, "悬浮窗权限已授予", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun startOverlayService() {
-        val intent = Intent(this, FloatBrowserService::class.java)
+    private fun startOverlayService(action: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "请先授予悬浮窗权限", Toast.LENGTH_SHORT).show()
+            requestOverlayPermission()
+            return
+        }
+
+        val intent = Intent(this, FloatBrowserService::class.java).apply {
+            this.action = action
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {
@@ -75,8 +116,10 @@ class LauncherActivity : ComponentActivity() {
 
 @Composable
 fun LauncherView(
-    onStartService: () -> Unit,
+    hasPermission: Boolean,
     onRequestPermission: () -> Unit,
+    onStartServiceWindow: () -> Unit,
+    onStartServiceBubble: () -> Unit,
     onOpenDualPaneDemo: () -> Unit
 ) {
     Column(
@@ -88,24 +131,69 @@ fun LauncherView(
     ) {
         Text(
             text = "FloatBro (浮窗兄弟)",
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "网页级原生全局悬浮 · 真分屏 · Brave 级去广告",
-            style = MaterialTheme.typography.bodyMedium
+            text = "原生全局悬浮 · Windows Snap 对称双视口 · Brave 级去广告",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onRequestPermission) {
-            Text("授予悬浮窗权限")
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (hasPermission) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = if (hasPermission) "✅ 悬浮窗权限：已授予" else "⚠️ 悬浮窗权限：未授予",
+                    fontWeight = FontWeight.Medium,
+                    color = if (hasPermission) Color(0xFF2E7D32) else Color(0xFFC62828)
+                )
+                if (!hasPermission) {
+                    Button(onClick = onRequestPermission) {
+                        Text("去授权")
+                    }
+                }
+            }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onStartService) {
-            Text("启动悬浮浏览器 (Service)")
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Button(
+            onClick = onStartServiceWindow,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("🚀 启动全局悬浮窗 (Phase 3 窗口模式)")
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onOpenDualPaneDemo) {
-            Text("体验真分屏双视口浏览 (Phase 2)")
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = onStartServiceBubble,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("💬 呼出贴边小气泡 (Phase 3 气泡模式)")
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = onOpenDualPaneDemo,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("📱 体验对称真分屏 (Phase 2 全屏演示)")
         }
     }
 }
