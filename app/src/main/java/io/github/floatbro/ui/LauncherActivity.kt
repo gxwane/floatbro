@@ -43,7 +43,10 @@ class LauncherActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     LauncherView(
                         onStartService = { startOverlayService() },
-                        onRequestPermission = { requestOverlayPermission() }
+                        onRequestPermission = { requestOverlayPermission() },
+                        onOpenDualPaneDemo = {
+                            startActivity(Intent(this, DualPaneDemoActivity::class.java))
+                        }
                     )
                 }
             }
@@ -73,7 +76,8 @@ class LauncherActivity : ComponentActivity() {
 @Composable
 fun LauncherView(
     onStartService: () -> Unit,
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
+    onOpenDualPaneDemo: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -97,7 +101,11 @@ fun LauncherView(
         }
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onStartService) {
-            Text("启动悬浮浏览器")
+            Text("启动悬浮浏览器 (Service)")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onOpenDualPaneDemo) {
+            Text("体验真分屏双视口浏览 (Phase 2)")
         }
     }
 }
