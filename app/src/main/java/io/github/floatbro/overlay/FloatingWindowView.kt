@@ -62,15 +62,16 @@ class FloatingWindowView(
     private val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
 
     // Header views
-    private lateinit var navPillButton: ImageButton
+    private lateinit var btnBack: ImageButton
+    private lateinit var btnForward: ImageButton
     private lateinit var omniCapsule: LinearLayout
-    private lateinit var sslIcon: ImageView
     private lateinit var urlBadgeText: TextView
     private lateinit var urlEditText: EditText
     private lateinit var clearInputButton: ImageButton
+    private lateinit var btnRefresh: ImageButton
     private lateinit var btnDock: ImageButton
-    private lateinit var btnMore: ImageButton
     private lateinit var btnClose: ImageButton
+    private lateinit var btnCancelEdit: TextView
 
     var onMinimizeRequested: (() -> Unit)? = null
     var onCloseRequested: (() -> Unit)? = null
@@ -78,7 +79,6 @@ class FloatingWindowView(
     var onFaviconReceived: ((Bitmap) -> Unit)? = null
     var onInputFocusRequested: ((Boolean) -> Unit)? = null
     var onBringToFrontRequested: (() -> Unit)? = null
-    var onMaximizeToggleRequested: (() -> Unit)? = null
     var onBoundsChanged: ((width: Int, height: Int, x: Int, y: Int) -> Unit)? = null
 
     var currentFavicon: Bitmap? = null
@@ -198,59 +198,52 @@ class FloatingWindowView(
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(8f), dpToPx(3f), dpToPx(8f), dpToPx(3f))
+            setPadding(dpToPx(6f), dpToPx(3f), dpToPx(6f), dpToPx(3f))
             setBackgroundColor(Color.parseColor("#F8FAFC"))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(42f)
+                dpToPx(44f)
             )
         }
 
-        // 1. Left Dynamic Nav Button (Favicon / Back)
-        navPillButton = ImageButton(context).apply {
-            val btnSize = dpToPx(32f)
-            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
-                marginEnd = dpToPx(6f)
+        // 1. Left Nav: Back & Forward buttons
+        btnBack = createHeaderButton(R.drawable.ic_nav_back, "后退") {
+            if (webView.canGoBack()) {
+                webView.goBack()
             }
-            setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(R.drawable.ic_bubble_logo)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "返回或网站图标"
-            setOnClickListener {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                }
-            }
+        }.apply {
+            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(2f)
         }
 
-        // 2. Center Omnibar Capsule (Flexible >= 160dp)
+        btnForward = createHeaderButton(R.drawable.ic_nav_forward, "前进") {
+            if (webView.canGoForward()) {
+                webView.goForward()
+            }
+        }.apply {
+            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(4f)
+        }
+
+        // 2. Center Omnibar Capsule (Height 34dp, Radius 17dp, Expandable)
         omniCapsule = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(30f), 1f).apply {
-                marginEnd = dpToPx(6f)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(34f), 1f).apply {
+                marginEnd = dpToPx(4f)
             }
-            setPadding(dpToPx(8f), 0, dpToPx(6f), 0)
+            setPadding(dpToPx(10f), 0, dpToPx(6f), 0)
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
-                cornerRadius = dpToPx(15f).toFloat()
+                cornerRadius = dpToPx(17f).toFloat()
                 setStroke(dpToPx(1f), Color.parseColor("#CBD5E1"))
             }
 
-            sslIcon = ImageView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(dpToPx(13f), dpToPx(13f)).apply {
-                    marginEnd = dpToPx(6f)
-                }
-                setImageResource(R.drawable.ic_shield_ssl)
-                isClickable = false
-                isFocusable = false
-            }
-            addView(sslIcon)
-
             urlBadgeText = TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+                layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+                gravity = Gravity.CENTER_VERTICAL
+                includeFontPadding = false
+                setPadding(0, 0, 0, 0)
                 text = "FloatBro 悬浮浏览"
-                textSize = 11.5f
+                textSize = 12f
                 setTextColor(Color.parseColor("#0F172A"))
                 isSingleLine = true
                 ellipsize = android.text.TextUtils.TruncateAt.END
@@ -262,7 +255,10 @@ class FloatingWindowView(
 
             urlEditText = EditText(context).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
-                textSize = 12f
+                gravity = Gravity.CENTER_VERTICAL
+                includeFontPadding = false
+                setPadding(0, 0, 0, 0)
+                textSize = 12.5f
                 setTextColor(Color.parseColor("#0F172A"))
                 setBackgroundColor(Color.TRANSPARENT)
                 isSingleLine = true
@@ -283,8 +279,10 @@ class FloatingWindowView(
             addView(urlEditText)
 
             clearInputButton = ImageButton(context).apply {
-                val iconSize = dpToPx(24f)
-                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                val iconSize = dpToPx(22f)
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
                 setBackgroundColor(Color.TRANSPARENT)
                 setImageResource(R.drawable.ic_clear)
                 visibility = GONE
@@ -295,15 +293,30 @@ class FloatingWindowView(
             setOnTouchListener { _, event -> handleOmnibarTouchEvent(event) }
         }
 
-        // 3. Right Action Cluster: Dock, More, Close
+        // 3. Cancel button for edit mode (hidden by default)
+        btnCancelEdit = TextView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+                marginStart = dpToPx(4f)
+                marginEnd = dpToPx(4f)
+            }
+            gravity = Gravity.CENTER_VERTICAL
+            text = "取消"
+            textSize = 13f
+            setTextColor(Color.parseColor("#2563EB"))
+            visibility = GONE
+            setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+            setOnClickListener { exitEditMode() }
+        }
+
+        // 4. Right Action Cluster: Refresh, Dock, Close
+        btnRefresh = createHeaderButton(R.drawable.ic_refresh, "刷新页面") {
+            webView.reload()
+        }
+
         btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
             val currentUrl = webView.url ?: "about:blank"
             val currentTitle = webView.title ?: "已收回网页"
             onDockRequested?.invoke(currentUrl, currentTitle)
-        }
-
-        btnMore = createHeaderButton(R.drawable.ic_more_vert, "更多选项") {
-            showOverflowMenu(btnMore)
         }
 
         btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗") {
@@ -312,10 +325,12 @@ class FloatingWindowView(
             (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(4f)
         }
 
-        header.addView(navPillButton)
+        header.addView(btnBack)
+        header.addView(btnForward)
         header.addView(omniCapsule)
+        header.addView(btnCancelEdit)
+        header.addView(btnRefresh)
         header.addView(btnDock)
-        header.addView(btnMore)
         header.addView(btnClose)
 
         return header
@@ -323,13 +338,14 @@ class FloatingWindowView(
 
     private fun createHeaderButton(drawableRes: Int, tooltip: String, onClick: () -> Unit): ImageButton {
         return ImageButton(context).apply {
-            val btnSize = dpToPx(32f)
+            val btnSize = dpToPx(28f)
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
                 marginStart = dpToPx(2f)
             }
             setBackgroundColor(Color.TRANSPARENT)
             setImageResource(drawableRes)
             setColorFilter(Color.parseColor("#475569"))
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = tooltip
             setOnClickListener { onClick() }
         }
@@ -345,32 +361,42 @@ class FloatingWindowView(
 
     private fun updateNavigationState() {
         post {
-            if (webView.canGoBack()) {
-                navPillButton.setImageResource(R.drawable.ic_nav_back)
-                navPillButton.setColorFilter(Color.parseColor("#0F172A"))
-            } else {
-                if (currentFavicon != null) {
-                    navPillButton.setImageBitmap(currentFavicon)
-                    navPillButton.clearColorFilter()
-                } else {
-                    navPillButton.setImageResource(R.drawable.ic_bubble_logo)
-                    navPillButton.clearColorFilter()
-                }
-            }
+            val canBack = webView.canGoBack()
+            btnBack.isEnabled = canBack
+            btnBack.alpha = if (canBack) 1.0f else 0.35f
+            btnBack.setColorFilter(if (canBack) Color.parseColor("#0F172A") else Color.parseColor("#94A3B8"))
+
+            val canForward = webView.canGoForward()
+            btnForward.isEnabled = canForward
+            btnForward.alpha = if (canForward) 1.0f else 0.35f
+            btnForward.setColorFilter(if (canForward) Color.parseColor("#0F172A") else Color.parseColor("#94A3B8"))
         }
+    }
+
+    private fun formatDisplayUrl(raw: String): String {
+        return raw.replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
     }
 
     private fun updateOmniText(text: String) {
         if (!isEditMode) {
-            urlBadgeText.text = text
+            urlBadgeText.text = formatDisplayUrl(text)
         }
     }
 
     private fun enterEditMode() {
         if (isEditMode) return
         isEditMode = true
+
+        // 1. Hide left & right buttons to expand omnibar to full header width
+        btnBack.visibility = GONE
+        btnForward.visibility = GONE
+        btnRefresh.visibility = GONE
+        btnDock.visibility = GONE
+        btnClose.visibility = GONE
+        btnCancelEdit.visibility = VISIBLE
+
+        // 2. Switch inside capsule
         urlBadgeText.visibility = GONE
-        sslIcon.visibility = GONE
         urlEditText.visibility = VISIBLE
         clearInputButton.visibility = VISIBLE
 
@@ -385,16 +411,26 @@ class FloatingWindowView(
             val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.showSoftInput(urlEditText, InputMethodManager.SHOW_IMPLICIT)
         }
-        Timber.d("Entered Omnibar Edit Mode for session $sessionId")
+        Timber.d("Entered Omnibar Edit Mode (Full-width expanded) for session $sessionId")
     }
 
     fun exitEditMode() {
         if (!isEditMode) return
         isEditMode = false
+
+        // 1. Restore capsule views
         urlEditText.visibility = GONE
         clearInputButton.visibility = GONE
-        sslIcon.visibility = VISIBLE
         urlBadgeText.visibility = VISIBLE
+
+        // 2. Hide cancel button and restore header buttons
+        btnCancelEdit.visibility = GONE
+        btnBack.visibility = VISIBLE
+        btnForward.visibility = VISIBLE
+        btnRefresh.visibility = VISIBLE
+        btnDock.visibility = VISIBLE
+        btnClose.visibility = VISIBLE
+        updateNavigationState()
 
         val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(windowToken, 0)
@@ -408,25 +444,6 @@ class FloatingWindowView(
             webView.loadUrlSafely(input)
         }
         exitEditMode()
-    }
-
-    private fun showOverflowMenu(anchor: View) {
-        val popup = PopupMenu(context, anchor)
-        popup.menu.add(0, 1, 0, "前进").apply {
-            isEnabled = webView.canGoForward()
-        }
-        popup.menu.add(0, 2, 1, "刷新页面")
-        popup.menu.add(0, 3, 2, "切换全屏 / 还原")
-
-        popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                1 -> webView.goForward()
-                2 -> webView.reload()
-                3 -> onMaximizeToggleRequested?.invoke()
-            }
-            true
-        }
-        popup.show()
     }
 
     private fun handleOmnibarTouchEvent(event: MotionEvent): Boolean {

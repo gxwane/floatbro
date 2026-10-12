@@ -23,15 +23,7 @@ enum class SessionLifecycleState {
     DETACHED
 }
 
-/**
- * Bounds memory for restoring floating size after maximization.
- */
-data class WindowSavedBounds(
-    val x: Int,
-    val y: Int,
-    val width: Int,
-    val height: Int
-)
+
 
 /**
  * Encapsulates a distinct floating browser session.
@@ -48,8 +40,6 @@ data class FloatingSession(
     var bubbleView: FloatingBubbleView? = null,
     val bubbleParams: WindowManager.LayoutParams,
     var mode: OverlayMode = OverlayMode.WINDOW,
-    var isMaximized: Boolean = false,
-    var savedBounds: WindowSavedBounds? = null,
     var state: SessionLifecycleState = SessionLifecycleState.ATTACHED,
     var lastInteractedTimestamp: Long = System.currentTimeMillis()
 ) {

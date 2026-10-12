@@ -176,7 +176,6 @@ class FloatingWindowManager(private val context: Context) {
                     focusMutex.releaseFocus(session)
                 }
             }
-            onMaximizeToggleRequested = { toggleMaximizeSession(session) }
             onFaviconReceived = { icon ->
                 session.favicon = icon
                 session.bubbleView?.updateFavicon(icon)
@@ -298,58 +297,6 @@ class FloatingWindowManager(private val context: Context) {
                 Timber.d("Restored session ${session.id} to window")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to re-add window view during restore for session ${session.id}")
-            }
-        }
-    }
-
-    /**
-     * Toggles between standard floating dimensions and near-fullscreen maximized overlay.
-     */
-    fun toggleMaximizeSession(session: FloatingSession) {
-        val displayMetrics = context.resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val screenHeight = displayMetrics.heightPixels
-
-        if (session.isMaximized) {
-            // Restore previous bounds
-            val saved = session.savedBounds ?: WindowSavedBounds(
-                x = (screenWidth * 0.05f).toInt(),
-                y = (screenHeight * 0.15f).toInt(),
-                width = (screenWidth * 0.90f).toInt(),
-                height = (screenHeight * 0.65f).toInt()
-            )
-            session.windowParams.x = saved.x
-            session.windowParams.y = saved.y
-            session.windowParams.width = saved.width
-            session.windowParams.height = saved.height
-            session.isMaximized = false
-        } else {
-            // Save current bounds
-            session.savedBounds = WindowSavedBounds(
-                x = session.windowParams.x,
-                y = session.windowParams.y,
-                width = session.windowParams.width,
-                height = session.windowParams.height
-            )
-            // Maximize to full screen bounds avoiding status bar
-            session.windowParams.x = 0
-            session.windowParams.y = dpToPx(36f)
-            session.windowParams.width = screenWidth
-            session.windowParams.height = screenHeight - dpToPx(36f)
-            session.isMaximized = true
-        }
-
-        if (session.windowView.isAttachedToWindow) {
-            try {
-                windowManager.updateViewLayout(session.windowView, session.windowParams)
-                session.windowView.onBoundsChanged?.invoke(
-                    session.windowParams.width,
-                    session.windowParams.height,
-                    session.windowParams.x,
-                    session.windowParams.y
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to toggle maximize layout params for session ${session.id}")
             }
         }
     }

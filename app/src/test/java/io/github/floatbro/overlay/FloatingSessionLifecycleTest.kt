@@ -39,11 +39,12 @@ class FloatingSessionLifecycleTest {
     }
 
     @Test
-    fun `scenario - window saved bounds preserve valid coordinates`() {
-        val bounds = WindowSavedBounds(x = 100, y = 200, width = 600, height = 800)
-        assertEquals(100, bounds.x)
-        assertEquals(200, bounds.y)
-        assertEquals(600, bounds.width)
-        assertEquals(800, bounds.height)
+    fun `scenario - url formatting strips protocol and www prefix`() {
+        val testUrl1 = "https://www.bilibili.com"
+        val testUrl2 = "http://cn.bing.com/search?q=test"
+        val clean1 = testUrl1.replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
+        val clean2 = testUrl2.replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
+        assertEquals("bilibili.com", clean1)
+        assertEquals("cn.bing.com/search?q=test", clean2)
     }
 }
