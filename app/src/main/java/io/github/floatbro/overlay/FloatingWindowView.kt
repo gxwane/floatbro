@@ -301,10 +301,12 @@ class FloatingWindowView(
             }
             gravity = Gravity.CENTER_VERTICAL
             text = "取消"
-            textSize = 13f
+            textSize = 13.5f
             setTextColor(Color.parseColor("#2563EB"))
             visibility = GONE
-            setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+            isClickable = true
+            isFocusable = true
+            setPadding(dpToPx(8f), 0, dpToPx(8f), 0)
             setOnClickListener { exitEditMode() }
         }
 
@@ -338,14 +340,15 @@ class FloatingWindowView(
 
     private fun createHeaderButton(drawableRes: Int, tooltip: String, onClick: () -> Unit): ImageButton {
         return ImageButton(context).apply {
-            val btnSize = dpToPx(28f)
+            val btnSize = dpToPx(34f)
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
                 marginStart = dpToPx(2f)
             }
             setBackgroundColor(Color.TRANSPARENT)
             setImageResource(drawableRes)
             setColorFilter(Color.parseColor("#475569"))
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dpToPx(3f), dpToPx(3f), dpToPx(3f), dpToPx(3f))
             contentDescription = tooltip
             setOnClickListener { onClick() }
         }
@@ -518,8 +521,9 @@ class FloatingWindowView(
             return false
         }
 
-        // Outer borders intercept for dragging
-        val onOuterEdge = x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize
+        // Outer borders intercept for dragging (below header, so header buttons are never blocked)
+        val headerHeight = dpToPx(44f)
+        val onOuterEdge = y > headerHeight && (x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize)
         if (onOuterEdge) {
             if (ev.action == MotionEvent.ACTION_DOWN) {
                 handleEdgeDragTouchEvent(ev)
