@@ -14,6 +14,7 @@ package io.github.floatbro.overlay
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -147,6 +148,7 @@ class FloatingWindowView(
             layoutParams = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(2f))
             max = 100
             progress = 0
+            progressTintList = ColorStateList.valueOf(Color.parseColor("#2563EB"))
             visibility = GONE
         }
         mainLayout.addView(progressBar)

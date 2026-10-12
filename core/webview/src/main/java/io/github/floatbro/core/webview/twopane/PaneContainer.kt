@@ -27,6 +27,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import io.github.floatbro.core.webview.EBWebView
+import io.github.floatbro.core.webview.R
 
 /**
  * Symmetric Viewport Container wrapping an EBWebView with an integrated
@@ -88,17 +89,19 @@ class PaneContainer @JvmOverloads constructor(
 
         // Back Button
         btnBack.apply {
-            layoutParams = LayoutParams(dpToPx(32f), dpToPx(32f))
+            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
             setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(android.R.drawable.ic_media_previous)
+            setImageResource(R.drawable.ic_pane_back)
+            contentDescription = "后退"
             setOnClickListener { if (webView.canGoBack()) webView.goBack() }
         }
 
         // Forward Button
         btnForward.apply {
-            layoutParams = LayoutParams(dpToPx(32f), dpToPx(32f))
+            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
             setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(android.R.drawable.ic_media_next)
+            setImageResource(R.drawable.ic_pane_forward)
+            contentDescription = "前进"
             setOnClickListener { if (webView.canGoForward()) webView.goForward() }
         }
 
@@ -136,9 +139,10 @@ class PaneContainer @JvmOverloads constructor(
 
         // Send to Other Pane Button (Cross-pane Dispatch)
         btnSendToOther.apply {
-            layoutParams = LayoutParams(dpToPx(32f), dpToPx(32f))
+            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
             setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(android.R.drawable.ic_menu_share)
+            setImageResource(R.drawable.ic_pane_dispatch)
+            contentDescription = "在对侧视口打开"
             tooltipText = "在对侧视口打开"
             setOnClickListener {
                 val currentUrl = webView.url ?: urlInput.text.toString()
@@ -150,9 +154,10 @@ class PaneContainer @JvmOverloads constructor(
 
         // Close Pane Button
         btnClosePane.apply {
-            layoutParams = LayoutParams(dpToPx(32f), dpToPx(32f))
+            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
             setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+            setImageResource(R.drawable.ic_pane_close)
+            contentDescription = "关闭此分屏"
             tooltipText = "关闭此分屏"
             visibility = View.GONE
             setOnClickListener { onClosePaneRequested?.invoke() }

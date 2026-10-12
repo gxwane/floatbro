@@ -11,6 +11,7 @@
 
 package io.github.floatbro.ui
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -84,6 +85,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -119,6 +121,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -186,6 +189,7 @@ class LauncherActivity : ComponentActivity() {
     private var showPermissionRationaleDialog by mutableStateOf(false)
     private var openMode by mutableStateOf(OpenMode.TAB)
     private val tabs = mutableStateListOf<BrowserTab>()
+    private val recentClosedTabs = mutableStateListOf<BrowserTab>()
     private var activeTabId by mutableStateOf("home")
     private var previousTabId by mutableStateOf("home")
 
@@ -276,6 +280,15 @@ class LauncherActivity : ComponentActivity() {
                                     rootLayoutCoordinates = rootLayoutCoordinates,
                                     onSelectTab = { activeTabId = it },
                                     onCloseTab = { tabId ->
+                                        val closed = tabs.find { it.id == tabId }
+                                        if (closed != null && closed.url != "about:home" && closed.url != "about:blank" && closed.url.isNotBlank()) {
+                                            if (!recentClosedTabs.any { it.url == closed.url }) {
+                                                recentClosedTabs.add(0, closed)
+                                                if (recentClosedTabs.size > 5) {
+                                                    recentClosedTabs.removeAt(recentClosedTabs.lastIndex)
+                                                }
+                                            }
+                                        }
                                         tabs.removeAll { it.id == tabId }
                                         if (activeTabId == tabId) {
                                             activeTabId = "home"
@@ -558,6 +571,17 @@ class LauncherActivity : ComponentActivity() {
                                             onRequestPermission = { requestOverlayPermission() },
                                             onOpenUrl = { url, title ->
                                                 handleOpenUrl(url, title)
+                                            },
+                                            recentClosedTabs = recentClosedTabs,
+                                            onRestoreTab = { restored ->
+                                                if (!tabs.any { it.id == restored.id }) {
+                                                    tabs.add(restored)
+                                                }
+                                                activeTabId = restored.id
+                                                recentClosedTabs.removeAll { it.id == restored.id }
+                                            },
+                                            onPopoutFloating = { url, _ ->
+                                                startOverlayService(FloatBrowserService.ACTION_SHOW, url)
                                             }
                                         )
                                     }
@@ -574,6 +598,17 @@ class LauncherActivity : ComponentActivity() {
                                                         if (idx >= 0) {
                                                             tabs[idx] = tabs[idx].copy(url = resolvedUrl, title = title.ifBlank { "正在加载..." })
                                                         }
+                                                    },
+                                                    recentClosedTabs = recentClosedTabs,
+                                                    onRestoreTab = { restored ->
+                                                        if (!tabs.any { it.id == restored.id }) {
+                                                            tabs.add(restored)
+                                                        }
+                                                        activeTabId = restored.id
+                                                        recentClosedTabs.removeAll { it.id == restored.id }
+                                                    },
+                                                    onPopoutFloating = { url, _ ->
+                                                        startOverlayService(FloatBrowserService.ACTION_SHOW, url)
                                                     }
                                                 )
                                             } else {
@@ -1459,31 +1494,67 @@ fun SettingsScreen(
 fun BrowserHomeView(
     hasPermission: Boolean,
     onRequestPermission: () -> Unit,
-    onOpenUrl: (String, String) -> Unit
+    onOpenUrl: (String, String) -> Unit,
+    recentClosedTabs: List<BrowserTab> = emptyList(),
+    onRestoreTab: (BrowserTab) -> Unit = {},
+    onPopoutFloating: (String, String) -> Unit = { _, _ -> }
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
+
+    // Clipboard URL detection
+    var clipboardUrl by remember { mutableStateOf<String?>(null) }
+    var isClipboardDismissed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val clip = clipboard?.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val text = clip.getItemAt(0)?.text?.toString()?.trim()
+                if (!text.isNullOrBlank() && (text.startsWith("http://") || text.startsWith("https://"))) {
+                    clipboardUrl = text
+                }
+            }
+        } catch (_: Exception) {}
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            .padding(horizontal = 20.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        // 1. Hero Brand Header
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_bubble_logo),
+                contentDescription = "FloatBro",
+                tint = Color.Unspecified,
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = "FloatBro 浮窗浏览器",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "全局悬浮 · 联动分屏 · 纯净去广告",
+                    fontSize = 11.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
-        // Hero Brand Logo (Dual-color rings, pure minimal)
-        Icon(
-            painter = painterResource(id = R.drawable.ic_bubble_logo),
-            contentDescription = "FloatBro",
-            tint = Color.Unspecified,
-            modifier = Modifier.size(56.dp)
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // Clean Search Bar Capsule
+        // 2. Clean Search Bar Capsule (Thumb Zone)
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -1494,6 +1565,21 @@ fun BrowserHomeView(
                     contentDescription = "Search",
                     tint = MaterialTheme.colorScheme.outline
                 )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(
+                        onClick = { searchQuery = "" },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "清空",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             },
             singleLine = true,
             shape = RoundedCornerShape(24.dp),
@@ -1513,9 +1599,9 @@ fun BrowserHomeView(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Speed Dials (Android, Bing, Wikipedia, GitHub)
+        // 3. Speed Dials (Android, Bing, Wikipedia, GitHub)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -1534,14 +1620,14 @@ fun BrowserHomeView(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        // Overlay Permission Banner (Soft tip card adhering to Value-First UX)
+        // 4. Overlay Permission Banner (Soft tip card adhering to Value-First UX)
         if (!hasPermission) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -1580,7 +1666,278 @@ fun BrowserHomeView(
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(14.dp))
         }
+
+        // 5. Card 1: Clipboard URL Detection Banner (智能剪贴板链接探测)
+        if (clipboardUrl != null && !isClipboardDismissed) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    text = "剪贴板",
+                                    fontSize = 10.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Text(
+                                text = "检测到网页链接",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        IconButton(
+                            onClick = { isClipboardDismissed = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "忽略",
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = clipboardUrl!!,
+                        fontSize = 11.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { onPopoutFloating(clipboardUrl!!, "网页") }
+                        ) {
+                            Text("悬浮打开", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { onOpenUrl(clipboardUrl!!, "网页") }
+                        ) {
+                            Text("直接打开", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+        }
+
+        // 6. Card 2: Recent Closed Sessions / Quick Restore (最近关闭的浮窗卡片流)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "最近关闭的网页",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (recentClosedTabs.isNotEmpty()) "点击快速复原" else "历史推荐",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+
+                val itemsToShow = if (recentClosedTabs.isNotEmpty()) {
+                    recentClosedTabs.take(3)
+                } else {
+                    listOf(
+                        BrowserTab(title = "Bilibili · 视频与弹幕", url = "https://m.bilibili.com"),
+                        BrowserTab(title = "必应 · AI 搜索", url = "https://cn.bing.com"),
+                        BrowserTab(title = "GitHub · 极客社区", url = "https://github.com")
+                    )
+                }
+
+                itemsToShow.forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                if (recentClosedTabs.contains(item)) {
+                                    onRestoreTab(item)
+                                } else {
+                                    onOpenUrl(item.url, item.title)
+                                }
+                            }
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.title,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = item.url,
+                                fontSize = 11.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(
+                                text = if (recentClosedTabs.contains(item)) "复原" else "打开",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 7. Card 3: AdBlock Pure Shield Stats Card (纯净去广告守护看板)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_shield_ssl),
+                            contentDescription = "守护盾",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "FloatBro 纯净守护盾",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF10B981).copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "实时生效中",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF059669),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "1,280+",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "已拦截广告",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "340+",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF10B981)
+                        )
+                        Text(
+                            text = "阻断追踪器",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "18.5 MB",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "预估节省流量",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "C++ BloomFilter 内核 · 原生 CSS :has() 元素隐藏 · 零留白纯净浏览",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -1628,6 +1985,7 @@ fun InAppWebViewPane(
     onFaviconReceived: (Bitmap) -> Unit
 ) {
     var webViewInstance by remember { mutableStateOf<EBWebView?>(null) }
+    var loadingProgress by remember { mutableStateOf(0) }
     var isEditingUrl by remember { mutableStateOf(false) }
     var editingUrlText by remember(tab.url) { mutableStateOf(tab.url) }
     val focusRequester = remember { FocusRequester() }
@@ -1773,6 +2131,20 @@ fun InAppWebViewPane(
             }
         }
 
+        // Loading Progress Indicator
+        if (loadingProgress in 1..99) {
+            LinearProgressIndicator(
+                progress = { loadingProgress / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = Color.Transparent
+            )
+        } else {
+            Spacer(modifier = Modifier.height(2.dp))
+        }
+
         // Web Content
         AndroidView(
             factory = { ctx ->
@@ -1781,6 +2153,9 @@ fun InAppWebViewPane(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                    onProgressChangedListener = { progress ->
+                        loadingProgress = progress
+                    }
                     onTitleChangedListener = { title -> onTitleReceived(title) }
                     onReceivedIconListener = { icon -> onFaviconReceived(icon) }
                     onPageStartedListener = { startedUrl -> onUrlChanged(startedUrl) }

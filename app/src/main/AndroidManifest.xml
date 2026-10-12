@@ -42,7 +42,7 @@
         <!-- 桌面启动与权限引导入口 -->
         <activity
             android:name=".ui.DualPaneDemoActivity"
-            android:exported="false"
+            android:exported="true"
             android:configChanges="orientation|screenSize"
             android:theme="@style/Theme.FloatBro" />
 

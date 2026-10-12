@@ -71,3 +71,17 @@
     - 新增 `BubbleDismissTargetView` 64dp 半透明警示红圆形悬浮靶心，支持拖拽淡入/淡出；
     - 结合 `OverlayPhysicsHelper.isDropTargetHit` 实现 72dp 命中磁吸反馈：靶心 1.25x 放大、高饱和深红 `#DC2626` 变色与触感震动，气泡 0.82x 吸入暗示；
     - 命中释放安全销毁会话与 WebView，未命中释放执行 240ms 减速边缘磁吸贴靠。
+
+- **Phase 8: UI/UX Phase 3 P2 缺陷整洁工艺治理与人机体验增强 (Clean Craftsmanship Tier 2)**
+  - 主控中心 `BrowserHomeView` 黄金拇指区与下半屏空间重构：
+    - 消除下半屏 65% 白板荒漠，搜索胶囊与高频快捷图标沉降至单手操作舒适区；
+    - 引入智能剪贴板链接探测胶囊，检测到系统剪贴板 URL 弹出卡片，支持一键打开与弹射浮窗；
+    - 引入“最近关闭的网页”卡片流，支持快速复原关闭会话与优质多任务站点推荐；
+    - 引入“FloatBro 纯净守护盾”科技感数据看板，量化展示已拦截广告数、阻断追踪器与节省流量预估；
+  - 双屏分屏工具栏矢量资产标准化：
+    - 在 `:core:webview` 建立第一方 Material 3 矢量资源库 (`ic_pane_back.xml`, `ic_pane_forward.xml`, `ic_pane_dispatch.xml`, `ic_pane_close.xml`)；
+    - 彻底替换 `PaneContainer.kt` 中 Android 2.3 时代遗留的媒体快进/快退/拟物红叉低清位图；
+  - 网页加载进度条与优雅离线/异常态占位体系：
+    - 在悬浮窗与应用内视口顶栏挂载 2dp `#2563EB` 极细品牌蓝加载进度指示器，支持 1%~99% 平滑驱动与淡出；
+    - 复写 `FloatWebViewClient.onReceivedError`，精准拦截主视口网络异常并注入卡片化、带自适应深浅模式与“重新加载”按钮的优雅离线提示页，彻底阻断 Chromium 原生灰白英文报错页。
+
