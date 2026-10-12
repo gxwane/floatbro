@@ -13,10 +13,12 @@ package io.github.floatbro.overlay
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
+import io.github.floatbro.ui.theme.FloatingWindowThemeColors
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
@@ -115,10 +117,14 @@ class FloatingWindowView(
         clipToOutline = true
         elevation = dpToPx(12f).toFloat()
 
+        val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val windowBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
+        val strokeColor = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#CBD5E1")
+
         background = GradientDrawable().apply {
-            setColor(Color.WHITE)
+            setColor(windowBg)
             setCornerRadius(cornerRadius)
-            setStroke(dpToPx(1f), Color.parseColor("#CBD5E1"))
+            setStroke(dpToPx(1f), strokeColor)
         }
 
         val mainLayout = LinearLayout(context).apply {
@@ -195,11 +201,18 @@ class FloatingWindowView(
     }
 
     private fun createAdaptiveHeaderView(): View {
+        val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val headerBg = if (isDarkMode) FloatingWindowThemeColors.DarkHeaderBackground else FloatingWindowThemeColors.LightHeaderBackground
+        val capsuleBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
+        val capsuleStroke = if (isDarkMode) Color.parseColor("#475569") else Color.parseColor("#CBD5E1")
+        val textColor = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
+        val cancelColor = if (isDarkMode) Color.parseColor("#60A5FA") else Color.parseColor("#2563EB")
+
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dpToPx(6f), dpToPx(3f), dpToPx(6f), dpToPx(3f))
-            setBackgroundColor(Color.parseColor("#F8FAFC"))
+            setBackgroundColor(headerBg)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dpToPx(44f)
@@ -232,9 +245,9 @@ class FloatingWindowView(
             }
             setPadding(dpToPx(10f), 0, dpToPx(6f), 0)
             background = GradientDrawable().apply {
-                setColor(Color.WHITE)
+                setColor(capsuleBg)
                 cornerRadius = dpToPx(17f).toFloat()
-                setStroke(dpToPx(1f), Color.parseColor("#CBD5E1"))
+                setStroke(dpToPx(1f), capsuleStroke)
             }
 
             urlBadgeText = TextView(context).apply {
@@ -244,7 +257,7 @@ class FloatingWindowView(
                 setPadding(0, 0, 0, 0)
                 text = "FloatBro 悬浮浏览"
                 textSize = 12f
-                setTextColor(Color.parseColor("#0F172A"))
+                setTextColor(textColor)
                 isSingleLine = true
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 paint.isFakeBoldText = true
@@ -259,7 +272,7 @@ class FloatingWindowView(
                 includeFontPadding = false
                 setPadding(0, 0, 0, 0)
                 textSize = 12.5f
-                setTextColor(Color.parseColor("#0F172A"))
+                setTextColor(textColor)
                 setBackgroundColor(Color.TRANSPARENT)
                 isSingleLine = true
                 imeOptions = EditorInfo.IME_ACTION_GO
@@ -285,6 +298,8 @@ class FloatingWindowView(
                 }
                 setBackgroundColor(Color.TRANSPARENT)
                 setImageResource(R.drawable.ic_clear)
+                val iconTint = if (isDarkMode) Color.parseColor("#CBD5E1") else Color.parseColor("#475569")
+                setColorFilter(iconTint)
                 visibility = GONE
                 setOnClickListener { urlEditText.setText("") }
             }
@@ -302,7 +317,7 @@ class FloatingWindowView(
             gravity = Gravity.CENTER_VERTICAL
             text = "取消"
             textSize = 13.5f
-            setTextColor(Color.parseColor("#2563EB"))
+            setTextColor(cancelColor)
             visibility = GONE
             isClickable = true
             isFocusable = true
@@ -339,6 +354,8 @@ class FloatingWindowView(
     }
 
     private fun createHeaderButton(drawableRes: Int, tooltip: String, onClick: () -> Unit): ImageButton {
+        val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val iconTint = if (isDarkMode) Color.parseColor("#CBD5E1") else Color.parseColor("#475569")
         return ImageButton(context).apply {
             val btnSize = dpToPx(34f)
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
@@ -346,7 +363,7 @@ class FloatingWindowView(
             }
             setBackgroundColor(Color.TRANSPARENT)
             setImageResource(drawableRes)
-            setColorFilter(Color.parseColor("#475569"))
+            setColorFilter(iconTint)
             scaleType = ImageView.ScaleType.FIT_CENTER
             setPadding(dpToPx(3f), dpToPx(3f), dpToPx(3f), dpToPx(3f))
             contentDescription = tooltip

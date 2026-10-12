@@ -50,3 +50,13 @@
   - 覆盖 `WindowBoundsHelperTest` 纯 JVM 单元测试，杀灭 `[OP-BOUND]` 与 `[OP-VOID]` 变异体；
   - 通过独立 PR Reviewer 审查全量通过 (PASS)，Gauntlet 质量流水线 100% 绿灯。
 
+- **Phase 6: UI/UX 深度审计与 Phase 1 P0 缺陷整洁工艺治理 (Clean Craftsmanship Tier 2)**
+  - 实施 `ThemeTokensTest` 纯 JVM 单元测试覆盖与 `[OP-BOUND]` 变异击杀存证；
+  - 补全 Material 3 `FloatBroDarkColorScheme` 与 `FloatBroTypography` 排版令牌，支持深浅双模动态切换；
+  - 适配 `FloatingWindowView` 窗体与胶囊顶栏深色主题感知，消除夜间模式刺眼大白块；
+  - 彻底重构 `AppTabStrip` 标签关闭按钮，外层包裹无形触控热区并满足 WCAG 2.2 48dp 最小触控规范，添加无障碍语义 `Role.Button` 与动态标签名播报；
+  - 升级 `InAppWebViewPane` 工具栏高度至 48dp，导航按键统一扩展至 48dp 并应用 8-Point Grid 间距体系；
+  - 重绘 `ic_dock_app.xml` 矢量图标路径，纠正倒错的外跳 Popout 图标为正确的“向下沉降停靠至应用内”托盘图标。
+
+
+

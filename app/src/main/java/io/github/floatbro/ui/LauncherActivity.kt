@@ -55,7 +55,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.Role
+import io.github.floatbro.ui.theme.FloatBroUiTokens
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -762,7 +765,7 @@ fun AppTabStrip(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(FloatBroUiTokens.ToolbarButtonTouchTarget)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.Bottom
@@ -891,17 +894,31 @@ fun AppTabStrip(
                             color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.widthIn(min = 60.dp, max = 110.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        IconButton(
-                            onClick = { onCloseTab(tab.id) },
-                            modifier = Modifier.size(16.dp)
+                        Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .clickable(
+                                    role = Role.Button,
+                                    onClick = { onCloseTab(tab.id) }
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "关闭标签",
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(FloatBroUiTokens.TabCloseCapsuleSize)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "关闭 ${tab.title} 标签页",
+                                    modifier = Modifier.size(FloatBroUiTokens.TabCloseIconSize),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -911,13 +928,13 @@ fun AppTabStrip(
             IconButton(
                 onClick = onNewTab,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(FloatBroUiTokens.ToolbarButtonTouchTarget)
                     .padding(bottom = 2.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "新建标签页",
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -927,13 +944,13 @@ fun AppTabStrip(
         IconButton(
             onClick = onOpenSettings,
             modifier = Modifier
-                .size(36.dp)
+                .size(FloatBroUiTokens.ToolbarButtonTouchTarget)
                 .padding(bottom = 2.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Settings,
                 contentDescription = "设置",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -1575,29 +1592,32 @@ fun InAppWebViewPane(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                .height(FloatBroUiTokens.ToolbarButtonTouchTarget)
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = { webViewInstance?.let { if (it.canGoBack()) it.goBack() } },
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(FloatBroUiTokens.ToolbarButtonTouchTarget)
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(16.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "后退", modifier = Modifier.size(20.dp))
             }
+            Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
             IconButton(
                 onClick = { webViewInstance?.let { if (it.canGoForward()) it.goForward() } },
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(FloatBroUiTokens.ToolbarButtonTouchTarget)
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Forward", modifier = Modifier.size(16.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "前进", modifier = Modifier.size(20.dp))
             }
+            Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
             IconButton(
                 onClick = { webViewInstance?.reload() },
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(FloatBroUiTokens.ToolbarButtonTouchTarget)
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = "刷新", modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Refresh, contentDescription = "刷新", modifier = Modifier.size(20.dp))
             }
+            Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
 
             if (isEditingUrl) {
                 Surface(
