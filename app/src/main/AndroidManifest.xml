@@ -41,10 +41,10 @@
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- 桌面启动与权限引导入口 -->
+        <!-- 内部双栏/分屏 Demo Activity -->
         <activity
             android:name=".ui.DualPaneDemoActivity"
-            android:exported="true"
+            android:exported="false"
             android:configChanges="orientation|screenSize"
             android:theme="@style/Theme.FloatBro" />
 

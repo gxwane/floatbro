@@ -186,7 +186,7 @@ class FloatingBubbleView(
 
         // Clamp Y to safe screen bounds (avoid status bar and gesture navigation bar)
         val minY = dpToPx(36f)
-        val maxY = displayMetrics.heightPixels - dpToPx(72f) - bubbleWidth
+        val maxY = (displayMetrics.heightPixels - dpToPx(72f) - bubbleWidth).coerceAtLeast(minY)
         layoutParams.y = layoutParams.y.coerceIn(minY, maxY)
 
         val animator = ValueAnimator.ofInt(currentX, targetX)

@@ -113,4 +113,45 @@ class WindowBoundsHelperTest {
         assertTrue("Width must be >= minWidth", w >= minWidth)
         assertTrue("Height must be >= minHeight", h >= minHeight)
     }
+
+    @Test
+    fun `scenario - landscape phone constrained screen height never throws and clamps safely`() {
+        // GIVEN: Phone landscape screen where maxHeight is restricted (e.g. 600px available)
+        val landscapeMinHeight = 440
+        val landscapeMaxHeight = 600
+        val rawWidth = 1200
+        val rawHeight = 800
+
+        // WHEN: Clamping dimensions
+        val (w, h) = WindowBoundsHelper.clampDimensions(
+            rawWidth = rawWidth,
+            rawHeight = rawHeight,
+            minWidth = minWidth,
+            maxWidth = 1500,
+            minHeight = landscapeMinHeight,
+            maxHeight = landscapeMaxHeight
+        )
+
+        // THEN: Resulting height is clamped to landscapeMaxHeight and ratio is bounded
+        assertTrue("Height must be <= landscapeMaxHeight", h <= landscapeMaxHeight)
+        assertTrue("Height must be >= landscapeMinHeight", h >= landscapeMinHeight)
+        assertTrue("Width must be >= minWidth", w >= minWidth)
+    }
+
+    @Test
+    fun `scenario - degenerate bounds where max is less than min never throws empty range exception`() {
+        // GIVEN: Degenerate inputs where maxWidth < minWidth due to extreme rotation/insets
+        val (w, h) = WindowBoundsHelper.clampDimensions(
+            rawWidth = 500,
+            rawHeight = 500,
+            minWidth = 600,
+            maxWidth = 400,
+            minHeight = 800,
+            maxHeight = 600
+        )
+
+        // THEN: Clamps to minWidth and minHeight safely without throwing IllegalArgumentException
+        assertEquals(600, w)
+        assertEquals(800, h)
+    }
 }

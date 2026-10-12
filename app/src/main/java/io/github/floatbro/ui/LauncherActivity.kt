@@ -890,7 +890,26 @@ class LauncherActivity : ComponentActivity() {
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
-        if (intent?.action == ACTION_DOCK_TAB) {
+        if (intent == null) return
+
+        if (intent.action == FloatBrowserService.ACTION_SHOW) {
+            val url = intent.getStringExtra(FloatBrowserService.EXTRA_URL) ?: intent.dataString ?: "https://m.baidu.com"
+            startOverlayService(FloatBrowserService.ACTION_SHOW, url)
+            return
+        }
+
+        if (intent.action == Intent.ACTION_VIEW && intent.data != null) {
+            handleOpenUrl(intent.data.toString(), "新标签页")
+            return
+        }
+
+        val extraUrl = intent.getStringExtra(FloatBrowserService.EXTRA_URL)
+        if (!extraUrl.isNullOrEmpty()) {
+            handleOpenUrl(extraUrl, "新标签页")
+            return
+        }
+
+        if (intent.action == ACTION_DOCK_TAB) {
             val url = intent.getStringExtra(EXTRA_TAB_URL) ?: return
             val title = intent.getStringExtra(EXTRA_TAB_TITLE) ?: "已收回网页"
             val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)

@@ -22,17 +22,19 @@ object WindowBoundsHelper {
         minRatio: Float = 0.45f,
         maxRatio: Float = 2.20f
     ): Pair<Int, Int> {
-        val clampedWidth = rawWidth.coerceIn(minWidth, maxWidth)
-        val clampedHeight = rawHeight.coerceIn(minHeight, maxHeight)
+        val safeMaxWidth = maxWidth.coerceAtLeast(minWidth)
+        val safeMaxHeight = maxHeight.coerceAtLeast(minHeight)
+        val clampedWidth = rawWidth.coerceIn(minWidth, safeMaxWidth)
+        val clampedHeight = rawHeight.coerceIn(minHeight, safeMaxHeight)
         val currentRatio = clampedWidth.toFloat() / clampedHeight.toFloat()
 
         return when {
             currentRatio < minRatio -> {
-                val adjustedHeight = (clampedWidth / minRatio).toInt().coerceIn(minHeight, maxHeight)
+                val adjustedHeight = (clampedWidth / minRatio).toInt().coerceIn(minHeight, safeMaxHeight)
                 clampedWidth to adjustedHeight
             }
             currentRatio > maxRatio -> {
-                val adjustedWidth = (clampedHeight * maxRatio).toInt().coerceIn(minWidth, maxWidth)
+                val adjustedWidth = (clampedHeight * maxRatio).toInt().coerceIn(minWidth, safeMaxWidth)
                 adjustedWidth to clampedHeight
             }
             else -> clampedWidth to clampedHeight

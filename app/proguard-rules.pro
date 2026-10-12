@@ -5,8 +5,11 @@
     native <methods>;
 }
 
-# 2. Preserve C++ AdBlockClient and JNI bridge classes
--keep class io.github.floatbro.adblock.** { *; }
+# 2. Preserve C++ AdBlockClient, adfilter and JNI bridge classes
+-keep class io.github.edsuns.adblockclient.** { *; }
+-keep class io.github.edsuns.adfilter.** { *; }
+-keep class io.github.floatbro.core.adblock.** { *; }
+-keep class io.github.floatbro.core.webview.bridge.** { *; }
 
 # 3. Preserve WebView JavaScript Interfaces
 -keepclassmembers class * {

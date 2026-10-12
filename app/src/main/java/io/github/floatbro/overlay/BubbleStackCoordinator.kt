@@ -48,8 +48,8 @@ class BubbleStackCoordinator(
         }
         val displayMetrics = context.resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
-        val maxY = displayMetrics.heightPixels - dpToPx(100f)
         val minY = dpToPx(48f)
+        val maxY = (displayMetrics.heightPixels - dpToPx(100f)).coerceAtLeast(minY)
 
         val isCurrentOnRight = session.bubbleParams.x > screenWidth / 2
         val sameSideBubbles = activeBubbles.filter {
@@ -79,13 +79,14 @@ class BubbleStackCoordinator(
      */
     fun repositionBubbles(animate: Boolean) {
         val displayMetrics = context.resources.displayMetrics
-        val maxY = displayMetrics.heightPixels - dpToPx(100f)
+        val minY = dpToPx(48f)
+        val maxY = (displayMetrics.heightPixels - dpToPx(100f)).coerceAtLeast(minY)
 
         activeBubbles.forEachIndexed { index, session ->
             val bubble = session.bubbleView ?: return@forEachIndexed
             if (!bubble.isAttachedToWindow) return@forEachIndexed
 
-            val targetY = (baseMarginYPx + index * bubblePitchPx).coerceAtMost(maxY)
+            val targetY = (baseMarginYPx + index * bubblePitchPx).coerceIn(minY, maxY)
             val currentY = session.bubbleParams.y
 
             if (currentY != targetY) {

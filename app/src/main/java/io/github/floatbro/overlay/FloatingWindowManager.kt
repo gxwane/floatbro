@@ -145,20 +145,40 @@ class FloatingWindowManager(private val context: Context) {
         val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
 
-        val isTablet = (screenWidth / displayMetrics.density) >= 600f
-        val maxInitialWidthDp = if (isTablet) 580f else 380f
-        val maxInitialHeightDp = if (isTablet) 720f else 560f
-        val widthRatio = if (isTablet) 0.52f else 0.88f
-        val heightRatio = if (isTablet) 0.65f else 0.60f
+        val smallestWidthDp = minOf(screenWidth, screenHeight) / displayMetrics.density
+        val isTablet = smallestWidthDp >= 600f
+        val isLandscape = screenWidth > screenHeight
 
-        val defaultWidth = (screenWidth * widthRatio).toInt().coerceIn(dpToPx(280f), dpToPx(maxInitialWidthDp))
-        val defaultHeight = (screenHeight * heightRatio).toInt().coerceIn(dpToPx(340f), dpToPx(maxInitialHeightDp))
+        val minWidthPx = dpToPx(280f)
+        val minHeightPx = if (isLandscape && !isTablet) dpToPx(220f) else dpToPx(340f)
+
+        val widthRatio = when {
+            isTablet && isLandscape -> 0.52f
+            isTablet && !isLandscape -> 0.65f
+            !isTablet && isLandscape -> 0.45f
+            else -> 0.88f
+        }
+        val heightRatio = when {
+            isTablet && isLandscape -> 0.65f
+            isTablet && !isLandscape -> 0.60f
+            !isTablet && isLandscape -> 0.72f
+            else -> 0.60f
+        }
+
+        val maxInitialWidthDp = if (isTablet) 580f else if (isLandscape) 480f else 380f
+        val maxInitialHeightDp = if (isTablet) 720f else if (isLandscape) 320f else 560f
+
+        val defaultWidth = (screenWidth * widthRatio).toInt().coerceIn(minWidthPx, dpToPx(maxInitialWidthDp))
+        val defaultHeight = (screenHeight * heightRatio).toInt().coerceIn(minHeightPx, dpToPx(maxInitialHeightDp))
 
         val cascadeOffset = sessions.size * dpToPx(24f)
-        val targetX = ((initialX ?: (screenWidth - defaultWidth) / 2) + cascadeOffset)
-            .coerceIn(dpToPx(8f), (screenWidth - defaultWidth - dpToPx(8f)).coerceAtLeast(0))
-        val targetY = ((initialY ?: (screenHeight - defaultHeight) / 4) + cascadeOffset)
-            .coerceIn(dpToPx(36f), (screenHeight - defaultHeight - dpToPx(48f)).coerceAtLeast(0))
+        val minX = dpToPx(8f)
+        val maxX = (screenWidth - defaultWidth - minX).coerceAtLeast(minX)
+        val targetX = ((initialX ?: (screenWidth - defaultWidth) / 2) + cascadeOffset).coerceIn(minX, maxX)
+
+        val minY = dpToPx(36f)
+        val maxY = (screenHeight - defaultHeight - dpToPx(48f)).coerceAtLeast(minY)
+        val targetY = ((initialY ?: (screenHeight - defaultHeight) / 4) + cascadeOffset).coerceIn(minY, maxY)
 
         val windowParams = WindowManager.LayoutParams(
             defaultWidth,
@@ -554,6 +574,7 @@ class FloatingWindowManager(private val context: Context) {
         // 4. Destroy WebView clean sequence (only if not preserved for docking)
         if (!preserveWebView) {
             try {
+                (window.webView.parent as? ViewGroup)?.removeView(window.webView)
                 window.webView.stopLoading()
                 window.webView.loadUrl("about:blank")
                 window.webView.clearHistory()
@@ -663,14 +684,29 @@ class FloatingWindowManager(private val context: Context) {
         val displayMetrics = context.resources.displayMetrics
         val screenW = displayMetrics.widthPixels
         val screenH = displayMetrics.heightPixels
+        val smallestWidthDp = minOf(screenW, screenH) / displayMetrics.density
+        val isTablet = smallestWidthDp >= 600f
+        val isLandscape = screenW > screenH
+
+        val minW = dpToPx(280f)
+        val minH = if (isLandscape && !isTablet) dpToPx(220f) else dpToPx(340f)
 
         sessions.values.forEach { session ->
+            val wp = session.windowParams
+            val maxAllowedW = (screenW - dpToPx(16f)).coerceAtLeast(minW)
+            val maxAllowedH = (screenH - dpToPx(36f) - dpToPx(16f)).coerceAtLeast(minH)
+            wp.width = wp.width.coerceIn(minW, maxAllowedW)
+            wp.height = wp.height.coerceIn(minH, maxAllowedH)
+
+            val minX = 0
+            val maxX = (screenW - wp.width).coerceAtLeast(minX)
+            wp.x = wp.x.coerceIn(minX, maxX)
+
+            val minY = dpToPx(36f)
+            val maxY = (screenH - wp.height - dpToPx(16f)).coerceAtLeast(minY)
+            wp.y = wp.y.coerceIn(minY, maxY)
+
             if (session.mode == OverlayMode.WINDOW && session.windowView.isAttachedToWindow) {
-                val wp = session.windowParams
-                wp.width = wp.width.coerceAtMost(screenW)
-                wp.height = wp.height.coerceAtMost(screenH)
-                wp.x = wp.x.coerceIn(0, (screenW - wp.width).coerceAtLeast(0))
-                wp.y = wp.y.coerceIn(dpToPx(36f), (screenH - wp.height - dpToPx(48f)).coerceAtLeast(0))
                 try {
                     windowManager.updateViewLayout(session.windowView, wp)
                 } catch (e: Exception) {

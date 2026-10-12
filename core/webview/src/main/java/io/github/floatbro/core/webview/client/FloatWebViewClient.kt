@@ -12,6 +12,8 @@
 package io.github.floatbro.core.webview.client
 
 import android.graphics.Bitmap
+import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -179,9 +181,24 @@ class FloatWebViewClient(
         view.loadDataWithBaseURL(url, errorHtml, "text/html", "UTF-8", url)
     }
 
+    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+        Timber.e("WebView render process gone (didCrash=%b)", detail.didCrash())
+        (view.parent as? ViewGroup)?.removeView(view)
+        view.destroy()
+        return true
+    }
+
     private fun generateErrorHtml(url: String, description: String): String {
-        val safeUrl = url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
-        val safeDesc = description.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+        val safeUrl = url.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;")
+        val safeDesc = description.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;")
 
         return """
             <!DOCTYPE html>

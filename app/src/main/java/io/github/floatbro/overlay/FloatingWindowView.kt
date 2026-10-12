@@ -129,7 +129,12 @@ class FloatingWindowView(
     private var initialWindowHeight = 0
 
     private val minWidthPx = dpToPx(280f)
-    private val minHeightPx = dpToPx(340f)
+    private val currentMinHeightPx: Int
+        get() {
+            val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val isTablet = (minOf(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels) / resources.displayMetrics.density) >= 600f
+            return if (isLandscape && !isTablet) dpToPx(220f) else dpToPx(340f)
+        }
 
     init {
         lifecycleContext.attachToView(this)
@@ -265,23 +270,38 @@ class FloatingWindowView(
                     )
                 )
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    viewTreeObserver.registerFrameCommitCallback {
+                val onFrameCommitAction = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAttachedToWindow) {
+                        try {
+                            viewTreeObserver.registerFrameCommitCallback {
+                                postDelayed({
+                                    coverImageView.animate()
+                                        .alpha(0f)
+                                        .setDuration(120L)
+                                        .withEndAction {
+                                            coverImageView.setImageDrawable(null)
+                                            webContainer.removeView(coverImageView)
+                                        }
+                                        .start()
+                                    TabOverlayStateBridge.notifyCommit(sessionId)
+                                }, 16L)
+                            }
+                        } catch (e: Exception) {
+                            postDelayed({
+                                coverImageView.animate()
+                                    .alpha(0f)
+                                    .setDuration(120L)
+                                    .withEndAction {
+                                        coverImageView.setImageDrawable(null)
+                                        webContainer.removeView(coverImageView)
+                                    }
+                                    .start()
+                                TabOverlayStateBridge.notifyCommit(sessionId)
+                            }, 48L)
+                        }
+                    } else {
                         postDelayed({
                             coverImageView.animate()
-                                .alpha(0f)
-                                .setDuration(120L)
-                                .withEndAction {
-                                    coverImageView.setImageDrawable(null)
-                                    webContainer.removeView(coverImageView)
-                                }
-                                .start()
-                            TabOverlayStateBridge.notifyCommit(sessionId)
-                        }, 16L)
-                    }
-                } else {
-                    postDelayed({
-                        coverImageView.animate()
                             .alpha(0f)
                             .setDuration(120L)
                             .withEndAction {
@@ -289,20 +309,51 @@ class FloatingWindowView(
                                 webContainer.removeView(coverImageView)
                             }
                             .start()
-                        TabOverlayStateBridge.notifyCommit(sessionId)
-                    }, 48L)
+                            TabOverlayStateBridge.notifyCommit(sessionId)
+                        }, 48L)
+                    }
+                }
+                if (isAttachedToWindow) {
+                    onFrameCommitAction()
+                } else {
+                    addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
+                        override fun onViewAttachedToWindow(v: View) {
+                            removeOnAttachStateChangeListener(this)
+                            onFrameCommitAction()
+                        }
+                        override fun onViewDetachedFromWindow(v: View) {}
+                    })
                 }
             } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    viewTreeObserver.registerFrameCommitCallback {
+                val onEmptyCommitAction = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAttachedToWindow) {
+                        try {
+                            viewTreeObserver.registerFrameCommitCallback {
+                                postDelayed({
+                                    TabOverlayStateBridge.notifyCommit(sessionId)
+                                }, 16L)
+                            }
+                        } catch (e: Exception) {
+                            postDelayed({
+                                TabOverlayStateBridge.notifyCommit(sessionId)
+                            }, 48L)
+                        }
+                    } else {
                         postDelayed({
                             TabOverlayStateBridge.notifyCommit(sessionId)
-                        }, 16L)
+                        }, 48L)
                     }
+                }
+                if (isAttachedToWindow) {
+                    onEmptyCommitAction()
                 } else {
-                    postDelayed({
-                        TabOverlayStateBridge.notifyCommit(sessionId)
-                    }, 48L)
+                    addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
+                        override fun onViewAttachedToWindow(v: View) {
+                            removeOnAttachStateChangeListener(this)
+                            onEmptyCommitAction()
+                        }
+                        override fun onViewDetachedFromWindow(v: View) {}
+                    })
                 }
             }
         }
@@ -614,8 +665,11 @@ class FloatingWindowView(
 
         // Restore pre-edit Y if shifted by keyboard avoidance
         preEditY?.let { originalY ->
-            if (layoutParams.y != originalY) {
-                layoutParams.y = originalY
+            val minY = dpToPx(36f)
+            val maxY = (resources.displayMetrics.heightPixels - layoutParams.height - dpToPx(16f)).coerceAtLeast(minY)
+            val safeY = originalY.coerceIn(minY, maxY)
+            if (layoutParams.y != safeY) {
+                layoutParams.y = safeY
                 if (isAttachedToWindow) {
                     try {
                         windowManager.updateViewLayout(this, layoutParams)
@@ -943,7 +997,7 @@ class FloatingWindowView(
 
                 // Clamp Y in safe bounds
                 val minY = dpToPx(36f)
-                val maxY = screenHeight - dpToPx(120f)
+                val maxY = (screenHeight - dpToPx(120f)).coerceAtLeast(minY)
                 layoutParams.y = layoutParams.y.coerceIn(minY, maxY)
 
                 if (startX != targetX) {
@@ -1010,7 +1064,7 @@ class FloatingWindowView(
                     rawHeight = initialWindowHeight + dy,
                     minWidth = minWidthPx,
                     maxWidth = maxAllowedWidth,
-                    minHeight = minHeightPx,
+                    minHeight = currentMinHeightPx,
                     maxHeight = maxAllowedHeight
                 )
 

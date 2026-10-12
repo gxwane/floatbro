@@ -57,7 +57,8 @@ open class EBWebView @JvmOverloads constructor(
     }
 
     init {
-        WebView.setWebContentsDebuggingEnabled(true)
+        val isDebuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        WebView.setWebContentsDebuggingEnabled(isDebuggable)
         configureSettings()
         setupClients()
 
