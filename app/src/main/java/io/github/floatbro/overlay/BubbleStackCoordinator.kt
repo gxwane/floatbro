@@ -46,23 +46,32 @@ class BubbleStackCoordinator(
         if (!activeBubbles.any { it.id == session.id }) {
             activeBubbles.add(session)
         }
-        val slotIndex = activeBubbles.indexOfFirst { it.id == session.id }
-        if (slotIndex >= 0) {
-            val displayMetrics = context.resources.displayMetrics
-            val maxY = displayMetrics.heightPixels - dpToPx(100f)
-            session.bubbleParams.y = (baseMarginYPx + slotIndex * bubblePitchPx).coerceAtMost(maxY)
+        val displayMetrics = context.resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val maxY = displayMetrics.heightPixels - dpToPx(100f)
+        val minY = dpToPx(48f)
+
+        val isCurrentOnRight = session.bubbleParams.x > screenWidth / 2
+        val sameSideBubbles = activeBubbles.filter {
+            it.id != session.id && (it.bubbleParams.x > screenWidth / 2) == isCurrentOnRight
         }
-        repositionBubbles(animate = true)
+
+        if (sameSideBubbles.isNotEmpty()) {
+            var adjustedY = session.bubbleParams.y
+            for (other in sameSideBubbles) {
+                if (Math.abs(adjustedY - other.bubbleParams.y) < bubblePitchPx) {
+                    adjustedY = (other.bubbleParams.y + bubblePitchPx).coerceAtMost(maxY)
+                }
+            }
+            session.bubbleParams.y = adjustedY.coerceIn(minY, maxY)
+        }
     }
 
     /**
-     * Removes a session from the bubble stack and slides subsequent bubbles up to fill the gap.
+     * Removes a session from the bubble stack.
      */
     fun detachBubble(session: FloatingSession) {
-        val removed = activeBubbles.removeAll { it.id == session.id }
-        if (removed) {
-            repositionBubbles(animate = true)
-        }
+        activeBubbles.removeAll { it.id == session.id }
     }
 
     /**

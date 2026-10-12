@@ -56,6 +56,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -69,6 +70,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -112,11 +114,15 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import timber.log.Timber
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -160,6 +166,17 @@ class LauncherActivity : ComponentActivity() {
         const val ACTION_DOCK_TAB = "io.github.floatbro.action.DOCK_TAB"
         const val EXTRA_TAB_URL = "extra_tab_url"
         const val EXTRA_TAB_TITLE = "extra_tab_title"
+
+        fun resolveBrowserUrl(input: String): String {
+            val trimmed = input.trim()
+            return when {
+                trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+                trimmed.startsWith("about:") -> trimmed
+                trimmed.startsWith("www.") -> "https://$trimmed"
+                trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
+                else -> "https://cn.bing.com/search?q=" + Uri.encode(trimmed)
+            }
+        }
     }
 
     private var hasOverlayPermission by mutableStateOf(false)
@@ -235,7 +252,7 @@ class LauncherActivity : ComponentActivity() {
                                         }
                                     },
                                     onNewTab = {
-                                        val newTab = BrowserTab(title = "新标签页", url = "about:blank")
+                                        val newTab = BrowserTab(title = "新标签页", url = "about:home")
                                         tabs.add(newTab)
                                         activeTabId = newTab.id
                                     },
@@ -517,28 +534,48 @@ class LauncherActivity : ComponentActivity() {
                                     else -> {
                                         val currentTab = tabs.find { it.id == activeTabId }
                                         if (currentTab != null) {
-                                            key(currentTab.id) {
-                                                InAppWebViewPane(
-                                                    tab = currentTab,
-                                                    onTearOff = {
-                                                        tabs.removeAll { it.id == currentTab.id }
-                                                        activeTabId = "home"
-                                                        startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url, windowId = currentTab.id)
-                                                        Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    onTitleReceived = { newTitle ->
+                                            if (currentTab.url == "about:home" || currentTab.url == "about:blank" || currentTab.url.isEmpty()) {
+                                                BrowserHomeView(
+                                                    hasPermission = hasOverlayPermission,
+                                                    onRequestPermission = { requestOverlayPermission() },
+                                                    onOpenUrl = { url, title ->
+                                                        val resolvedUrl = resolveBrowserUrl(url)
                                                         val idx = tabs.indexOfFirst { it.id == currentTab.id }
                                                         if (idx >= 0) {
-                                                            tabs[idx] = tabs[idx].copy(title = newTitle)
-                                                        }
-                                                    },
-                                                    onFaviconReceived = { icon ->
-                                                        val idx = tabs.indexOfFirst { it.id == currentTab.id }
-                                                        if (idx >= 0) {
-                                                            tabs[idx] = tabs[idx].copy(favicon = icon)
+                                                            tabs[idx] = tabs[idx].copy(url = resolvedUrl, title = title.ifBlank { "正在加载..." })
                                                         }
                                                     }
                                                 )
+                                            } else {
+                                                key(currentTab.id) {
+                                                    InAppWebViewPane(
+                                                        tab = currentTab,
+                                                        onTearOff = {
+                                                            tabs.removeAll { it.id == currentTab.id }
+                                                            activeTabId = "home"
+                                                            startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url, windowId = currentTab.id)
+                                                            Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        onUrlChanged = { newUrl ->
+                                                            val idx = tabs.indexOfFirst { it.id == currentTab.id }
+                                                            if (idx >= 0) {
+                                                                tabs[idx] = tabs[idx].copy(url = newUrl)
+                                                            }
+                                                        },
+                                                        onTitleReceived = { newTitle ->
+                                                            val idx = tabs.indexOfFirst { it.id == currentTab.id }
+                                                            if (idx >= 0) {
+                                                                tabs[idx] = tabs[idx].copy(title = newTitle)
+                                                            }
+                                                        },
+                                                        onFaviconReceived = { icon ->
+                                                            val idx = tabs.indexOfFirst { it.id == currentTab.id }
+                                                            if (idx >= 0) {
+                                                                tabs[idx] = tabs[idx].copy(favicon = icon)
+                                                            }
+                                                        }
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -590,12 +627,7 @@ class LauncherActivity : ComponentActivity() {
     }
 
     private fun handleOpenUrl(url: String, title: String) {
-        val resolvedUrl = when {
-            url.startsWith("http://") || url.startsWith("https://") -> url
-            url.startsWith("www.") -> "https://$url"
-            url.contains(".") && !url.contains(" ") -> "https://$url"
-            else -> "https://cn.bing.com/search?q=" + Uri.encode(url)
-        }
+        val resolvedUrl = resolveBrowserUrl(url)
 
         if (openMode == OpenMode.FLOATING) {
             startOverlayService(FloatBrowserService.ACTION_SHOW, resolvedUrl)
@@ -1528,10 +1560,15 @@ fun QuickDialItem(title: String, iconRes: Int, onClick: () -> Unit) {
 fun InAppWebViewPane(
     tab: BrowserTab,
     onTearOff: () -> Unit,
+    onUrlChanged: (String) -> Unit = {},
     onTitleReceived: (String) -> Unit,
     onFaviconReceived: (Bitmap) -> Unit
 ) {
     var webViewInstance by remember { mutableStateOf<EBWebView?>(null) }
+    var isEditingUrl by remember { mutableStateOf(false) }
+    var editingUrlText by remember(tab.url) { mutableStateOf(tab.url) }
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Mini Toolbar
@@ -1540,7 +1577,7 @@ fun InAppWebViewPane(
                 .fillMaxWidth()
                 .height(40.dp)
                 .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -1555,33 +1592,104 @@ fun InAppWebViewPane(
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Forward", modifier = Modifier.size(16.dp))
             }
-
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(28.dp)
-                    .padding(horizontal = 6.dp)
+            IconButton(
+                onClick = { webViewInstance?.reload() },
+                modifier = Modifier.size(28.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Icon(Icons.Default.Refresh, contentDescription = "刷新", modifier = Modifier.size(16.dp))
+            }
+
+            if (isEditingUrl) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(28.dp)
+                        .padding(horizontal = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "SSL",
-                        tint = Color(0xFF10B981),
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = tab.url,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BasicTextField(
+                            value = editingUrlText,
+                            onValueChange = { editingUrlText = it },
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = {
+                                if (editingUrlText.isNotBlank()) {
+                                    val resolved = LauncherActivity.resolveBrowserUrl(editingUrlText)
+                                    onUrlChanged(resolved)
+                                    webViewInstance?.loadUrlSafely(resolved)
+                                }
+                                isEditingUrl = false
+                                keyboardController?.hide()
+                            }),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(focusRequester)
+                        )
+                        IconButton(
+                            onClick = {
+                                isEditingUrl = false
+                                keyboardController?.hide()
+                            },
+                            modifier = Modifier.size(20.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "取消编辑",
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                }
+                LaunchedEffect(Unit) {
+                    focusRequester.requestFocus()
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(28.dp)
+                        .padding(horizontal = 4.dp)
+                        .clickable {
+                            editingUrlText = tab.url
+                            isEditingUrl = true
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "SSL",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = tab.url,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -1609,6 +1717,7 @@ fun InAppWebViewPane(
                     )
                     onTitleChangedListener = { title -> onTitleReceived(title) }
                     onReceivedIconListener = { icon -> onFaviconReceived(icon) }
+                    onPageStartedListener = { startedUrl -> onUrlChanged(startedUrl) }
                     loadUrlSafely(tab.url)
                     webViewInstance = this
                 }

@@ -240,7 +240,33 @@ class FloatingWindowManager(private val context: Context) {
             }
         }
 
-        // 3. Create or attach bubble
+        // 3. Natural Spatial Continuity: dock bubble to nearest edge at window's current height
+        val displayMetrics = context.resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val screenHeight = displayMetrics.heightPixels
+        val bubbleSize = dpToPx(52f)
+        val edgeMargin = dpToPx(12f)
+
+        val winX = session.windowView.layoutParams.x
+        val winWidth = session.windowView.layoutParams.width.takeIf { it > 0 } ?: dpToPx(280f)
+        val winCenterX = winX + winWidth / 2
+        val isRightSide = winCenterX >= screenWidth / 2 || winX > (screenWidth * 0.4f)
+
+        val targetX = if (isRightSide) {
+            screenWidth - bubbleSize - edgeMargin
+        } else {
+            edgeMargin
+        }
+
+        val winY = session.windowView.layoutParams.y
+        val minY = dpToPx(48f)
+        val maxY = screenHeight - dpToPx(96f) - bubbleSize
+        val targetY = (winY + dpToPx(10f)).coerceIn(minY, maxY)
+
+        session.bubbleParams.x = targetX
+        session.bubbleParams.y = targetY
+
+        // 4. Create or attach bubble
         if (session.bubbleView == null) {
             session.bubbleView = FloatingBubbleView(
                 context = context,
@@ -249,6 +275,10 @@ class FloatingWindowManager(private val context: Context) {
             ).apply {
                 updateFavicon(session.favicon)
                 onBubbleClicked = { restoreBubbleToWindow(session) }
+                onPositionChanged = { newX, newY ->
+                    session.bubbleParams.x = newX
+                    session.bubbleParams.y = newY
+                }
             }
         }
 
@@ -258,7 +288,7 @@ class FloatingWindowManager(private val context: Context) {
                 bubbleStack.attachBubble(session)
                 windowManager.addView(bubble, session.bubbleParams)
                 session.mode = OverlayMode.BUBBLE
-                Timber.d("Minimized session ${session.id} to edge bubble")
+                Timber.d("Minimized session ${session.id} to edge bubble at ($targetX, ${session.bubbleParams.y})")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to add bubble view for session ${session.id}")
             }
@@ -287,14 +317,38 @@ class FloatingWindowManager(private val context: Context) {
         session.windowView.webView.onResume()
         session.windowView.webView.resumeTimers()
 
-        // 3. Attach window
+        // 3. Inherit bubble position so window expands naturally from where bubble was
+        val displayMetrics = context.resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val screenHeight = displayMetrics.heightPixels
+        val winWidth = session.windowParams.width.takeIf { it > 0 } ?: dpToPx(280f)
+        val winHeight = session.windowParams.height.takeIf { it > 0 } ?: dpToPx(340f)
+
+        val bubbleX = session.bubbleParams.x
+        val bubbleY = session.bubbleParams.y
+        val isBubbleOnRight = bubbleX > screenWidth / 2
+
+        val targetWinX = if (isBubbleOnRight) {
+            (screenWidth - winWidth - dpToPx(12f)).coerceAtLeast(dpToPx(8f))
+        } else {
+            dpToPx(12f)
+        }
+        val targetWinY = (bubbleY - dpToPx(16f)).coerceIn(
+            dpToPx(36f),
+            (screenHeight - winHeight - dpToPx(48f)).coerceAtLeast(dpToPx(36f))
+        )
+
+        session.windowParams.x = targetWinX
+        session.windowParams.y = targetWinY
+
+        // 4. Attach window
         val window = session.windowView
         if (!window.isAttachedToWindow) {
             try {
                 windowManager.addView(window, session.windowParams)
                 session.mode = OverlayMode.WINDOW
                 bringSessionToFront(session)
-                Timber.d("Restored session ${session.id} to window")
+                Timber.d("Restored session ${session.id} to window at ($targetWinX, $targetWinY)")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to re-add window view during restore for session ${session.id}")
             }
