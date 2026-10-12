@@ -20,7 +20,11 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import io.github.edsuns.adfilter.AdFilter
+import io.github.floatbro.browser.BrowserPreferences
+import io.github.floatbro.browser.UserAgentMode
 import io.github.floatbro.core.webview.bridge.InputFocusBridge
 import io.github.floatbro.core.webview.client.FloatWebChromeClient
 import io.github.floatbro.core.webview.client.FloatWebViewClient
@@ -68,6 +72,22 @@ open class EBWebView @JvmOverloads constructor(
         } catch (e: Exception) {
             Timber.w(e, "AdFilter not initialized yet, skipping setupWebView")
         }
+
+        // Register DocumentStart stealth polyfill if supported by Chromium WebView
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                val prefs = BrowserPreferences.getInstance(context)
+                if (prefs.userAgentMode == UserAgentMode.DEFAULT) {
+                    WebViewCompat.addDocumentStartJavaScript(
+                        this,
+                        FloatWebViewClient.STEALTH_POLYFILL_JS,
+                        setOf("*")
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "DOCUMENT_START_SCRIPT registration skipped")
+        }
     }
 
     private fun configureSettings() {
@@ -86,8 +106,13 @@ open class EBWebView @JvmOverloads constructor(
             mediaPlaybackRequiresUserGesture = false
             javaScriptCanOpenWindowsAutomatically = true
 
-            // Standard modern Chrome Android User-Agent
-            userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+            // Dynamic modern User-Agent powered by BrowserPreferences
+            val defaultSystemUa = try {
+                WebSettings.getDefaultUserAgent(context)
+            } catch (_: Exception) {
+                "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+            }
+            userAgentString = BrowserPreferences.getInstance(context).resolveUserAgent(defaultSystemUa)
 
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT

@@ -48,6 +48,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.graphics.Typeface
 import io.github.floatbro.R
+import io.github.floatbro.browser.BrowserPreferences
 import io.github.floatbro.core.webview.EBWebView
 import timber.log.Timber
 import kotlin.math.hypot
@@ -511,6 +512,11 @@ class FloatingWindowView(
         // 4. Right Action Cluster: Refresh, Dock, Close
         btnRefresh = createHeaderButton(R.drawable.ic_refresh, "刷新页面") {
             webView.reload()
+        }.apply {
+            setOnLongClickListener {
+                showRefreshActionMenu(this)
+                true
+            }
         }
 
         btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
@@ -558,6 +564,70 @@ class FloatingWindowView(
             setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
             contentDescription = tooltip
             setOnClickListener { onClick() }
+        }
+    }
+
+    private fun showRefreshActionMenu(anchor: View) {
+        val themedContext = android.view.ContextThemeWrapper(context, android.R.style.Theme_DeviceDefault_Light)
+        val popup = PopupMenu(themedContext, anchor)
+        val currentUrl = webView.url ?: ""
+        val host = try {
+            android.net.Uri.parse(currentUrl).host?.lowercase() ?: ""
+        } catch (_: Exception) { "" }
+
+        val prefs = BrowserPreferences.getInstance(context)
+        val isAdBlockOnForSite = if (host.isNotEmpty()) prefs.isAdBlockEnabledForHost(host) else prefs.isAdBlockEnabled
+
+        val adBlockTitle = if (isAdBlockOnForSite) {
+            "广告拦截: 已开启 (点击切换)"
+        } else {
+            "广告拦截: 已关闭 (已加白名单，点击开启)"
+        }
+
+        popup.menu.add(0, 1, 0, adBlockTitle)
+        popup.menu.add(0, 2, 1, "强制刷新 (清除缓存)")
+        if (currentUrl.isNotEmpty() && currentUrl != "about:blank") {
+            popup.menu.add(0, 3, 2, "复制当前网址")
+        }
+
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> {
+                    if (host.isNotEmpty()) {
+                        val enabledNow = prefs.toggleAdBlockForHost(host)
+                        val msg = if (enabledNow) {
+                            "已为 $host 开启广告拦截"
+                        } else {
+                            "已将 $host 加入白名单 (临时关闭拦截)"
+                        }
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        webView.reload()
+                    } else {
+                        prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
+                        val msg = if (prefs.isAdBlockEnabled) "全局广告拦截已开启" else "全局广告拦截已关闭"
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        webView.reload()
+                    }
+                    true
+                }
+                2 -> {
+                    webView.clearCache(true)
+                    webView.reload()
+                    true
+                }
+                3 -> {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("URL", currentUrl))
+                    android.widget.Toast.makeText(context, "网址已复制", android.widget.Toast.LENGTH_SHORT).show()
+                    true
+                }
+                else -> false
+            }
+        }
+        try {
+            popup.show()
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to show popup menu from anchor")
         }
     }
 

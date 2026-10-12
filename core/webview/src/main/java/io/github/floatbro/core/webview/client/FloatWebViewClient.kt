@@ -20,6 +20,8 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import io.github.edsuns.adfilter.AdFilter
+import io.github.floatbro.browser.BrowserPreferences
+import io.github.floatbro.browser.UserAgentMode
 import io.github.floatbro.core.webview.bridge.InputFocusBridge
 import timber.log.Timber
 
@@ -41,10 +43,39 @@ class FloatWebViewClient(
             return WebResourceResponse("text/plain", "UTF-8", null)
         }
 
-        val result = AdFilter.get().shouldIntercept(view, request)
-        if (result.shouldBlock) {
-            Timber.v("AdBlock blocked URL: %s, rule: %s", request.url, result.rule)
-            return result.resourceResponse ?: WebResourceResponse("text/plain", "UTF-8", null)
+        // Block rogue subresources on non-standard high ports (e.g. ad networks on :37068, :33473, :8321)
+        val port = request.url.port
+        val isNonStandardPort = port > 0 && port != 80 && port != 443 && port != 8080 && port != 8443
+        val isLocalhost = host == "localhost" || host == "127.0.0.1" ||
+            (host != null && (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")))
+        if (isNonStandardPort && !isLocalhost && !request.isForMainFrame) {
+            Timber.i("Blocked high-port rogue subresource: %s (port=%d)", request.url, port)
+            return WebResourceResponse("text/plain", "UTF-8", null)
+        }
+
+        // Whitelist & adblock toggle check based on main document host
+        if (request.isForMainFrame) {
+            AdFilter.get().setMainFrameUrl(view, request.url.toString())
+        }
+
+        val mainFrameUrl = if (request.isForMainFrame) {
+            request.url.toString()
+        } else {
+            AdFilter.get().getMainFrameUrl(view)
+                ?: request.requestHeaders?.get("Referer")
+                ?: request.requestHeaders?.get("referer")
+        }
+        val mainFrameHost = try {
+            mainFrameUrl?.let { android.net.Uri.parse(it).host?.lowercase() } ?: ""
+        } catch (_: Exception) { "" }
+
+        val prefs = BrowserPreferences.getInstance(view.context)
+        if (prefs.isAdBlockEnabled && (mainFrameHost.isEmpty() || prefs.isAdBlockEnabledForHost(mainFrameHost))) {
+            val result = AdFilter.get().shouldIntercept(view, request)
+            if (result.shouldBlock) {
+                Timber.v("AdBlock blocked URL: %s, rule: %s", request.url, result.rule)
+                return result.resourceResponse ?: WebResourceResponse("text/plain", "UTF-8", null)
+            }
         }
         return super.shouldInterceptRequest(view, request)
     }
@@ -86,10 +117,16 @@ class FloatWebViewClient(
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        view.evaluateJavascript("window._w = window; var _w = window;", null)
+        // 1. Inject Stealth polyfill for mobile anti-anti-adblock & anti-crawler protection
+        injectStealthPolyfill(view)
+
         if (!url.isNullOrEmpty()) {
-            // Inject AdFilter CSS :has() element hiding rules & scriptlets
-            AdFilter.get().performScript(view, url)
+            val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+            val prefs = BrowserPreferences.getInstance(view.context)
+            if (prefs.isAdBlockEnabled && (host.isEmpty() || prefs.isAdBlockEnabledForHost(host))) {
+                // Inject AdFilter CSS :has() element hiding rules & scriptlets
+                AdFilter.get().performScript(view, url)
+            }
             onPageStartedCallback?.invoke(url)
         }
     }
@@ -132,6 +169,59 @@ class FloatWebViewClient(
             return desc.contains("ERR_ABORTED", ignoreCase = true) ||
                    (errorCode == WebViewClient.ERROR_UNKNOWN && desc.contains("ABORTED", ignoreCase = true))
         }
+
+        const val STEALTH_POLYFILL_JS = """
+            (function() {
+                try {
+                    // 1. Normalize navigator.platform to prevent "Linux armv8l" from triggering PC crawler detection
+                    if (!navigator.platform || /linux/i.test(navigator.platform)) {
+                        Object.defineProperty(navigator, 'platform', { get: function() { return 'Android'; }, configurable: true });
+                    }
+                    // 2. Normalize navigator.userAgent: strip "Linux; " keyword to bypass naive anti-adblock / anti-crawler regexes
+                    if (navigator.userAgent && /linux/i.test(navigator.userAgent)) {
+                        var cleanedUa = navigator.userAgent.replace(/Linux;\s*/gi, '');
+                        Object.defineProperty(navigator, 'userAgent', { get: function() { return cleanedUa; }, configurable: true });
+                    }
+                    // 3. Normalize screen.width in floating window mode so responsive window width doesn't trigger PC DevTools detector
+                    if (window.innerWidth <= 768 && window.screen.width > 1024) {
+                        Object.defineProperty(screen, 'width', { get: function() { return window.innerWidth; }, configurable: true });
+                        Object.defineProperty(screen, 'availWidth', { get: function() { return window.innerWidth; }, configurable: true });
+                    }
+                    // 4. Pirated novel site instant decrypter (skip artificial 10s countdown if present)
+                    if (typeof c !== 'undefined' && typeof php_decrypt_js === 'function') {
+                        var contentEl = document.getElementById('chaptercontent');
+                        if (contentEl && (!contentEl.innerHTML || contentEl.innerHTML.indexOf('章节内容加载失败') !== -1 || contentEl.innerHTML.length < 50)) {
+                            contentEl.innerHTML = php_decrypt_js(c);
+                        }
+                    }
+                    // 5. Purge rogue ad banners and link containers
+                    var cleanNovelAds = function() {
+                        var moreEl = document.getElementById('morecontent');
+                        if (moreEl) moreEl.remove();
+                        var selectors = [
+                            'a[href*=".top"]', 'a[href*=".vip"]', 'a[href*="fbp9k"]', 'a[href*="/tg"]',
+                            'div[style*="z-index: 2147483647"]', 'div[style*="z-index: 9999"]',
+                            'div[id^="ad_"]', 'div[class*="ad_"]'
+                        ];
+                        for (var s = 0; s < selectors.length; s++) {
+                            var els = document.querySelectorAll(selectors[s]);
+                            for (var i = 0; i < els.length; i++) {
+                                var el = els[i];
+                                var container = el.closest('div') || el;
+                                if (container && container !== document.body && container.id !== 'chaptercontent') {
+                                    container.remove();
+                                }
+                            }
+                        }
+                    };
+                    cleanNovelAds();
+                    if (document.readyState !== 'complete') {
+                        document.addEventListener('DOMContentLoaded', cleanNovelAds);
+                        window.addEventListener('load', cleanNovelAds);
+                    }
+                } catch (_) {}
+            })();
+        """
     }
 
     override fun onPageCommitVisible(view: WebView, url: String) {
@@ -259,5 +349,13 @@ class FloatWebViewClient(
             </body>
             </html>
         """.trimIndent()
+    }
+
+    private fun injectStealthPolyfill(view: WebView) {
+        val prefs = BrowserPreferences.getInstance(view.context)
+        // Only inject mobile polyfill when in default mobile mode to avoid desktop fingerprint mismatch
+        if (prefs.userAgentMode == UserAgentMode.DEFAULT) {
+            view.evaluateJavascript(STEALTH_POLYFILL_JS, null)
+        }
     }
 }

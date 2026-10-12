@@ -40,7 +40,7 @@ internal object ScriptInjection {
     }
 
     private fun parse(raw: String, bridgeName: String? = null): String {
-        var js = raw.replace(DEBUG_FLAG, if (BuildConfig.DEBUG) "" else "//")
+        var js = raw.replace(DEBUG_FLAG, "//")
         if (bridgeName != null) {
             js = js.replace(JS_BRIDGE, bridgeName)
         }

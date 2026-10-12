@@ -47,11 +47,15 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
     private val mainFrameUrls: MutableMap<WebView, String> =
         Collections.synchronizedMap(WeakHashMap())
 
+    private val defaultRulesInstaller: DefaultRulesInstaller =
+        DefaultRulesInstaller(appContext, binaryDataStore, filterDataLoader)
+
     override val hasInstallation: Boolean
         get() = viewModel.sharedPreferences.hasInstallation
 
     override fun setEnabled(enable: Boolean) {
         if (enable) {
+            defaultRulesInstaller.ensureInstalledAndLoaded()
             viewModel.filters.value.values.forEach {
                 if (it.isEnabled && it.hasDownloaded()) {
                     viewModel.enableFilter(it)
@@ -63,6 +67,12 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
             filterDataLoader.unloadCustomFilter()
         }
         viewModel.updateEnabledFilterCount()
+    }
+
+    override fun getMainFrameUrl(webView: WebView): String? = mainFrameUrls[webView]
+
+    override fun setMainFrameUrl(webView: WebView, url: String) {
+        mainFrameUrls[webView] = url
     }
 
     /**
@@ -85,6 +95,8 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
         }
 
         val documentUrl = mainFrameUrls[webView]
+            ?: request.requestHeaders?.get("Referer")
+            ?: request.requestHeaders?.get("referer")
             ?: return FilterResult(null, url, null)
 
         val resourceType = ResourceType.from(request)

@@ -66,6 +66,54 @@ class BrowserPreferences(context: Context) {
         get() = prefs.getString(KEY_CUSTOM_SEARCH_URL, "") ?: ""
         set(value) = prefs.edit().putString(KEY_CUSTOM_SEARCH_URL, value).apply()
 
+    var isAdBlockEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ADBLOCK_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_ADBLOCK_ENABLED, value).apply()
+
+    var adBlockWhitelist: Set<String>
+        get() = prefs.getStringSet(KEY_ADBLOCK_WHITELIST, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_ADBLOCK_WHITELIST, value).apply()
+
+    /**
+     * Checks if ad blocking is active for the given [host].
+     * Returns false if global ad blocking is off, or if [host] / its domain is whitelisted.
+     */
+    fun isAdBlockEnabledForHost(host: String): Boolean {
+        if (!isAdBlockEnabled) return false
+        val cleanHost = host.lowercase().trim()
+        if (cleanHost.isEmpty()) return true
+        val whitelist = adBlockWhitelist
+        if (whitelist.contains(cleanHost)) return false
+        // Check parent domains (e.g. "piquge.com" matches "m.piquge.com")
+        for (whitelisted in whitelist) {
+            if (cleanHost.endsWith(".$whitelisted")) {
+                return false
+            }
+        }
+        return true
+    }
+
+    /**
+     * Toggles ad blocking for a specific [host].
+     * If currently whitelisted (disabled), removes it from whitelist and returns true (enabled).
+     * If not whitelisted, adds it to whitelist and returns false (disabled).
+     */
+    fun toggleAdBlockForHost(host: String): Boolean {
+        val cleanHost = host.lowercase().trim()
+        if (cleanHost.isEmpty()) return isAdBlockEnabled
+        val currentSet = HashSet(adBlockWhitelist)
+        val willBeEnabled: Boolean
+        if (currentSet.contains(cleanHost)) {
+            currentSet.remove(cleanHost)
+            willBeEnabled = true
+        } else {
+            currentSet.add(cleanHost)
+            willBeEnabled = false
+        }
+        adBlockWhitelist = currentSet
+        return willBeEnabled
+    }
+
     fun resolveUserAgent(defaultSystemUa: String? = null): String? {
         return when (userAgentMode) {
             UserAgentMode.DEFAULT -> defaultSystemUa
@@ -81,6 +129,8 @@ class BrowserPreferences(context: Context) {
         private const val KEY_CUSTOM_UA = "custom_user_agent"
         private const val KEY_SEARCH_ENGINE = "search_engine"
         private const val KEY_CUSTOM_SEARCH_URL = "custom_search_url"
+        private const val KEY_ADBLOCK_ENABLED = "adblock_enabled"
+        private const val KEY_ADBLOCK_WHITELIST = "adblock_whitelist"
 
         @Volatile
         private var instance: BrowserPreferences? = null

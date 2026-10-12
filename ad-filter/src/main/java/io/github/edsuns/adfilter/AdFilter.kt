@@ -55,6 +55,16 @@ interface AdFilter {
      */
     fun setupWebView(webView: WebView)
 
+    /**
+     * @return Cached main-frame URL for the given [webView], or null if unknown
+     */
+    fun getMainFrameUrl(webView: WebView): String? = null
+
+    /**
+     * Cache main-frame URL for the given [webView].
+     */
+    fun setMainFrameUrl(webView: WebView, url: String) {}
+
     companion object {
         @Volatile
         private var instance: AdFilter? = null
