@@ -178,6 +178,7 @@ class FloatingWindowView(
                 val resolvedTitle = title?.takeIf { it.isNotBlank() } ?: url
                 updateOmniText(resolvedTitle)
                 updateNavigationState()
+                io.github.floatbro.history.BrowsingHistoryManager.getInstance(context).recordVisit(url, resolvedTitle)
             }
 
             onProgressChangedListener = { progress ->

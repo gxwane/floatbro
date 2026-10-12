@@ -143,6 +143,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import android.view.ViewGroup
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.CircleShape
+import io.github.floatbro.history.BrowsingHistoryManager
+import io.github.floatbro.history.HistoryItem
 import io.github.floatbro.R
 import io.github.floatbro.core.webview.EBWebView
 import io.github.floatbro.service.FloatBrowserService
@@ -192,8 +199,23 @@ class LauncherActivity : ComponentActivity() {
     private var openMode by mutableStateOf(OpenMode.TAB)
     private val tabs = mutableStateListOf<BrowserTab>()
     private val recentClosedTabs = mutableStateListOf<BrowserTab>()
+    private val activeWebViews = mutableMapOf<String, EBWebView>()
     private var activeTabId by mutableStateOf("home")
     private var previousTabId by mutableStateOf("home")
+
+    override fun onDestroy() {
+        super.onDestroy()
+        activeWebViews.values.forEach { wv ->
+            try {
+                wv.stopLoading()
+                wv.loadUrl("about:blank")
+                wv.clearHistory()
+                wv.removeAllViews()
+                wv.destroy()
+            } catch (_: Exception) {}
+        }
+        activeWebViews.clear()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -284,12 +306,22 @@ class LauncherActivity : ComponentActivity() {
                                     onCloseTab = { tabId ->
                                         val closed = tabs.find { it.id == tabId }
                                         if (closed != null && closed.url != "about:home" && closed.url != "about:blank" && closed.url.isNotBlank()) {
+                                            BrowsingHistoryManager.getInstance(this@LauncherActivity).recordVisit(closed.url, closed.title)
                                             if (!recentClosedTabs.any { it.url == closed.url }) {
                                                 recentClosedTabs.add(0, closed)
                                                 if (recentClosedTabs.size > 5) {
                                                     recentClosedTabs.removeAt(recentClosedTabs.lastIndex)
                                                 }
                                             }
+                                        }
+                                        activeWebViews.remove(tabId)?.let { wv ->
+                                            try {
+                                                wv.stopLoading()
+                                                wv.loadUrl("about:blank")
+                                                wv.clearHistory()
+                                                wv.removeAllViews()
+                                                wv.destroy()
+                                            } catch (_: Exception) {}
                                         }
                                         tabs.removeAll { it.id == tabId }
                                         if (activeTabId == tabId) {
@@ -434,13 +466,15 @@ class LauncherActivity : ComponentActivity() {
                                                         )
                                                     }
 
-                                                    delay(200)
-                                                    cardAlphaAnim.animateTo(0f, tween(60))
-
                                                     val committingTab = draggedTab ?: return@launch
-                                                    tabs.removeAll { it.id == committingTab.id }
-                                                    if (activeTabId == committingTab.id) {
-                                                        activeTabId = "home"
+                                                    activeWebViews.remove(committingTab.id)?.let { wv ->
+                                                        try {
+                                                            wv.stopLoading()
+                                                            wv.loadUrl("about:blank")
+                                                            wv.clearHistory()
+                                                            wv.removeAllViews()
+                                                            wv.destroy()
+                                                        } catch (_: Exception) {}
                                                     }
                                                     startOverlayService(
                                                         FloatBrowserService.ACTION_SHOW,
@@ -449,7 +483,12 @@ class LauncherActivity : ComponentActivity() {
                                                         targetY.roundToInt(),
                                                         committingTab.id
                                                     )
-
+                                                    delay(160)
+                                                    cardAlphaAnim.animateTo(0f, tween(80))
+                                                    tabs.removeAll { it.id == committingTab.id }
+                                                    if (activeTabId == committingTab.id) {
+                                                        activeTabId = "home"
+                                                    }
                                                     draggedTab = null
                                                     isCommittingOrCancelling = false
                                                 }
@@ -573,14 +612,6 @@ class LauncherActivity : ComponentActivity() {
                                             onOpenUrl = { url, title ->
                                                 handleOpenUrl(url, title)
                                             },
-                                            recentClosedTabs = recentClosedTabs,
-                                            onRestoreTab = { restored ->
-                                                if (!tabs.any { it.id == restored.id }) {
-                                                    tabs.add(restored)
-                                                }
-                                                activeTabId = restored.id
-                                                recentClosedTabs.removeAll { it.id == restored.id }
-                                            },
                                             onPopoutFloating = { url, _ ->
                                                 startOverlayService(FloatBrowserService.ACTION_SHOW, url)
                                             }
@@ -600,34 +631,47 @@ class LauncherActivity : ComponentActivity() {
                                                             tabs[idx] = tabs[idx].copy(url = resolvedUrl, title = title.ifBlank { "正在加载..." })
                                                         }
                                                     },
-                                                    recentClosedTabs = recentClosedTabs,
-                                                    onRestoreTab = { restored ->
-                                                        if (!tabs.any { it.id == restored.id }) {
-                                                            tabs.add(restored)
-                                                        }
-                                                        activeTabId = restored.id
-                                                        recentClosedTabs.removeAll { it.id == restored.id }
-                                                    },
                                                     onPopoutFloating = { url, _ ->
                                                         startOverlayService(FloatBrowserService.ACTION_SHOW, url)
                                                     }
                                                 )
                                             } else {
                                                 key(currentTab.id) {
+                                                    val webView = activeWebViews.getOrPut(currentTab.id) {
+                                                        EBWebView(this@LauncherActivity).apply {
+                                                            layoutParams = ViewGroup.LayoutParams(
+                                                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                                                ViewGroup.LayoutParams.MATCH_PARENT
+                                                            )
+                                                            loadUrlSafely(currentTab.url)
+                                                        }
+                                                    }
                                                     InAppWebViewPane(
                                                         tab = currentTab,
+                                                        webView = webView,
                                                         onTearOff = {
+                                                            activeWebViews.remove(currentTab.id)?.let { wv ->
+                                                                try {
+                                                                    wv.stopLoading()
+                                                                    wv.loadUrl("about:blank")
+                                                                    wv.clearHistory()
+                                                                    wv.removeAllViews()
+                                                                    wv.destroy()
+                                                                } catch (_: Exception) {}
+                                                            }
                                                             tabs.removeAll { it.id == currentTab.id }
                                                             activeTabId = "home"
                                                             startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url, windowId = currentTab.id)
                                                         },
                                                         onUrlChanged = { newUrl ->
+                                                            BrowsingHistoryManager.getInstance(this@LauncherActivity).recordVisit(newUrl, currentTab.title)
                                                             val idx = tabs.indexOfFirst { it.id == currentTab.id }
                                                             if (idx >= 0) {
                                                                 tabs[idx] = tabs[idx].copy(url = newUrl)
                                                             }
                                                         },
                                                         onTitleReceived = { newTitle ->
+                                                            BrowsingHistoryManager.getInstance(this@LauncherActivity).recordVisit(currentTab.url, newTitle)
                                                             val idx = tabs.indexOfFirst { it.id == currentTab.id }
                                                             if (idx >= 0) {
                                                                 tabs[idx] = tabs[idx].copy(title = newTitle)
@@ -717,6 +761,7 @@ class LauncherActivity : ComponentActivity() {
             if (clearHistory) {
                 WebView(this).clearHistory()
                 recentClosedTabs.clear()
+                BrowsingHistoryManager.getInstance(this).clearHistory()
             }
             if (clearCookies) {
                 WebStorage.getInstance().deleteAllData()
@@ -900,33 +945,56 @@ fun AppTabStrip(
                         .onGloballyPositioned { tabCoordinates = it }
                         .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
                         .pointerInput(tab.id) {
-                            detectDragGestures(
-                                onDragStart = {
-                                    val myCoords = tabCoordinates
-                                    if (myCoords != null) {
-                                        val rootCoords = currentRootCoords
-                                        val origin = if (rootCoords != null && rootCoords.isAttached && myCoords.isAttached) {
-                                            rootCoords.localPositionOf(myCoords, Offset.Zero)
-                                        } else {
-                                            myCoords.positionInRoot()
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var isDragging = false
+                                var totalDx = 0f
+                                var totalDy = 0f
+                                val touchSlop = viewConfiguration.touchSlop
+
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!change.pressed) {
+                                        if (isDragging) {
+                                            currentOnTabDragEnd()
                                         }
-                                        Timber.d("AppTabStrip onDragStart tab=${tab.title}, origin=$origin, size=${myCoords.size}")
-                                        currentOnTabDragStart(tab, origin, myCoords.size)
+                                        break
                                     }
-                                },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    currentOnTabDrag(dragAmount)
-                                },
-                                onDragEnd = {
-                                    Timber.d("AppTabStrip onDragEnd tab=${tab.title}")
-                                    currentOnTabDragEnd()
-                                },
-                                onDragCancel = {
-                                    Timber.d("AppTabStrip onDragCancel tab=${tab.title}")
-                                    currentOnTabDragCancel()
+
+                                    val dragAmount = change.positionChange()
+                                    if (!isDragging) {
+                                        totalDx += dragAmount.x
+                                        totalDy += dragAmount.y
+                                        val dist = kotlin.math.sqrt(totalDx * totalDx + totalDy * totalDy)
+                                        if (dist > touchSlop) {
+                                            // Check if downward tear-off gesture
+                                            if (totalDy > 0 && totalDy > 1.3f * kotlin.math.abs(totalDx)) {
+                                                isDragging = true
+                                                change.consume()
+                                                val myCoords = tabCoordinates
+                                                if (myCoords != null) {
+                                                    val rootCoords = currentRootCoords
+                                                    val origin = if (rootCoords != null && rootCoords.isAttached && myCoords.isAttached) {
+                                                        rootCoords.localPositionOf(myCoords, Offset.Zero)
+                                                    } else {
+                                                        myCoords.positionInRoot()
+                                                    }
+                                                    Timber.d("AppTabStrip onDragStart tab=${tab.title}, origin=$origin, size=${myCoords.size}")
+                                                    currentOnTabDragStart(tab, origin, myCoords.size)
+                                                    currentOnTabDrag(Offset(totalDx, totalDy))
+                                                }
+                                            } else {
+                                                // Dominant horizontal movement or upward - pass to parent horizontalScroll!
+                                                break
+                                            }
+                                        }
+                                    } else {
+                                        change.consume()
+                                        currentOnTabDrag(dragAmount)
+                                    }
                                 }
-                            )
+                            }
                         }
                         .clickable { onSelectTab(tab.id) }
                 ) {
@@ -942,8 +1010,8 @@ fun AppTabStrip(
                                 bitmap = tab.favicon!!.asImageBitmap(),
                                 contentDescription = null,
                                 modifier = Modifier
-                                    .size(14.dp)
-                                    .clip(RoundedCornerShape(2.dp))
+                                .size(14.dp)
+                                .clip(RoundedCornerShape(2.dp))
                             )
                         } else {
                             Icon(
@@ -994,35 +1062,45 @@ fun AppTabStrip(
                 }
             }
 
-            // New Tab Button
-            IconButton(
-                onClick = onNewTab,
+            // New Tab Button aligned to 36dp baseline
+            Box(
                 modifier = Modifier
-                    .size(FloatBroUiTokens.ToolbarButtonTouchTarget)
-                    .padding(bottom = 2.dp)
+                    .height(36.dp)
+                    .width(36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    onClick = onNewTab,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "新建标签页",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // Settings Button pinned at top-right aligned to 36dp baseline
+        Box(
+            modifier = Modifier
+                .height(36.dp)
+                .width(36.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "新建标签页",
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "设置",
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-
-        // Settings Button pinned at top-right
-        IconButton(
-            onClick = onOpenSettings,
-            modifier = Modifier
-                .size(FloatBroUiTokens.ToolbarButtonTouchTarget)
-                .padding(bottom = 2.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "设置",
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -1206,12 +1284,63 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    var showGesturesDialog by remember { mutableStateOf(false) }
     var clearCacheSelected by remember { mutableStateOf(true) }
     var clearHistorySelected by remember { mutableStateOf(true) }
     var clearCookiesSelected by remember { mutableStateOf(false) }
 
     var isAdBlockEnabled by remember { mutableStateOf(true) }
     var isCosmeticFilterEnabled by remember { mutableStateOf(true) }
+
+    if (showGesturesDialog) {
+        AlertDialog(
+            onDismissRequest = { showGesturesDialog = false },
+            title = {
+                Text(
+                    text = "手势与多窗口操作指南",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = Slate900
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column {
+                        Text("1. 下拉撕裂浮窗", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Slate900)
+                        Text("在顶栏标签按住任意网页垂直向下拉动，平滑脱离为独立桌面悬浮窗。", fontSize = 12.sp, color = Slate600, modifier = Modifier.padding(top = 2.dp))
+                    }
+                    Column {
+                        Text("2. 顶边上推收回", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Slate900)
+                        Text("按住悬浮窗向上拖动触碰屏幕顶边，或点击顶栏「收回」图标，一键收回至应用内标签。", fontSize = 12.sp, color = Slate600, modifier = Modifier.padding(top = 2.dp))
+                    }
+                    Column {
+                        Text("3. 底边下拉关闭", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Slate900)
+                        Text("拖动悬浮窗或边缘气泡至屏幕底部中央的关闭靶心，即可快速销毁会话。", fontSize = 12.sp, color = Slate600, modifier = Modifier.padding(top = 2.dp))
+                    }
+                    Column {
+                        Text("4. 左右外推折叠气泡", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Slate900)
+                        Text("将悬浮窗向屏幕左侧或右侧边缘快速抛掷，将自动折叠为贴边气泡。", fontSize = 12.sp, color = Slate600, modifier = Modifier.padding(top = 2.dp))
+                    }
+                    Column {
+                        Text("5. 右下角自由缩放", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Slate900)
+                        Text("按住悬浮窗右下角的抓握角标自由拖动，即可调整窗口宽高尺寸。", fontSize = 12.sp, color = Slate600, modifier = Modifier.padding(top = 2.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showGesturesDialog = false }) {
+                    Text("知道了", color = BrandBlue, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -1347,9 +1476,9 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            // Group 1: 浏览与多任务
+            // Group 1: 浏览与多窗口
             Text(
-                text = "浏览与多任务",
+                text = "浏览与多窗口",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = BrandBlue,
@@ -1368,12 +1497,7 @@ fun SettingsScreen(
                         fontSize = 14.5.sp,
                         color = Slate900
                     )
-                    Text(
-                        text = "点击常用导航或搜索链接时的首选打开模式",
-                        fontSize = 12.sp,
-                        color = Slate500,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-                    )
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1391,7 +1515,7 @@ fun SettingsScreen(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 14.dp),
+                        modifier = Modifier.padding(vertical = 12.dp),
                         color = Slate100
                     )
 
@@ -1400,25 +1524,52 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "系统悬浮窗权限",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.5.sp,
-                                color = Slate900
-                            )
-                            Text(
-                                text = if (hasOverlayPermission) "悬浮权限已正常开启" else "尚未授权，点击跳转系统设置授权",
-                                fontSize = 12.sp,
-                                color = if (hasOverlayPermission) BrandEmerald else Color(0xFFEF4444),
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
+                        Text(
+                            text = "系统悬浮窗权限",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900
+                        )
                         if (!hasOverlayPermission) {
                             Button(onClick = onRequestOverlayPermission) {
                                 Text("去授权", fontSize = 12.sp)
                             }
+                        } else {
+                            Text(
+                                text = "已授权",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = BrandEmerald
+                            )
                         }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = Slate100
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showGesturesDialog = true }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "手势与多窗口操作指南",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "查看指南",
+                            tint = Slate600,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
@@ -1439,61 +1590,26 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Slate200)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "广告与网络追踪拦截",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.5.sp,
-                                color = Slate900
-                            )
-                            Text(
-                                text = "过滤侵扰性广告与第三方数据追踪",
-                                fontSize = 12.sp,
-                                color = Slate500,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                        Switch(
-                            checked = isAdBlockEnabled,
-                            onCheckedChange = { isAdBlockEnabled = it }
-                        )
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = Slate100
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "广告与网络追踪拦截",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.5.sp,
+                        color = Slate900
                     )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "网页元素净化",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.5.sp,
-                                color = Slate900
-                            )
-                            Text(
-                                text = "自动隐藏广告占位留白，保持网页整洁排版",
-                                fontSize = 12.sp,
-                                color = Slate500,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
+                    Switch(
+                        checked = isAdBlockEnabled,
+                        onCheckedChange = {
+                            isAdBlockEnabled = it
+                            isCosmeticFilterEnabled = it
                         }
-                        Switch(
-                            checked = isCosmeticFilterEnabled,
-                            onCheckedChange = { isCosmeticFilterEnabled = it }
-                        )
-                    }
+                    )
                 }
             }
 
@@ -1521,20 +1637,12 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "清除浏览数据",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.5.sp,
-                            color = Slate900
-                        )
-                        Text(
-                            text = "自主选择清理缓存、历史记录或 Cookies",
-                            fontSize = 12.sp,
-                            color = Slate500,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
+                    Text(
+                        text = "清除浏览数据",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.5.sp,
+                        color = Slate900
+                    )
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "清除",
@@ -1598,13 +1706,17 @@ fun BrowserHomeView(
     hasPermission: Boolean,
     onRequestPermission: () -> Unit,
     onOpenUrl: (String, String) -> Unit,
-    recentClosedTabs: List<BrowserTab> = emptyList(),
-    onRestoreTab: (BrowserTab) -> Unit = {},
     onPopoutFloating: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
+
+    val historyList = remember { mutableStateListOf<HistoryItem>() }
+    LaunchedEffect(Unit) {
+        historyList.clear()
+        historyList.addAll(BrowsingHistoryManager.getInstance(context).getHistory().take(6))
+    }
 
     // Clipboard URL detection
     var clipboardUrl by remember { mutableStateOf<String?>(null) }
@@ -1836,8 +1948,8 @@ fun BrowserHomeView(
             Spacer(modifier = Modifier.height(14.dp))
         }
 
-        // 6. Recent Closed Sessions / History Browsing (仅展示真实关闭历史，无假数据 fallback 与打开胶囊)
-        if (recentClosedTabs.isNotEmpty()) {
+        // 6. Recent Browsing History from persistent storage
+        if (historyList.isNotEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
@@ -1845,31 +1957,79 @@ fun BrowserHomeView(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = "最近关闭的网页",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "最近浏览历史",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "清除",
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable {
+                                    BrowsingHistoryManager.getInstance(context).clearHistory()
+                                    historyList.clear()
+                                }
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    recentClosedTabs.take(5).forEach { item ->
+                    historyList.forEach { item ->
+                        val brandRes = when {
+                            item.url.contains("baidu.com") -> R.drawable.ic_brand_baidu
+                            item.url.contains("bing.com") -> R.drawable.ic_brand_bing
+                            item.url.contains("zhihu.com") -> R.drawable.ic_brand_zhihu
+                            item.url.contains("bilibili.com") -> R.drawable.ic_brand_bilibili
+                            else -> null
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
-                                    onRestoreTab(item)
+                                    onOpenUrl(item.url, item.title)
                                 }
                                 .padding(vertical = 8.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Language,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            if (brandRes != null) {
+                                Image(
+                                    painter = painterResource(id = brandRes),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                )
+                            } else {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        val hostInitial = try {
+                                            java.net.URI(item.url).host?.removePrefix("www.")?.firstOrNull()?.uppercaseChar()?.toString() ?: "W"
+                                        } catch (_: Exception) {
+                                            "W"
+                                        }
+                                        Text(
+                                            text = hostInitial,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -1938,12 +2098,12 @@ fun QuickDialItem(title: String, iconRes: Int, onClick: () -> Unit) {
 @Composable
 fun InAppWebViewPane(
     tab: BrowserTab,
+    webView: EBWebView,
     onTearOff: () -> Unit,
     onUrlChanged: (String) -> Unit = {},
     onTitleReceived: (String) -> Unit,
     onFaviconReceived: (Bitmap) -> Unit
 ) {
-    var webViewInstance by remember { mutableStateOf<EBWebView?>(null) }
     var loadingProgress by remember { mutableStateOf(0) }
     var isEditingUrl by remember { mutableStateOf(false) }
     var editingUrlText by remember(tab.url) { mutableStateOf(tab.url) }
@@ -1951,46 +2111,39 @@ fun InAppWebViewPane(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Mini Toolbar
+        // Mini Toolbar matching FloatingWindowView: [Back] [Forward] [Capsule 32dp] [Refresh] [Popout]
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(FloatBroUiTokens.ToolbarButtonTouchTarget)
+                .height(44.dp)
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = { webViewInstance?.let { if (it.canGoBack()) it.goBack() } },
-                modifier = Modifier.size(FloatBroUiTokens.ToolbarButtonTouchTarget)
+                onClick = { if (webView.canGoBack()) webView.goBack() },
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "后退", modifier = Modifier.size(20.dp))
             }
-            Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
+            Spacer(modifier = Modifier.width(2.dp))
             IconButton(
-                onClick = { webViewInstance?.let { if (it.canGoForward()) it.goForward() } },
-                modifier = Modifier.size(FloatBroUiTokens.ToolbarButtonTouchTarget)
+                onClick = { if (webView.canGoForward()) webView.goForward() },
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "前进", modifier = Modifier.size(20.dp))
             }
-            Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
-            IconButton(
-                onClick = { webViewInstance?.reload() },
-                modifier = Modifier.size(FloatBroUiTokens.ToolbarButtonTouchTarget)
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = "刷新", modifier = Modifier.size(20.dp))
-            }
-            Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
+            Spacer(modifier = Modifier.width(4.dp))
 
             if (isEditingUrl) {
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surface,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     modifier = Modifier
                         .weight(1f)
-                        .height(28.dp)
-                        .padding(horizontal = 4.dp)
+                        .height(32.dp)
+                        .padding(horizontal = 2.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -2003,7 +2156,8 @@ fun InAppWebViewPane(
                             onValueChange = { editingUrlText = it },
                             singleLine = true,
                             textStyle = TextStyle(
-                                fontSize = 11.5.sp,
+                                fontSize = 12.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurface
                             ),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
@@ -2011,7 +2165,7 @@ fun InAppWebViewPane(
                                 if (editingUrlText.isNotBlank()) {
                                     val resolved = LauncherActivity.resolveBrowserUrl(editingUrlText)
                                     onUrlChanged(resolved)
-                                    webViewInstance?.loadUrlSafely(resolved)
+                                    webView.loadUrlSafely(resolved)
                                 }
                                 isEditingUrl = false
                                 keyboardController?.hide()
@@ -2041,12 +2195,12 @@ fun InAppWebViewPane(
                 }
             } else {
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier
                         .weight(1f)
-                        .height(28.dp)
-                        .padding(horizontal = 4.dp)
+                        .height(32.dp)
+                        .padding(horizontal = 2.dp)
                         .clickable {
                             editingUrlText = tab.url
                             isEditingUrl = true
@@ -2067,7 +2221,7 @@ fun InAppWebViewPane(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = tab.url,
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2076,15 +2230,22 @@ fun InAppWebViewPane(
                 }
             }
 
-            // Tear-Off button to directly pop out to floating overlay
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(
+                onClick = { webView.reload() },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "刷新", modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.width(2.dp))
             IconButton(
                 onClick = onTearOff,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                     contentDescription = "弹射为独立悬浮窗",
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -2104,26 +2265,29 @@ fun InAppWebViewPane(
             Spacer(modifier = Modifier.height(2.dp))
         }
 
-        // Web Content
+        // Web Content reusing cached webView
         AndroidView(
-            factory = { ctx ->
-                EBWebView(ctx).apply {
-                    layoutParams = android.view.ViewGroup.LayoutParams(
-                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            factory = { _ ->
+                (webView.parent as? ViewGroup)?.removeView(webView)
+                webView.apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    onProgressChangedListener = { progress ->
-                        loadingProgress = progress
-                    }
+                    onProgressChangedListener = { progress -> loadingProgress = progress }
                     onTitleChangedListener = { title -> onTitleReceived(title) }
                     onReceivedIconListener = { icon -> onFaviconReceived(icon) }
                     onPageStartedListener = { startedUrl -> onUrlChanged(startedUrl) }
-                    loadUrlSafely(tab.url)
-                    webViewInstance = this
                 }
             },
             update = { wv ->
-                webViewInstance = wv
+                wv.onProgressChangedListener = { progress -> loadingProgress = progress }
+                wv.onTitleChangedListener = { title -> onTitleReceived(title) }
+                wv.onReceivedIconListener = { icon -> onFaviconReceived(icon) }
+                wv.onPageStartedListener = { startedUrl -> onUrlChanged(startedUrl) }
+            },
+            onRelease = { wv ->
+                (wv.parent as? ViewGroup)?.removeView(wv)
             },
             modifier = Modifier
                 .weight(1f)

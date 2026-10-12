@@ -483,7 +483,14 @@ class FloatingWindowManager(private val context: Context) {
             }
         }
 
-        // 3. Destroy WebView clean sequence
+        // 3. Record final history before destroy
+        val finalUrl = session.windowView.webView.url ?: session.url
+        val finalTitle = session.windowView.webView.title ?: ""
+        if (finalUrl.isNotBlank() && finalUrl != "about:blank") {
+            io.github.floatbro.history.BrowsingHistoryManager.getInstance(context).recordVisit(finalUrl, finalTitle)
+        }
+
+        // 4. Destroy WebView clean sequence
         try {
             window.webView.stopLoading()
             window.webView.loadUrl("about:blank")
