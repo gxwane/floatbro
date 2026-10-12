@@ -127,4 +127,63 @@ class OverlayPhysicsHelperTest {
             )
         )
     }
+
+    @Test
+    fun testResolveWindowDragAction() {
+        val windowWidth = 600
+        val screenWidth = 1080
+        val topDockThreshold = 100
+
+        // 1. Upward drag beyond top threshold -> DOCK_TO_APP
+        assertEquals(
+            WindowDragAction.DOCK_TO_APP,
+            OverlayPhysicsHelper.resolveWindowDragAction(
+                currentY = 50,
+                currentX = 200,
+                windowWidth = windowWidth,
+                screenWidth = screenWidth,
+                topDockThresholdPx = topDockThreshold,
+                isDismissHit = false
+            )
+        )
+
+        // 2. Downward drag hitting dismiss target -> DISMISS_TO_TARGET
+        assertEquals(
+            WindowDragAction.DISMISS_TO_TARGET,
+            OverlayPhysicsHelper.resolveWindowDragAction(
+                currentY = 1500,
+                currentX = 240,
+                windowWidth = windowWidth,
+                screenWidth = screenWidth,
+                topDockThresholdPx = topDockThreshold,
+                isDismissHit = true
+            )
+        )
+
+        // 3. Pushed off screen left (x = -300 < -240) -> COLLAPSE_TO_BUBBLE
+        assertEquals(
+            WindowDragAction.COLLAPSE_TO_BUBBLE,
+            OverlayPhysicsHelper.resolveWindowDragAction(
+                currentY = 500,
+                currentX = -300,
+                windowWidth = windowWidth,
+                screenWidth = screenWidth,
+                topDockThresholdPx = topDockThreshold,
+                isDismissHit = false
+            )
+        )
+
+        // 4. Normal drag inside screen -> SNAP_EDGE
+        assertEquals(
+            WindowDragAction.SNAP_EDGE,
+            OverlayPhysicsHelper.resolveWindowDragAction(
+                currentY = 500,
+                currentX = 200,
+                windowWidth = windowWidth,
+                screenWidth = screenWidth,
+                topDockThresholdPx = topDockThreshold,
+                isDismissHit = false
+            )
+        )
+    }
 }

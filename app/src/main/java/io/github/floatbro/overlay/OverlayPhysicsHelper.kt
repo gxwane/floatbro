@@ -79,4 +79,40 @@ object OverlayPhysicsHelper {
         val distance = hypot(bubbleCenterX - targetCenterX, bubbleCenterY - targetCenterY)
         return distance <= hitRadiusPx
     }
+
+    /**
+     * Resolves the resulting action when a floating window drag gesture ends.
+     */
+    fun resolveWindowDragAction(
+        currentY: Int,
+        currentX: Int,
+        windowWidth: Int,
+        screenWidth: Int,
+        topDockThresholdPx: Int,
+        isDismissHit: Boolean,
+        collapseRatio: Float = 0.40f
+    ): WindowDragAction {
+        if (currentY <= topDockThresholdPx) {
+            return WindowDragAction.DOCK_TO_APP
+        }
+        if (isDismissHit) {
+            return WindowDragAction.DISMISS_TO_TARGET
+        }
+        val isPushedOffLeft = currentX < -(windowWidth * collapseRatio)
+        val isPushedOffRight = (currentX + windowWidth) > (screenWidth + windowWidth * collapseRatio)
+        if (isPushedOffLeft || isPushedOffRight) {
+            return WindowDragAction.COLLAPSE_TO_BUBBLE
+        }
+        return WindowDragAction.SNAP_EDGE
+    }
+}
+
+/**
+ * Resulting action when a floating window drag gesture completes.
+ */
+enum class WindowDragAction {
+    DOCK_TO_APP,
+    DISMISS_TO_TARGET,
+    COLLAPSE_TO_BUBBLE,
+    SNAP_EDGE
 }

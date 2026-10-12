@@ -43,12 +43,8 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.graphics.Typeface
-import android.widget.Toast
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.ComposeView
 import io.github.floatbro.R
 import io.github.floatbro.core.webview.EBWebView
-import io.github.floatbro.ui.theme.FloatBroTheme
 import timber.log.Timber
 import kotlin.math.hypot
 
@@ -81,16 +77,9 @@ class FloatingWindowView(
     private lateinit var urlEditText: EditText
     private lateinit var clearInputButton: ImageButton
     private lateinit var btnRefresh: ImageButton
-    private lateinit var btnMenu: ImageButton
     private lateinit var btnDock: ImageButton
     private lateinit var btnClose: ImageButton
     private lateinit var btnCancelEdit: TextView
-
-    // In-Window Compose Overlay Menu
-    private lateinit var composeOverlayView: ComposeView
-    private val isMenuOpenState = mutableStateOf(false)
-    val isMenuOpen: Boolean
-        get() = isMenuOpenState.value
 
     var onMinimizeRequested: (() -> Unit)? = null
     var onCloseRequested: (() -> Unit)? = null
@@ -100,6 +89,10 @@ class FloatingWindowView(
     var onInputFocusRequested: ((Boolean) -> Unit)? = null
     var onBringToFrontRequested: (() -> Unit)? = null
     var onBoundsChanged: ((width: Int, height: Int, x: Int, y: Int) -> Unit)? = null
+
+    var onDragStarted: (() -> Unit)? = null
+    var onDragMoved: ((rawX: Float, rawY: Float) -> Unit)? = null
+    var onDragEnded: ((rawX: Float, rawY: Float) -> Boolean)? = null
 
     var currentFavicon: Bitmap? = null
         private set
@@ -213,47 +206,6 @@ class FloatingWindowView(
         // 4. Invisible 48dp Bottom-Right Resize Handle
         val resizeHandle = createResizeHandle()
         addView(resizeHandle)
-
-        // 5. In-Window Compose Overlay Menu
-        composeOverlayView = ComposeView(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            visibility = GONE
-            setContent {
-                InWindowOverlayMenu(
-                    isOpen = isMenuOpenState.value,
-                    onClose = { closeMenu() },
-                    onResetSplit = { closeMenu() },
-                    onToggleSplit = {
-                        closeMenu()
-                        onToggleSplitRequested?.invoke()
-                    },
-                    onClearCache = {
-                        closeMenu()
-                        webView.clearCache(true)
-                        Toast.makeText(context, "网页缓存已清除", Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
-        }
-        addView(composeOverlayView)
-    }
-
-    fun openMenu() {
-        if (isMenuOpenState.value) return
-        if (isEditMode) {
-            exitEditMode()
-        }
-        isMenuOpenState.value = true
-        composeOverlayView.visibility = VISIBLE
-        onInputFocusRequested?.invoke(true)
-        requestFocus()
-    }
-
-    fun closeMenu() {
-        if (!isMenuOpenState.value) return
-        isMenuOpenState.value = false
-        composeOverlayView.visibility = GONE
-        onInputFocusRequested?.invoke(false)
     }
 
     private fun dpToPx(dp: Float): Int {
@@ -390,13 +342,9 @@ class FloatingWindowView(
             setOnClickListener { exitEditMode() }
         }
 
-        // 4. Right Action Cluster: Refresh, Menu, Dock, Close
+        // 4. Right Action Cluster: Refresh, Dock, Close
         btnRefresh = createHeaderButton(R.drawable.ic_refresh, "刷新页面") {
             webView.reload()
-        }
-
-        btnMenu = createHeaderButton(R.drawable.ic_more_vert, "更多选项") {
-            openMenu()
         }
 
         btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
@@ -416,7 +364,6 @@ class FloatingWindowView(
         header.addView(omniCapsule)
         header.addView(btnCancelEdit)
         header.addView(btnRefresh)
-        header.addView(btnMenu)
         header.addView(btnDock)
         header.addView(btnClose)
 
@@ -447,8 +394,9 @@ class FloatingWindowView(
             resizeHandleView = this
             layoutParams = LayoutParams(handleSize, handleSize, Gravity.BOTTOM or Gravity.END)
             setImageResource(R.drawable.ic_resize_grip)
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            alpha = 0.45f
+            scaleType = ImageView.ScaleType.FIT_END
+            setPadding(dpToPx(24f), dpToPx(24f), dpToPx(4f), dpToPx(4f))
+            alpha = 0.5f
             contentDescription = "调整窗口大小"
             setOnTouchListener { _, event -> handleResizeTouchEvent(event) }
         }
@@ -510,7 +458,6 @@ class FloatingWindowView(
         btnBack.visibility = GONE
         btnForward.visibility = GONE
         btnRefresh.visibility = GONE
-        btnMenu.visibility = GONE
         btnDock.visibility = GONE
         btnClose.visibility = GONE
         btnCancelEdit.visibility = VISIBLE
@@ -564,7 +511,6 @@ class FloatingWindowView(
         btnBack.visibility = VISIBLE
         btnForward.visibility = VISIBLE
         btnRefresh.visibility = VISIBLE
-        btnMenu.visibility = VISIBLE
         btnDock.visibility = VISIBLE
         btnClose.visibility = VISIBLE
         updateNavigationState()
@@ -597,6 +543,7 @@ class FloatingWindowView(
                 initialWindowY = layoutParams.y
                 touchStartTime = System.currentTimeMillis()
                 onBringToFrontRequested?.invoke()
+                onDragStarted?.invoke()
                 return true
             }
 
@@ -614,6 +561,7 @@ class FloatingWindowView(
                             Timber.w(e, "Error updating window layout during drag")
                         }
                     }
+                    onDragMoved?.invoke(event.rawX, event.rawY)
                 }
                 return true
             }
@@ -628,12 +576,12 @@ class FloatingWindowView(
                     enterEditMode()
                     return true
                 } else {
-                    return finishDragGesture()
+                    return finishDragGesture(event.rawX, event.rawY)
                 }
             }
 
             MotionEvent.ACTION_CANCEL -> {
-                return finishDragGesture()
+                return finishDragGesture(event.rawX, event.rawY)
             }
         }
         return false
@@ -672,9 +620,6 @@ class FloatingWindowView(
             if (isEditMode) {
                 exitEditMode()
             }
-            if (isMenuOpenState.value) {
-                closeMenu()
-            }
             return true
         }
         return handleEdgeDragTouchEvent(event) || super.onTouchEvent(event)
@@ -688,6 +633,7 @@ class FloatingWindowView(
                 initialWindowX = layoutParams.x
                 initialWindowY = layoutParams.y
                 onBringToFrontRequested?.invoke()
+                onDragStarted?.invoke()
                 return true
             }
 
@@ -704,88 +650,105 @@ class FloatingWindowView(
                         Timber.w(e, "Error updating window layout during edge drag")
                     }
                 }
+                onDragMoved?.invoke(event.rawX, event.rawY)
                 return true
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                return finishDragGesture()
+                return finishDragGesture(event.rawX, event.rawY)
             }
         }
         return false
     }
 
-    private fun finishDragGesture(): Boolean {
+    private fun finishDragGesture(dropX: Float = 0f, dropY: Float = 0f): Boolean {
         val displayMetrics = context.resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
         val winWidth = layoutParams.width
 
-        // 1. Check Downward Drag-to-Dock
-        val bottomDockThreshold = screenHeight - dpToPx(90f)
-        if (layoutParams.y > bottomDockThreshold) {
-            val currentUrl = webView.url ?: "about:blank"
-            val currentTitle = webView.title ?: "已收回网页"
-            onDockRequested?.invoke(currentUrl, currentTitle)
-            return true
-        }
+        val isDismissHit = onDragEnded?.invoke(dropX, dropY) ?: false
 
-        // 2. Check Push Off-Screen (>= 40% window width pushed outside) to collapse into bubble
-        val isPushedOffLeft = layoutParams.x < -(winWidth * 0.40f)
-        val isPushedOffRight = (layoutParams.x + winWidth) > (screenWidth + winWidth * 0.40f)
-
-        if (isPushedOffLeft || isPushedOffRight) {
-            onMinimizeRequested?.invoke()
-            return true
-        }
-
-        // 3. Magnetic Edge Snapping: Stay as window, clamp smoothly against edges
-        val edgeDetectRange = dpToPx(36f)
-        val startX = layoutParams.x
-        val targetX = OverlayPhysicsHelper.calculateSnapTargetX(
-            currentX = startX,
+        val action = OverlayPhysicsHelper.resolveWindowDragAction(
+            currentY = layoutParams.y,
+            currentX = layoutParams.x,
             windowWidth = winWidth,
             screenWidth = screenWidth,
-            snapThresholdPx = edgeDetectRange
+            topDockThresholdPx = dpToPx(36f),
+            isDismissHit = isDismissHit
         )
 
-        // Clamp Y in safe bounds
-        val minY = dpToPx(36f)
-        val maxY = screenHeight - dpToPx(120f)
-        layoutParams.y = layoutParams.y.coerceIn(minY, maxY)
-
-        if (startX != targetX) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
-            } else {
-                performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        return when (action) {
+            WindowDragAction.DOCK_TO_APP -> {
+                val currentUrl = webView.url ?: "about:blank"
+                val currentTitle = webView.title ?: "已收回网页"
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
+                }
+                onDockRequested?.invoke(currentUrl, currentTitle)
+                true
             }
-            ValueAnimator.ofInt(startX, targetX).apply {
-                duration = 200L
-                interpolator = DecelerateInterpolator()
-                addUpdateListener { animation ->
-                    layoutParams.x = animation.animatedValue as Int
+            WindowDragAction.DISMISS_TO_TARGET -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                }
+                onCloseRequested?.invoke()
+                true
+            }
+            WindowDragAction.COLLAPSE_TO_BUBBLE -> {
+                onMinimizeRequested?.invoke()
+                true
+            }
+            WindowDragAction.SNAP_EDGE -> {
+                val edgeDetectRange = dpToPx(36f)
+                val startX = layoutParams.x
+                val targetX = OverlayPhysicsHelper.calculateSnapTargetX(
+                    currentX = startX,
+                    windowWidth = winWidth,
+                    screenWidth = screenWidth,
+                    snapThresholdPx = edgeDetectRange
+                )
+
+                // Clamp Y in safe bounds
+                val minY = dpToPx(36f)
+                val maxY = screenHeight - dpToPx(120f)
+                layoutParams.y = layoutParams.y.coerceIn(minY, maxY)
+
+                if (startX != targetX) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
+                    } else {
+                        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
+                    ValueAnimator.ofInt(startX, targetX).apply {
+                        duration = 200L
+                        interpolator = DecelerateInterpolator()
+                        addUpdateListener { animation ->
+                            layoutParams.x = animation.animatedValue as Int
+                            if (isAttachedToWindow) {
+                                try {
+                                    windowManager.updateViewLayout(this@FloatingWindowView, layoutParams)
+                                    onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                                } catch (e: Exception) {
+                                    Timber.w(e, "Error updating window layout during snap animation")
+                                }
+                            }
+                        }
+                        start()
+                    }
+                } else {
                     if (isAttachedToWindow) {
                         try {
-                            windowManager.updateViewLayout(this@FloatingWindowView, layoutParams)
+                            windowManager.updateViewLayout(this, layoutParams)
                             onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
                         } catch (e: Exception) {
-                            Timber.w(e, "Error updating window layout during snap animation")
+                            Timber.w(e, "Error updating window layout after snap")
                         }
                     }
                 }
-                start()
-            }
-        } else {
-            if (isAttachedToWindow) {
-                try {
-                    windowManager.updateViewLayout(this, layoutParams)
-                    onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                } catch (e: Exception) {
-                    Timber.w(e, "Error updating window layout after snap")
-                }
+                true
             }
         }
-        return true
     }
 
     private fun handleResizeTouchEvent(event: MotionEvent): Boolean {
@@ -849,15 +812,12 @@ class FloatingWindowView(
                     return true
                 }
                 val action = BackNavigationDispatcher.resolveBackAction(
-                    isMenuOpen = isMenuOpenState.value,
+                    isMenuOpen = false,
                     canPane2GoBack = false,
                     canPane1GoBack = webView.canGoBack()
                 )
                 return when (action) {
-                    BackAction.CLOSE_MENU -> {
-                        closeMenu()
-                        true
-                    }
+                    BackAction.CLOSE_MENU -> true
                     BackAction.GO_BACK_PANE2 -> true
                     BackAction.GO_BACK_PANE1 -> {
                         webView.goBack()

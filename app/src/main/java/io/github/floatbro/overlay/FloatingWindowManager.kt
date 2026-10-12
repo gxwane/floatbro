@@ -200,6 +200,41 @@ class FloatingWindowManager(private val context: Context) {
             onDockRequested = { dockUrl, dockTitle ->
                 dockSessionToApp(session, dockUrl, dockTitle)
             }
+            val hitRadiusPx = dpToPx(110f)
+            onDragStarted = {
+                ensureDismissTargetAttached().showTarget()
+            }
+            onDragMoved = { rawX, rawY ->
+                val target = ensureDismissTargetAttached()
+                val (targetCenterX, targetCenterY) = target.getTargetCenter()
+                val isHit = OverlayPhysicsHelper.isDropTargetHit(
+                    bubbleCenterX = rawX,
+                    bubbleCenterY = rawY,
+                    targetCenterX = targetCenterX,
+                    targetCenterY = targetCenterY,
+                    hitRadiusPx = hitRadiusPx.toFloat()
+                )
+                target.setHovered(isHit)
+            }
+            onDragEnded = { rawX, rawY ->
+                val target = ensureDismissTargetAttached()
+                val (targetCenterX, targetCenterY) = target.getTargetCenter()
+                val isHit = OverlayPhysicsHelper.isDropTargetHit(
+                    bubbleCenterX = rawX,
+                    bubbleCenterY = rawY,
+                    targetCenterX = targetCenterX,
+                    targetCenterY = targetCenterY,
+                    hitRadiusPx = hitRadiusPx.toFloat()
+                )
+                target.hideTarget()
+                if (isHit) {
+                    Timber.d("FloatingWindow dropped onto dismiss target. Cleanly closing session ${session.id}")
+                    closeSession(session)
+                    true
+                } else {
+                    false
+                }
+            }
         }
 
         // Attach window
