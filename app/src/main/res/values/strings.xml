@@ -2,6 +2,6 @@
     <string name="app_name">FloatBro</string>
     <string name="notification_channel_name">FloatBro Floating Window</string>
     <string name="notification_channel_desc">Keeps the floating multitasking browser active</string>
-    <string name="floating_service_running">FloatBro 悬浮窗口运行中</string>
+    <string name="floating_service_running">FloatBro 运行中</string>
     <string name="tap_to_open_bubble">点击唤起贴边小气泡</string>
 </resources>

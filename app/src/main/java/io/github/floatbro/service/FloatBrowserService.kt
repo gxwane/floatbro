@@ -20,6 +20,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import io.github.floatbro.R
 import io.github.floatbro.overlay.FloatingWindowManager
@@ -49,7 +50,13 @@ class FloatBrowserService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        overlayManager = FloatingWindowManager(this)
+        overlayManager = FloatingWindowManager(this).apply {
+            onAllSessionsClosed = {
+                Timber.d("All floating sessions closed, stopping FloatBrowserService")
+                ServiceCompat.stopForeground(this@FloatBrowserService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+        }
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildForegroundNotification())
         Timber.d("FloatBrowserService created and initialized FloatingWindowManager")
@@ -57,6 +64,9 @@ class FloatBrowserService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        // Ensure foreground notification contract is satisfied upon any startForegroundService invocation
+        startForeground(NOTIFICATION_ID, buildForegroundNotification())
+
         val action = intent?.action
         val url = intent?.getStringExtra(EXTRA_URL) ?: intent?.dataString
         val initialX = intent?.getIntExtra(EXTRA_INITIAL_X, -1)?.takeIf { it >= 0 }
@@ -74,10 +84,21 @@ class FloatBrowserService : LifecycleService() {
                 }
             }
             ACTION_CLOSE -> {
+                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
             ACTION_SHOW, Intent.ACTION_VIEW -> {
-                overlayManager.showWindow(url, initialX, initialY, windowId)
+                if (url == null && windowId == null) {
+                    // Pure wake-up from notification click: restore or bring latest active session to front
+                    if (overlayManager.hasActiveOverlays) {
+                        overlayManager.restoreOrBringToFrontLatest()
+                    } else {
+                        overlayManager.showWindow(null, initialX, initialY, null)
+                    }
+                } else {
+                    // Explicit navigation intent from LauncherActivity or external app
+                    overlayManager.showWindow(url, initialX, initialY, windowId)
+                }
             }
             else -> {
                 if (!overlayManager.hasActiveOverlays) {
@@ -139,35 +160,11 @@ class FloatBrowserService : LifecycleService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val minimizeIntent = Intent(this, FloatBrowserService::class.java).apply {
-            action = ACTION_MINIMIZE
-        }
-        val minimizePendingIntent = PendingIntent.getService(
-            this,
-            2,
-            minimizeIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val closeIntent = Intent(this, FloatBrowserService::class.java).apply {
-            action = ACTION_CLOSE
-        }
-        val closePendingIntent = PendingIntent.getService(
-            this,
-            3,
-            closeIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.floating_service_running))
-            .setContentText(getString(R.string.tap_to_open_bubble))
             .setSmallIcon(R.drawable.ic_bubble_logo)
             .setContentIntent(showPendingIntent)
-            .addAction(R.drawable.ic_bubble_logo, "还原浮窗", showPendingIntent)
-            .addAction(R.drawable.ic_bubble_logo, "悬浮气泡", minimizePendingIntent)
-            .addAction(R.drawable.ic_close, "关闭", closePendingIntent)
-            .setOngoing(true)
+            .setOngoing(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }

@@ -65,6 +65,20 @@ class FloatingWindowManager(private val context: Context) {
     val hasActiveOverlays: Boolean
         get() = sessions.isNotEmpty()
 
+    var onAllSessionsClosed: (() -> Unit)? = null
+
+    /**
+     * Restores or brings the latest interacted session to front.
+     */
+    fun restoreOrBringToFrontLatest() {
+        val targetSession = sessions.values.maxByOrNull { it.lastInteractedTimestamp } ?: return
+        if (targetSession.mode == OverlayMode.BUBBLE) {
+            restoreBubbleToWindow(targetSession)
+        } else {
+            bringSessionToFront(targetSession)
+        }
+    }
+
     private fun ensureDismissTargetAttached(): BubbleDismissTargetView {
         val target = dismissTargetView ?: BubbleDismissTargetView(context, windowManager).also {
             dismissTargetView = it
@@ -551,9 +565,10 @@ class FloatingWindowManager(private val context: Context) {
         }
 
         session.state = SessionLifecycleState.DETACHED
-        sessions.remove(session.id)
-        if (sessions.isEmpty()) {
+        val wasRemoved = sessions.remove(session.id) != null
+        if (wasRemoved && sessions.isEmpty()) {
             dismissTargetView?.hideTarget()
+            onAllSessionsClosed?.invoke()
         }
         Timber.d("Cleanly closed session ${session.id} (preserveWebView=$preserveWebView). Remaining active: ${sessions.size}")
     }
@@ -624,6 +639,7 @@ class FloatingWindowManager(private val context: Context) {
     }
 
     fun onDestroy() {
+        onAllSessionsClosed = null
         focusMutex.releaseAll()
         sessions.values.toList().forEach { session ->
             closeSession(session)
