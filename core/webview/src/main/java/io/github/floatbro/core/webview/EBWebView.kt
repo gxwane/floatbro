@@ -16,6 +16,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
 import android.view.View
+import android.view.inputmethod.InputMethodManager
+import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 import io.github.edsuns.adfilter.AdFilter
@@ -40,7 +42,16 @@ open class EBWebView @JvmOverloads constructor(
     var onPageCommitVisibleListener: ((String) -> Unit)? = null
 
     private val inputFocusBridge = InputFocusBridge { isFocused ->
-        post { onInputFocusListener?.invoke(isFocused) }
+        post {
+            onInputFocusListener?.invoke(isFocused)
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            if (isFocused) {
+                requestFocus()
+                imm?.showSoftInput(this, 0)
+            } else {
+                imm?.hideSoftInputFromWindow(windowToken, 0)
+            }
+        }
     }
 
     init {
@@ -57,6 +68,9 @@ open class EBWebView @JvmOverloads constructor(
     }
 
     private fun configureSettings() {
+        isFocusable = true
+        isFocusableInTouchMode = true
+
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -66,6 +80,8 @@ open class EBWebView @JvmOverloads constructor(
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
+            mediaPlaybackRequiresUserGesture = false
+            javaScriptCanOpenWindowsAutomatically = true
 
             // Standard modern Chrome Android User-Agent
             userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
@@ -74,6 +90,15 @@ open class EBWebView @JvmOverloads constructor(
             cacheMode = WebSettings.LOAD_DEFAULT
             allowFileAccess = false
             allowContentAccess = false
+        }
+
+        // Configure cookies (enable cross-domain third-party cookies for services like AcFun/Bilibili)
+        try {
+            val cookieManager = CookieManager.getInstance()
+            cookieManager.setAcceptCookie(true)
+            cookieManager.setAcceptThirdPartyCookies(this, true)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to configure CookieManager in EBWebView")
         }
 
         // Hardware acceleration

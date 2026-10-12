@@ -103,6 +103,7 @@ class FloatingWindowView(
 
     private var isEditMode = false
     private var preEditY: Int? = null
+    private var preWebInputAvoidanceY: Int? = null
     private var resizeHandleView: ImageView? = null
 
     // Drag coordinates
@@ -135,6 +136,7 @@ class FloatingWindowView(
         elevation = dpToPx(12f).toFloat()
         isFocusable = true
         isFocusableInTouchMode = true
+        descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val windowBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
@@ -201,6 +203,7 @@ class FloatingWindowView(
             }
 
             onInputFocusListener = { isFocused ->
+                handleWebInputFocusChanged(isFocused)
                 this@FloatingWindowView.onInputFocusRequested?.invoke(isFocused)
             }
 
@@ -617,6 +620,50 @@ class FloatingWindowView(
         Timber.d("Exited Omnibar Edit Mode for session $sessionId")
     }
 
+    private fun handleWebInputFocusChanged(isFocused: Boolean) {
+        if (isFocused) {
+            if (!isEditMode && preWebInputAvoidanceY == null) {
+                preWebInputAvoidanceY = layoutParams.y
+                val displayMetrics = context.resources.displayMetrics
+                val screenHeight = displayMetrics.heightPixels
+                val estimatedImeHeightPx = dpToPx(300f)
+                val safeY = OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
+                    currentY = layoutParams.y,
+                    windowHeight = layoutParams.height,
+                    screenHeight = screenHeight,
+                    keyboardHeight = estimatedImeHeightPx,
+                    safeMarginPx = dpToPx(16f)
+                )
+                if (safeY != layoutParams.y) {
+                    layoutParams.y = safeY
+                    if (isAttachedToWindow) {
+                        try {
+                            windowManager.updateViewLayout(this, layoutParams)
+                            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                        } catch (e: Exception) {
+                            Timber.w(e, "Error updating layoutParams.y during handleWebInputFocusChanged")
+                        }
+                    }
+                }
+            }
+        } else {
+            preWebInputAvoidanceY?.let { originalY ->
+                if (!isEditMode && layoutParams.y != originalY) {
+                    layoutParams.y = originalY
+                    if (isAttachedToWindow) {
+                        try {
+                            windowManager.updateViewLayout(this, layoutParams)
+                            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                        } catch (e: Exception) {
+                            Timber.w(e, "Error restoring layoutParams.y during handleWebInputFocusChanged")
+                        }
+                    }
+                }
+                preWebInputAvoidanceY = null
+            }
+        }
+    }
+
     private fun commitUrlInput() {
         val input = urlEditText.text.toString().trim()
         if (input.isNotEmpty()) {
@@ -722,6 +769,7 @@ class FloatingWindowView(
             if (isEditMode) {
                 exitEditMode()
             }
+            onInputFocusRequested?.invoke(false)
             return true
         }
         return handleEdgeDragTouchEvent(event) || super.onTouchEvent(event)

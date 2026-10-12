@@ -124,9 +124,18 @@ class FloatWebViewClient(
         }
     }
 
+    companion object {
+        fun isAbortedError(errorCode: Int, description: String?): Boolean {
+            val desc = description ?: ""
+            return desc.contains("ERR_ABORTED", ignoreCase = true) ||
+                   (errorCode == WebViewClient.ERROR_UNKNOWN && desc.contains("ABORTED", ignoreCase = true))
+        }
+    }
+
     override fun onPageCommitVisible(view: WebView, url: String) {
         super.onPageCommitVisible(view, url)
         Timber.d("onPageCommitVisible: %s", url)
+        InputFocusBridge.inject(view)
         onPageCommitVisibleCallback?.invoke(url)
     }
 
@@ -138,10 +147,36 @@ class FloatWebViewClient(
         super.onReceivedError(view, request, error)
         if (request.isForMainFrame) {
             val failingUrl = request.url.toString()
-            Timber.w("Main frame failed loading: %s, error: %s (code=%d)", failingUrl, error.description, error.errorCode)
-            val errorHtml = generateErrorHtml(failingUrl, error.description.toString())
+            val desc = error.description?.toString() ?: ""
+            val code = error.errorCode
+            if (isAbortedError(code, desc)) {
+                Timber.d("Ignoring harmless main frame abort/redirect error: %s (error=%s, code=%d)", failingUrl, desc, code)
+                return
+            }
+            Timber.w("Main frame failed loading: %s, error: %s (code=%d)", failingUrl, desc, code)
+            val errorHtml = generateErrorHtml(failingUrl, desc)
             view.loadDataWithBaseURL(failingUrl, errorHtml, "text/html", "UTF-8", failingUrl)
         }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onReceivedError(
+        view: WebView,
+        errorCode: Int,
+        description: String?,
+        failingUrl: String?
+    ) {
+        @Suppress("DEPRECATION")
+        super.onReceivedError(view, errorCode, description, failingUrl)
+        val url = failingUrl ?: view.url ?: return
+        val desc = description ?: ""
+        if (isAbortedError(errorCode, desc)) {
+            Timber.d("Ignoring harmless main frame abort/redirect error: %s (error=%s, code=%d)", url, desc, errorCode)
+            return
+        }
+        Timber.w("Main frame failed loading: %s, error: %s (code=%d)", url, desc, errorCode)
+        val errorHtml = generateErrorHtml(url, desc)
+        view.loadDataWithBaseURL(url, errorHtml, "text/html", "UTF-8", url)
     }
 
     private fun generateErrorHtml(url: String, description: String): String {

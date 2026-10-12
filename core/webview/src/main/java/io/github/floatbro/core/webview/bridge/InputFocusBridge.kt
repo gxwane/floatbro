@@ -32,20 +32,26 @@ class InputFocusBridge(
                 window.__floatBroFocusInjected = true;
 
                 function isEditableElement(elem) {
-                    if (!elem) return false;
+                    if (!elem || elem.disabled || elem.readOnly) return false;
                     var tag = (elem.tagName || '').toLowerCase();
                     if (tag === 'input') {
                         var type = (elem.type || 'text').toLowerCase();
                         return type !== 'button' && type !== 'submit' && type !== 'checkbox' && 
                                type !== 'radio' && type !== 'reset' && type !== 'image' && 
-                               type !== 'color' && type !== 'range';
+                               type !== 'color' && type !== 'range' && type !== 'file';
                     }
                     if (tag === 'textarea' || tag === 'select') return true;
-                    if (elem.isContentEditable) return true;
+                    if (elem.isContentEditable || (elem.closest && elem.closest('[contenteditable="true"]'))) return true;
                     return false;
                 }
 
+                var blurTimeout = null;
+
                 document.addEventListener('focusin', function(e) {
+                    if (blurTimeout) {
+                        clearTimeout(blurTimeout);
+                        blurTimeout = null;
+                    }
                     if (isEditableElement(e.target)) {
                         if (window.FloatBroFocusBridge) {
                             window.FloatBroFocusBridge.onInputFocus(true);
@@ -55,8 +61,24 @@ class InputFocusBridge(
 
                 document.addEventListener('focusout', function(e) {
                     if (isEditableElement(e.target)) {
+                        if (blurTimeout) clearTimeout(blurTimeout);
+                        blurTimeout = setTimeout(function() {
+                            blurTimeout = null;
+                            if (window.FloatBroFocusBridge) {
+                                window.FloatBroFocusBridge.onInputFocus(false);
+                            }
+                        }, 120);
+                    }
+                }, true);
+
+                document.addEventListener('click', function(e) {
+                    if (isEditableElement(e.target) && document.activeElement === e.target) {
+                        if (blurTimeout) {
+                            clearTimeout(blurTimeout);
+                            blurTimeout = null;
+                        }
                         if (window.FloatBroFocusBridge) {
-                            window.FloatBroFocusBridge.onInputFocus(false);
+                            window.FloatBroFocusBridge.onInputFocus(true);
                         }
                     }
                 }, true);

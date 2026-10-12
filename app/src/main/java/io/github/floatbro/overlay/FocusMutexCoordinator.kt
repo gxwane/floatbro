@@ -30,11 +30,14 @@ class FocusMutexCoordinator(private val windowManager: WindowManager) {
      * Safely grants keyboard focus to the target session while defocusing any active sibling.
      */
     fun acquireFocus(targetSession: FloatingSession) {
-        if (currentFocusedSession?.id == targetSession.id) return
+        val isAlreadyFocusable = (targetSession.windowParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0
+        if (currentFocusedSession?.id == targetSession.id && isAlreadyFocusable) return
 
-        // 1. Defocus previously focused session
+        // 1. Defocus previously focused session if different
         currentFocusedSession?.let { prev ->
-            releaseFocus(prev)
+            if (prev.id != targetSession.id) {
+                releaseFocus(prev)
+            }
         }
 
         // 2. Clear FLAG_NOT_FOCUSABLE and enforce non-modal outside touch watch
@@ -59,16 +62,18 @@ class FocusMutexCoordinator(private val windowManager: WindowManager) {
      * Releases focus from the session, re-enabling touch pass-through.
      */
     fun releaseFocus(session: FloatingSession) {
+        val wasFocusable = (session.windowParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0
         session.windowParams.flags = session.windowParams.flags or
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
 
+        if (currentFocusedSession?.id == session.id) {
+            currentFocusedSession = null
+        }
+
         val view = session.windowView
-        if (view.isAttachedToWindow) {
+        if (view.isAttachedToWindow && wasFocusable) {
             try {
                 windowManager.updateViewLayout(view, session.windowParams)
-                if (currentFocusedSession?.id == session.id) {
-                    currentFocusedSession = null
-                }
                 Timber.d("FocusMutexCoordinator: Session ${session.id} released focus")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to restore NOT_FOCUSABLE for session ${session.id}")
