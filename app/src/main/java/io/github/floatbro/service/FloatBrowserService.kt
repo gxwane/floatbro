@@ -94,6 +94,14 @@ class FloatBrowserService : LifecycleService() {
         return null
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Timber.d("FloatBrowserService onConfigurationChanged: orientation=${newConfig.orientation}")
+        if (::overlayManager.isInitialized) {
+            overlayManager.onConfigurationChanged(newConfig)
+        }
+    }
+
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         Timber.d("FloatBrowserService onTrimMemory: level=$level")

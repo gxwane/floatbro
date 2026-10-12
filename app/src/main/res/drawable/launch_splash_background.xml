@@ -4,6 +4,6 @@
     <item
         android:drawable="@drawable/ic_bubble_logo"
         android:gravity="center"
-        android:width="64dp"
-        android:height="64dp" />
+        android:width="@dimen/splash_logo_size"
+        android:height="@dimen/splash_logo_size" />
 </layer-list>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="splash_logo_size">96dp</dimen>
+    <dimen name="home_logo_size">56dp</dimen>
+    <dimen name="home_content_max_width">640dp</dimen>
+    <dimen name="settings_content_max_width">680dp</dimen>
+</resources>

@@ -67,6 +67,21 @@ class BrowsingHistoryManagerTest {
     }
 
     @Test
+    fun testRemoveHistorySingleItem() {
+        historyManager.recordVisit("https://zhihu.com", "知乎")
+        historyManager.recordVisit("https://baidu.com", "百度")
+        val history = historyManager.getHistory()
+        assertEquals(2, history.size)
+
+        val idToRemove = history[0].id
+        historyManager.removeHistory(idToRemove)
+
+        val remaining = historyManager.getHistory()
+        assertEquals(1, remaining.size)
+        assertEquals("https://zhihu.com", remaining[0].url)
+    }
+
+    @Test
     fun testClearHistoryEmptiesList() {
         historyManager.recordVisit("https://baidu.com", "百度")
         assertEquals(1, historyManager.getHistory().size)

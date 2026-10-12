@@ -162,6 +162,10 @@ class FloatingWindowView(
         mainLayout.addView(progressBar)
 
         // 3. Central Web Content
+        val browserPrefs = io.github.floatbro.browser.BrowserPreferences.getInstance(context)
+        browserPrefs.resolveUserAgent(webView.settings.userAgentString)?.let { ua ->
+            webView.settings.userAgentString = ua
+        }
         webView.apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -405,15 +409,19 @@ class FloatingWindowView(
 
     private fun updateNavigationState() {
         post {
+            val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val activeColor = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
+            val disabledColor = if (isDarkMode) Color.parseColor("#475569") else Color.parseColor("#94A3B8")
+
             val canBack = webView.canGoBack()
             btnBack.isEnabled = canBack
             btnBack.alpha = if (canBack) 1.0f else 0.35f
-            btnBack.setColorFilter(if (canBack) Color.parseColor("#0F172A") else Color.parseColor("#94A3B8"))
+            btnBack.setColorFilter(if (canBack) activeColor else disabledColor)
 
             val canForward = webView.canGoForward()
             btnForward.isEnabled = canForward
             btnForward.alpha = if (canForward) 1.0f else 0.35f
-            btnForward.setColorFilter(if (canForward) Color.parseColor("#0F172A") else Color.parseColor("#94A3B8"))
+            btnForward.setColorFilter(if (canForward) activeColor else disabledColor)
         }
     }
 
@@ -525,7 +533,13 @@ class FloatingWindowView(
     private fun commitUrlInput() {
         val input = urlEditText.text.toString().trim()
         if (input.isNotEmpty()) {
-            webView.loadUrlSafely(input)
+            val prefs = io.github.floatbro.browser.BrowserPreferences.getInstance(context)
+            val resolved = io.github.floatbro.browser.BrowserUrlResolver.resolve(
+                input,
+                prefs.searchEngine,
+                prefs.customSearchUrl
+            )
+            webView.loadUrlSafely(resolved)
         }
         exitEditMode()
     }

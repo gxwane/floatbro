@@ -125,8 +125,14 @@ class FloatingWindowManager(private val context: Context) {
         val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
 
-        val defaultWidth = (screenWidth * 0.88f).toInt().coerceIn(dpToPx(280f), dpToPx(380f))
-        val defaultHeight = (screenHeight * 0.60f).toInt().coerceIn(dpToPx(380f), dpToPx(560f))
+        val isTablet = (screenWidth / displayMetrics.density) >= 600f
+        val maxInitialWidthDp = if (isTablet) 580f else 380f
+        val maxInitialHeightDp = if (isTablet) 720f else 560f
+        val widthRatio = if (isTablet) 0.52f else 0.88f
+        val heightRatio = if (isTablet) 0.65f else 0.60f
+
+        val defaultWidth = (screenWidth * widthRatio).toInt().coerceIn(dpToPx(280f), dpToPx(maxInitialWidthDp))
+        val defaultHeight = (screenHeight * heightRatio).toInt().coerceIn(dpToPx(340f), dpToPx(maxInitialHeightDp))
 
         val cascadeOffset = sessions.size * dpToPx(24f)
         val targetX = ((initialX ?: (screenWidth - defaultWidth) / 2) + cascadeOffset)
@@ -576,5 +582,37 @@ class FloatingWindowManager(private val context: Context) {
             dismissTargetView = null
         }
         lifecycleContext.onDestroy()
+    }
+
+    fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        val displayMetrics = context.resources.displayMetrics
+        val screenW = displayMetrics.widthPixels
+        val screenH = displayMetrics.heightPixels
+
+        sessions.values.forEach { session ->
+            if (session.mode == OverlayMode.WINDOW && session.windowView.isAttachedToWindow) {
+                val wp = session.windowParams
+                wp.width = wp.width.coerceAtMost(screenW)
+                wp.height = wp.height.coerceAtMost(screenH)
+                wp.x = wp.x.coerceIn(0, (screenW - wp.width).coerceAtLeast(0))
+                wp.y = wp.y.coerceIn(dpToPx(36f), (screenH - wp.height - dpToPx(48f)).coerceAtLeast(0))
+                try {
+                    windowManager.updateViewLayout(session.windowView, wp)
+                } catch (e: Exception) {
+                    Timber.w(e, "Error updating window layout on config changed")
+                }
+            } else if (session.mode == OverlayMode.BUBBLE && session.bubbleView?.isAttachedToWindow == true) {
+                val bp = session.bubbleParams
+                val bubbleSize = dpToPx(52f)
+                val tuckDepth = dpToPx(18f)
+                bp.x = if (bp.x < screenW / 2) -tuckDepth else screenW - bubbleSize + tuckDepth
+                bp.y = bp.y.coerceIn(dpToPx(36f), (screenH - dpToPx(96f) - bubbleSize).coerceAtLeast(dpToPx(36f)))
+                try {
+                    windowManager.updateViewLayout(session.bubbleView, bp)
+                } catch (e: Exception) {
+                    Timber.w(e, "Error updating bubble layout on config changed")
+                }
+            }
+        }
     }
 }

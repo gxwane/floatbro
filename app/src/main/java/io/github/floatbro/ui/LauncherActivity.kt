@@ -27,6 +27,25 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import io.github.floatbro.browser.BrowserPreferences
+import io.github.floatbro.browser.BrowserUrlResolver
+import io.github.floatbro.browser.SearchEngine
+import io.github.floatbro.browser.UserAgentMode
+import io.github.floatbro.update.AppUpdateManager
+import io.github.floatbro.update.ReleaseInfo
+import io.github.floatbro.update.UpdateCandidates
+import io.github.floatbro.update.DownloadProgress
+import android.app.Activity
+import android.app.DownloadManager
+import android.content.res.Configuration
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.filled.SystemUpdate
+import kotlinx.coroutines.delay
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -69,6 +88,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
@@ -183,14 +203,12 @@ class LauncherActivity : ComponentActivity() {
         const val EXTRA_TAB_TITLE = "extra_tab_title"
 
         fun resolveBrowserUrl(input: String): String {
-            val trimmed = input.trim()
-            return when {
-                trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
-                trimmed.startsWith("about:") -> trimmed
-                trimmed.startsWith("www.") -> "https://$trimmed"
-                trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
-                else -> "https://cn.bing.com/search?q=" + Uri.encode(trimmed)
-            }
+            return BrowserUrlResolver.resolve(input)
+        }
+
+        fun resolveBrowserUrl(context: Context, input: String): String {
+            val prefs = BrowserPreferences.getInstance(context)
+            return BrowserUrlResolver.resolve(input, prefs.searchEngine, prefs.customSearchUrl)
         }
     }
 
@@ -219,8 +237,9 @@ class LauncherActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Ensure light status bar icons (dark icons on light background) for clear battery/signal visibility
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+        // Ensure status bar icon color adapts dynamically to dark mode
+        val isDarkMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !isDarkMode
 
         loadPreferences()
         checkPermission()
@@ -602,7 +621,9 @@ class LauncherActivity : ComponentActivity() {
                                             hasOverlayPermission = hasOverlayPermission,
                                             onRequestOverlayPermission = { requestOverlayPermission() },
                                             onClearData = { cache, hist, cookies -> clearBrowsingData(cache, hist, cookies) },
-                                            onBack = { activeTabId = previousTabId }
+                                            onBack = { activeTabId = previousTabId },
+                                            onOpenUrl = { url, title -> handleOpenUrl(url, title) },
+                                            activeWebViews = activeWebViews
                                         )
                                     }
                                     "home" -> {
@@ -625,7 +646,7 @@ class LauncherActivity : ComponentActivity() {
                                                     hasPermission = hasOverlayPermission,
                                                     onRequestPermission = { requestOverlayPermission() },
                                                     onOpenUrl = { url, title ->
-                                                        val resolvedUrl = resolveBrowserUrl(url)
+                                                        val resolvedUrl = resolveBrowserUrl(this@LauncherActivity, url)
                                                         val idx = tabs.indexOfFirst { it.id == currentTab.id }
                                                         if (idx >= 0) {
                                                             tabs[idx] = tabs[idx].copy(url = resolvedUrl, title = title.ifBlank { "正在加载..." })
@@ -643,6 +664,10 @@ class LauncherActivity : ComponentActivity() {
                                                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                                                 ViewGroup.LayoutParams.MATCH_PARENT
                                                             )
+                                                            val bp = BrowserPreferences.getInstance(this@LauncherActivity)
+                                                            bp.resolveUserAgent(settings.userAgentString)?.let { ua ->
+                                                                settings.userAgentString = ua
+                                                            }
                                                             loadUrlSafely(currentTab.url)
                                                         }
                                                     }
@@ -735,7 +760,7 @@ class LauncherActivity : ComponentActivity() {
     }
 
     private fun handleOpenUrl(url: String, title: String) {
-        val resolvedUrl = resolveBrowserUrl(url)
+        val resolvedUrl = resolveBrowserUrl(this, url)
 
         if (openMode == OpenMode.FLOATING) {
             startOverlayService(FloatBrowserService.ACTION_SHOW, resolvedUrl)
@@ -1281,8 +1306,17 @@ fun SettingsScreen(
     hasOverlayPermission: Boolean,
     onRequestOverlayPermission: () -> Unit,
     onClearData: (clearCache: Boolean, clearHistory: Boolean, clearCookies: Boolean) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenUrl: (String, String) -> Unit = { _, _ -> },
+    activeWebViews: Map<String, EBWebView> = emptyMap()
 ) {
+    val context = LocalContext.current
+    val browserPrefs = remember { BrowserPreferences.getInstance(context) }
+    var userAgentMode by remember { mutableStateOf(browserPrefs.userAgentMode) }
+    var searchEngine by remember { mutableStateOf(browserPrefs.searchEngine) }
+    var showFullHistoryDialog by remember { mutableStateOf(false) }
+    var showUpdateCenterDialog by remember { mutableStateOf(false) }
+
     var showClearDialog by remember { mutableStateOf(false) }
     var showGesturesDialog by remember { mutableStateOf(false) }
     var clearCacheSelected by remember { mutableStateOf(true) }
@@ -1347,7 +1381,7 @@ fun SettingsScreen(
             onDismissRequest = { showClearDialog = false },
             title = {
                 Text(
-                    text = "清除浏览数据",
+                    text = "清理缓存与网站数据",
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     color = Slate900
@@ -1437,45 +1471,51 @@ fun SettingsScreen(
         )
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Slate50)
+            .background(Slate50),
+        contentAlignment = Alignment.TopCenter
     ) {
-        // Standard Secondary Page Top Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .background(Color.White)
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "返回",
-                    tint = Slate900
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "设置",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Slate900
-            )
-        }
-
-        HorizontalDivider(color = Slate200)
-
-        // Settings Preferences Grouped Inset Cards
         Column(
             modifier = Modifier
+                .widthIn(max = 680.dp)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
+            // Standard Secondary Page Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .background(Color.White)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "返回",
+                        tint = Slate900
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "设置",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Slate900
+                )
+            }
+
+            HorizontalDivider(color = Slate200)
+
+            // Settings Preferences Grouped Inset Cards
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+            ) {
             // Group 1: 浏览与多窗口
             Text(
                 text = "浏览与多窗口",
@@ -1512,6 +1552,73 @@ fun SettingsScreen(
                             onClick = { onOpenModeChange(OpenMode.FLOATING) },
                             label = { Text("独立悬浮窗") }
                         )
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = Slate100
+                    )
+
+                    // User-Agent (网页标识符)
+                    Text(
+                        text = "网页标识符 (User-Agent)",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.5.sp,
+                        color = Slate900
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        UserAgentMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = userAgentMode == mode,
+                                onClick = {
+                                    userAgentMode = mode
+                                    browserPrefs.userAgentMode = mode
+                                    activeWebViews.values.forEach { wv ->
+                                        browserPrefs.resolveUserAgent(wv.settings.userAgentString)?.let { ua ->
+                                            wv.settings.userAgentString = ua
+                                        }
+                                    }
+                                },
+                                label = { Text(mode.label) }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = Slate100
+                    )
+
+                    // 默认搜索引擎
+                    Text(
+                        text = "默认搜索引擎",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.5.sp,
+                        color = Slate900
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SearchEngine.entries.forEach { engine ->
+                            FilterChip(
+                                selected = searchEngine == engine,
+                                onClick = {
+                                    searchEngine = engine
+                                    browserPrefs.searchEngine = engine
+                                },
+                                label = { Text(engine.label) }
+                            )
+                        }
                     }
 
                     HorizontalDivider(
@@ -1629,26 +1736,52 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Slate200)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showClearDialog = true }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "清除浏览数据",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.5.sp,
-                        color = Slate900
-                    )
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "清除",
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier.size(20.dp)
-                    )
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showFullHistoryDialog = true }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "浏览历史记录管理",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "查看",
+                            tint = Slate600,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    HorizontalDivider(color = Slate100)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showClearDialog = true }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "清理缓存与网站数据",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "清除",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -1668,32 +1801,594 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Slate200)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_bubble_logo),
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(40.dp)
-                    )
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_bubble_logo),
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = "FloatBro",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Slate900
+                            )
+                            Text(
+                                text = "版本 1.0.0 · GPL-3.0 开源许可",
+                                fontSize = 12.sp,
+                                color = Slate500,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Slate100)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showUpdateCenterDialog = true }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = "FloatBro",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            text = "检查新版本",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
                             color = Slate900
                         )
-                        Text(
-                            text = "版本 1.0.0 · GPL-3.0 开源许可",
-                            fontSize = 12.sp,
-                            color = Slate500,
-                            modifier = Modifier.padding(top = 2.dp)
+                        Button(
+                            onClick = { showUpdateCenterDialog = true },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("检查更新", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    }
+
+    if (showFullHistoryDialog) {
+        FullHistoryManagementDialog(
+            onDismiss = { showFullHistoryDialog = false },
+            onOpenUrl = { url, title ->
+                showFullHistoryDialog = false
+                onBack()
+                onOpenUrl(url, title)
+            }
+        )
+    }
+
+    if (showUpdateCenterDialog) {
+        AppUpdateCenterDialog(
+            onDismiss = { showUpdateCenterDialog = false }
+        )
+    }
+}
+
+@Composable
+fun FullHistoryManagementDialog(
+    onDismiss: () -> Unit,
+    onOpenUrl: (String, String) -> Unit
+) {
+    val context = LocalContext.current
+    val historyManager = remember { BrowsingHistoryManager.getInstance(context) }
+    val fullList = remember { mutableStateListOf<HistoryItem>() }
+    var searchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        fullList.clear()
+        fullList.addAll(historyManager.getHistory())
+    }
+
+    val filteredList = remember(searchQuery, fullList.size) {
+        if (searchQuery.isBlank()) fullList else fullList.filter {
+            it.title.contains(searchQuery, ignoreCase = true) || it.url.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "浏览历史记录 (${fullList.size})",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Slate900
+                )
+                if (fullList.isNotEmpty()) {
+                    Text(
+                        text = "清空全部",
+                        fontSize = 12.sp,
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable {
+                                historyManager.clearHistory()
+                                fullList.clear()
+                            }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 440.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("搜索历史记录...", fontSize = 12.sp) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "清空", modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (filteredList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("暂无历史记录", fontSize = 13.sp, color = Slate500)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(filteredList, key = { it.id }) { item ->
+                            val brandRes = when {
+                                item.url.contains("baidu.com") -> R.drawable.ic_brand_baidu
+                                item.url.contains("bing.com") -> R.drawable.ic_brand_bing
+                                item.url.contains("zhihu.com") -> R.drawable.ic_brand_zhihu
+                                item.url.contains("bilibili.com") -> R.drawable.ic_brand_bilibili
+                                else -> null
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onOpenUrl(item.url, item.title) }
+                                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (brandRes != null) {
+                                    Image(
+                                        painter = painterResource(id = brandRes),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp))
+                                    )
+                                } else {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = BrandBlue.copy(alpha = 0.12f),
+                                        modifier = Modifier.size(18.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            val initial = try {
+                                                java.net.URI(item.url).host?.removePrefix("www.")?.firstOrNull()?.uppercaseChar()?.toString() ?: "W"
+                                            } catch (_: Exception) {
+                                                "W"
+                                            }
+                                            Text(initial, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = BrandBlue)
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.title,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = Slate900
+                                    )
+                                    Text(
+                                        text = item.url,
+                                        fontSize = 10.5.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = Slate500
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        historyManager.removeHistory(item.id)
+                                        fullList.remove(item)
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "删除",
+                                        tint = Slate400,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭", color = BrandBlue, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun AppUpdateCenterDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val updateManager = remember { AppUpdateManager(context) }
+    var candidates by remember { mutableStateOf<UpdateCandidates?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    var activeDownloadId by remember { mutableStateOf<Long?>(null) }
+    var activeRelease by remember { mutableStateOf<ReleaseInfo?>(null) }
+    var downloadProgress by remember { mutableStateOf<DownloadProgress?>(null) }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        errorMessage = null
+        updateManager.fetchReleasesAsync(
+            onSuccess = {
+                candidates = it
+                isLoading = false
+            },
+            onError = { err ->
+                errorMessage = err
+                isLoading = false
+            }
+        )
+    }
+
+    LaunchedEffect(activeDownloadId) {
+        val downloadId = activeDownloadId ?: return@LaunchedEffect
+        while (activeDownloadId != null) {
+            val progress = updateManager.queryProgress(downloadId)
+            downloadProgress = progress
+            if (progress != null && progress.status == DownloadManager.STATUS_SUCCESSFUL) {
+                break
+            }
+            if (progress != null && progress.status == DownloadManager.STATUS_FAILED) {
+                break
+            }
+            delay(1000)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.SystemUpdate,
+                        contentDescription = null,
+                        tint = BrandBlue,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "检查更新",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BrandBlue.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = "v${updateManager.currentVersion}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandBlue,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = BrandBlue, modifier = Modifier.size(32.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("正在连接 GitHub 获取更新通道...", fontSize = 12.sp, color = Slate500)
+                        }
+                    }
+                } else if (errorMessage != null) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(errorMessage!!, fontSize = 13.sp, color = Color(0xFFEF4444))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                isLoading = true
+                                errorMessage = null
+                                updateManager.fetchReleasesAsync(
+                                    onSuccess = { candidates = it; isLoading = false },
+                                    onError = { errorMessage = it; isLoading = false }
+                                )
+                            }
+                        ) {
+                            Text("重试", fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    val candidateData = candidates
+                    if (candidateData != null) {
+                        if (candidateData.stable == null && candidateData.prerelease == null) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = BrandEmerald.copy(alpha = 0.1f),
+                                border = BorderStroke(1.dp, BrandEmerald.copy(alpha = 0.25f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = BrandEmerald,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "当前已是最新版本 (v${candidateData.currentVersion})",
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Slate900
+                                    )
+                                }
+                            }
+                        }
+
+                        UpdateReleaseCard(
+                            channelName = "正式版通道",
+                            isBeta = false,
+                            release = candidateData.stable,
+                            currentVersion = candidateData.currentVersion,
+                            onDownload = { rel ->
+                                activeRelease = rel
+                                activeDownloadId = updateManager.enqueueDownload(rel)
+                                Toast.makeText(context, "已加入系统下载队列，可在通知栏查看进度", Toast.LENGTH_SHORT).show()
+                            }
                         )
+
+                        UpdateReleaseCard(
+                            channelName = "开发测试版通道",
+                            isBeta = true,
+                            release = candidateData.prerelease,
+                            currentVersion = candidateData.currentVersion,
+                            onDownload = { rel ->
+                                activeRelease = rel
+                                activeDownloadId = updateManager.enqueueDownload(rel)
+                                Toast.makeText(context, "已加入系统下载队列，可在通知栏查看进度", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+
+                        if (activeDownloadId != null && activeRelease != null) {
+                            val prog = downloadProgress
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Slate100),
+                                border = BorderStroke(1.dp, Slate300)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "下载进度：${prog?.percent ?: 0}%",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Slate900
+                                        )
+                                        TextButton(
+                                            onClick = {
+                                                activeDownloadId?.let { updateManager.cancelDownload(it) }
+                                                activeDownloadId = null
+                                                activeRelease = null
+                                            }
+                                        ) {
+                                            Text("取消", fontSize = 11.5.sp, color = Color(0xFFEF4444))
+                                        }
+                                    }
+                                    LinearProgressIndicator(
+                                        progress = { (prog?.percent ?: 0) / 100f },
+                                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                        color = BrandBlue,
+                                        trackColor = Slate200
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    if (prog != null && prog.status == DownloadManager.STATUS_SUCCESSFUL) {
+                                        val apkFile = updateManager.getDownloadedFile(activeRelease!!)
+                                        Button(
+                                            onClick = {
+                                                if (activity != null && !updateManager.canInstallPackages()) {
+                                                    updateManager.openInstallPermissionSettings(activity)
+                                                } else {
+                                                    updateManager.installApk(apkFile)
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("下载完成，立即安装", fontSize = 13.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭", color = Slate600)
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun UpdateReleaseCard(
+    channelName: String,
+    isBeta: Boolean,
+    release: ReleaseInfo?,
+    currentVersion: String,
+    onDownload: (ReleaseInfo) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = if (isBeta) Color(0xFFFFFBEB) else Color(0xFFF8FAFC)),
+        border = BorderStroke(1.dp, if (isBeta) Color(0xFFFDE68A) else Slate200)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = channelName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp,
+                        color = if (isBeta) Color(0xFF92400E) else Slate900
+                    )
+                    if (isBeta) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFFEF3C7)
+                        ) {
+                            Text(
+                                text = "测试版",
+                                fontSize = 10.sp,
+                                color = Color(0xFFB45309),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+                if (release != null) {
+                    Text(
+                        text = release.publishedAt,
+                        fontSize = 11.sp,
+                        color = Slate500
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            if (release == null) {
+                Text("暂无可升级版本", fontSize = 12.sp, color = Slate500)
+            } else {
+                Text(
+                    text = release.tagName,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Slate800
+                )
+                if (release.body.isNotBlank()) {
+                    Text(
+                        text = release.body.take(160) + if (release.body.length > 160) "..." else "",
+                        fontSize = 11.5.sp,
+                        color = Slate600,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                val isNewer = AppUpdateManager.isNewerVersion(release.tagName, currentVersion)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    if (isNewer) {
+                        Button(
+                            onClick = { onDownload(release) },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(if (isBeta) "下载测试版" else "下载正式版", fontSize = 12.sp)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onDownload(release) },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("重新下载安装包", fontSize = 11.5.sp)
+                        }
                     }
                 }
             }
@@ -1715,7 +2410,7 @@ fun BrowserHomeView(
     val historyList = remember { mutableStateListOf<HistoryItem>() }
     LaunchedEffect(Unit) {
         historyList.clear()
-        historyList.addAll(BrowsingHistoryManager.getInstance(context).getHistory().take(6))
+        historyList.addAll(BrowsingHistoryManager.getInstance(context).getHistory().take(30))
     }
 
     // Clipboard URL detection
@@ -1735,26 +2430,35 @@ fun BrowserHomeView(
         } catch (_: Exception) {}
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isLargeScreen = configuration.screenWidthDp >= 600
+    val homeLogoSize = if (isLargeScreen) 72.dp else 56.dp
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
     ) {
-        // 1. Clean App Logo Header
-        Box(
+        Column(
             modifier = Modifier
-                .padding(top = 16.dp, bottom = 20.dp),
-            contentAlignment = Alignment.Center
+                .widthIn(max = 640.dp)
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_bubble_logo),
-                contentDescription = "FloatBro",
-                tint = Color.Unspecified,
-                modifier = Modifier.size(44.dp)
-            )
-        }
+            // 1. Clean App Logo Header (Responsive: 56dp phone / 72dp tablet)
+            Box(
+                modifier = Modifier
+                    .padding(top = if (isLargeScreen) 36.dp else 24.dp, bottom = 20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_bubble_logo),
+                    contentDescription = "FloatBro",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(homeLogoSize)
+                )
+            }
 
         // 2. Clean Search Bar Capsule (Thumb Zone)
         OutlinedTextField(
@@ -1963,13 +2667,13 @@ fun BrowserHomeView(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "最近浏览历史",
+                            text = "最近浏览历史 (${historyList.size})",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "清除",
+                            text = "清除全部",
                             fontSize = 11.5.sp,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
@@ -1998,7 +2702,7 @@ fun BrowserHomeView(
                                 .clickable {
                                     onOpenUrl(item.url, item.title)
                                 }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                                .padding(vertical = 6.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (brandRes != null) {
@@ -2049,6 +2753,20 @@ fun BrowserHomeView(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            IconButton(
+                                onClick = {
+                                    BrowsingHistoryManager.getInstance(context).removeHistory(item.id)
+                                    historyList.remove(item)
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "删除记录",
+                                    tint = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -2057,6 +2775,7 @@ fun BrowserHomeView(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
     }
 }
 
@@ -2107,8 +2826,18 @@ fun InAppWebViewPane(
     var loadingProgress by remember { mutableStateOf(0) }
     var isEditingUrl by remember { mutableStateOf(false) }
     var editingUrlText by remember(tab.url) { mutableStateOf(tab.url) }
+    val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    var canGoBack by remember { mutableStateOf(false) }
+    var canGoForward by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = canGoBack) {
+        if (webView.canGoBack()) {
+            webView.goBack()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Mini Toolbar matching FloatingWindowView: [Back] [Forward] [Capsule 32dp] [Refresh] [Popout]
@@ -2121,17 +2850,29 @@ fun InAppWebViewPane(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = { if (webView.canGoBack()) webView.goBack() },
+                onClick = { if (canGoBack) webView.goBack() },
+                enabled = canGoBack,
                 modifier = Modifier.size(36.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "后退", modifier = Modifier.size(20.dp))
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_nav_back),
+                    contentDescription = "后退",
+                    modifier = Modifier.size(18.dp),
+                    tint = if (canGoBack) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                )
             }
             Spacer(modifier = Modifier.width(2.dp))
             IconButton(
-                onClick = { if (webView.canGoForward()) webView.goForward() },
+                onClick = { if (canGoForward) webView.goForward() },
+                enabled = canGoForward,
                 modifier = Modifier.size(36.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "前进", modifier = Modifier.size(20.dp))
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_nav_forward),
+                    contentDescription = "前进",
+                    modifier = Modifier.size(18.dp),
+                    tint = if (canGoForward) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                )
             }
             Spacer(modifier = Modifier.width(4.dp))
 
@@ -2163,7 +2904,7 @@ fun InAppWebViewPane(
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(onGo = {
                                 if (editingUrlText.isNotBlank()) {
-                                    val resolved = LauncherActivity.resolveBrowserUrl(editingUrlText)
+                                    val resolved = LauncherActivity.resolveBrowserUrl(context, editingUrlText)
                                     onUrlChanged(resolved)
                                     webView.loadUrlSafely(resolved)
                                 }
@@ -2274,17 +3015,33 @@ fun InAppWebViewPane(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    onProgressChangedListener = { progress -> loadingProgress = progress }
+                    onProgressChangedListener = { progress ->
+                        loadingProgress = progress
+                        canGoBack = webView.canGoBack()
+                        canGoForward = webView.canGoForward()
+                    }
                     onTitleChangedListener = { title -> onTitleReceived(title) }
                     onReceivedIconListener = { icon -> onFaviconReceived(icon) }
-                    onPageStartedListener = { startedUrl -> onUrlChanged(startedUrl) }
+                    onPageStartedListener = { startedUrl ->
+                        onUrlChanged(startedUrl)
+                        canGoBack = webView.canGoBack()
+                        canGoForward = webView.canGoForward()
+                    }
                 }
             },
             update = { wv ->
-                wv.onProgressChangedListener = { progress -> loadingProgress = progress }
+                wv.onProgressChangedListener = { progress ->
+                    loadingProgress = progress
+                    canGoBack = wv.canGoBack()
+                    canGoForward = wv.canGoForward()
+                }
                 wv.onTitleChangedListener = { title -> onTitleReceived(title) }
                 wv.onReceivedIconListener = { icon -> onFaviconReceived(icon) }
-                wv.onPageStartedListener = { startedUrl -> onUrlChanged(startedUrl) }
+                wv.onPageStartedListener = { startedUrl ->
+                    onUrlChanged(startedUrl)
+                    canGoBack = wv.canGoBack()
+                    canGoForward = wv.canGoForward()
+                }
             },
             onRelease = { wv ->
                 (wv.parent as? ViewGroup)?.removeView(wv)

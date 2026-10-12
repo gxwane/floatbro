@@ -159,7 +159,7 @@ class BrowsingHistoryManager(context: Context? = null) {
     companion object {
         private const val PREFS_NAME = "floatbro_browsing_history"
         private const val KEY_HISTORY_JSON = "history_json"
-        private const val MAX_HISTORY_ITEMS = 50
+        private const val MAX_HISTORY_ITEMS = 150
 
         @Volatile
         private var instance: BrowsingHistoryManager? = null

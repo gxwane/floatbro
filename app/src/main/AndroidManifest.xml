@@ -11,6 +11,7 @@
     <!-- 前台服务权限 (Android 14+ 严格分类) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".FloatApplication"
@@ -49,6 +50,7 @@
         <activity
             android:name=".ui.LauncherActivity"
             android:exported="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.FloatBro">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -63,6 +65,17 @@
                 <data android:scheme="https" />
             </intent-filter>
         </activity>
+
+        <!-- 应用内更新安装 FileProvider -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/app_update_file_paths" />
+        </provider>
     </application>
 
 </manifest>
