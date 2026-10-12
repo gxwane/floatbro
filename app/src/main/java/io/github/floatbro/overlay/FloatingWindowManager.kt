@@ -51,11 +51,27 @@ class FloatingWindowManager(private val context: Context) {
     // Multi-session registry
     val sessions = LinkedHashMap<String, FloatingSession>()
 
+    private var dismissTargetView: BubbleDismissTargetView? = null
+
     val activeSessionCount: Int
         get() = sessions.size
 
     val hasActiveOverlays: Boolean
         get() = sessions.isNotEmpty()
+
+    private fun ensureDismissTargetAttached(): BubbleDismissTargetView {
+        val target = dismissTargetView ?: BubbleDismissTargetView(context, windowManager).also {
+            dismissTargetView = it
+        }
+        if (!target.isAttachedToWindow) {
+            try {
+                windowManager.addView(target, target.layoutParams)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to attach BubbleDismissTargetView to WindowManager")
+            }
+        }
+        return target
+    }
 
     private fun dpToPx(dp: Float): Int {
         return TypedValue.applyDimension(
@@ -221,6 +237,56 @@ class FloatingWindowManager(private val context: Context) {
         }
     }
 
+    private fun setupBubbleCallbacks(bubble: FloatingBubbleView, session: FloatingSession) {
+        val hitRadiusPx = dpToPx(72f).toFloat()
+
+        bubble.onBubbleClicked = { restoreBubbleToWindow(session) }
+        bubble.onPositionChanged = { newX, newY ->
+            session.bubbleParams.x = newX
+            session.bubbleParams.y = newY
+        }
+        bubble.onDismissRequested = { closeSession(session) }
+
+        bubble.onDragStarted = {
+            ensureDismissTargetAttached().showTarget()
+        }
+
+        bubble.onDragMoved = { bubbleCenterX, bubbleCenterY ->
+            val target = ensureDismissTargetAttached()
+            val (targetCenterX, targetCenterY) = target.getTargetCenter()
+            val isHit = OverlayPhysicsHelper.isDropTargetHit(
+                bubbleCenterX = bubbleCenterX,
+                bubbleCenterY = bubbleCenterY,
+                targetCenterX = targetCenterX,
+                targetCenterY = targetCenterY,
+                hitRadiusPx = hitRadiusPx
+            )
+            target.setHovered(isHit)
+            bubble.setHoveredOnDismissTarget(isHit)
+        }
+
+        bubble.onDragEnded = { bubbleCenterX, bubbleCenterY ->
+            val target = ensureDismissTargetAttached()
+            val (targetCenterX, targetCenterY) = target.getTargetCenter()
+            val isHit = OverlayPhysicsHelper.isDropTargetHit(
+                bubbleCenterX = bubbleCenterX,
+                bubbleCenterY = bubbleCenterY,
+                targetCenterX = targetCenterX,
+                targetCenterY = targetCenterY,
+                hitRadiusPx = hitRadiusPx
+            )
+            target.hideTarget()
+            bubble.setHoveredOnDismissTarget(false)
+            if (isHit) {
+                Timber.d("Bubble dropped onto dismiss target. Cleanly closing session ${session.id}")
+                closeSession(session)
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     /**
      * Collapses an active window into an edge-docked bubble.
      */
@@ -275,15 +341,10 @@ class FloatingWindowManager(private val context: Context) {
                 layoutParams = session.bubbleParams
             ).apply {
                 updateFavicon(session.favicon)
-                onBubbleClicked = { restoreBubbleToWindow(session) }
-                onPositionChanged = { newX, newY ->
-                    session.bubbleParams.x = newX
-                    session.bubbleParams.y = newY
-                }
-                onDismissRequested = { closeSession(session) }
+                setupBubbleCallbacks(this, session)
             }
         } else {
-            session.bubbleView?.onDismissRequested = { closeSession(session) }
+            setupBubbleCallbacks(session.bubbleView!!, session)
         }
 
         val bubble = session.bubbleView!!
@@ -400,6 +461,9 @@ class FloatingWindowManager(private val context: Context) {
 
         session.state = SessionLifecycleState.DETACHED
         sessions.remove(session.id)
+        if (sessions.isEmpty()) {
+            dismissTargetView?.hideTarget()
+        }
         Timber.d("Cleanly closed and destroyed session ${session.id}. Remaining active: ${sessions.size}")
     }
 
@@ -459,6 +523,16 @@ class FloatingWindowManager(private val context: Context) {
         }
         sessions.clear()
         bubbleStack.clear()
+        dismissTargetView?.let { target ->
+            if (target.isAttachedToWindow) {
+                try {
+                    windowManager.removeView(target)
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to remove dismissTargetView on destroy")
+                }
+            }
+            dismissTargetView = null
+        }
         lifecycleContext.onDestroy()
     }
 }

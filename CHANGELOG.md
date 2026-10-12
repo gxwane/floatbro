@@ -66,7 +66,8 @@
   - 悬浮窗右下角缩放把手升级为 48dp WCAG 触控热区并绘制 3 槽微倾斜抓握条纹 (`ic_resize_grip.xml`)，按下时提供 1.15x 缩放与不透明度动效；
   - 悬浮窗拖拽边缘吸附升级为 200ms `DecelerateInterpolator` 减速插值平滑贴边动效与触感震动反馈 (`HapticFeedbackConstants`)；
   - 悬浮窗 Omnibar 展开编辑时引入输入法智能避让，退回只读态时恢复原位；
-  - 悬浮小气泡引入底部拖拽松手移除判定 (`onDismissRequested`)，支持拖到底部直接关闭悬浮会话。
-
-
-
+  - 打造高保真悬浮气泡拖拽丢弃区（Visual Bubble Dismiss Target）：
+    - 引入 `ic_trash_bin.xml` 24dp 矢量垃圾桶资产；
+    - 新增 `BubbleDismissTargetView` 64dp 半透明警示红圆形悬浮靶心，支持拖拽淡入/淡出；
+    - 结合 `OverlayPhysicsHelper.isDropTargetHit` 实现 72dp 命中磁吸反馈：靶心 1.25x 放大、高饱和深红 `#DC2626` 变色与触感震动，气泡 0.82x 吸入暗示；
+    - 命中释放安全销毁会话与 WebView，未命中释放执行 240ms 减速边缘磁吸贴靠。

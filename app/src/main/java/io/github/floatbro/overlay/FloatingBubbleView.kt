@@ -44,6 +44,9 @@ class FloatingBubbleView(
     var onBubbleClicked: (() -> Unit)? = null
     var onPositionChanged: ((x: Int, y: Int) -> Unit)? = null
     var onDismissRequested: (() -> Unit)? = null
+    var onDragStarted: (() -> Unit)? = null
+    var onDragMoved: ((bubbleCenterX: Float, bubbleCenterY: Float) -> Unit)? = null
+    var onDragEnded: ((bubbleCenterX: Float, bubbleCenterY: Float) -> Boolean)? = null
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var initialX = 0
@@ -103,6 +106,14 @@ class FloatingBubbleView(
         ).toInt()
     }
 
+    fun setHoveredOnDismissTarget(hovered: Boolean) {
+        if (hovered) {
+            animate().scaleX(0.82f).scaleY(0.82f).setDuration(120).start()
+        } else {
+            animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+        }
+    }
+
     private fun handleTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -121,6 +132,7 @@ class FloatingBubbleView(
 
                 if (!isDragging && hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
                     isDragging = true
+                    onDragStarted?.invoke()
                 }
 
                 if (isDragging) {
@@ -128,22 +140,26 @@ class FloatingBubbleView(
                     layoutParams.y = (initialY + dy).toInt()
                     windowManager.updateViewLayout(this, layoutParams)
                     onPositionChanged?.invoke(layoutParams.x, layoutParams.y)
+
+                    val bubbleSize = (width.takeIf { it > 0 } ?: dpToPx(52f)).toFloat()
+                    val centerX = layoutParams.x + bubbleSize / 2f
+                    val centerY = layoutParams.y + bubbleSize / 2f
+                    onDragMoved?.invoke(centerX, centerY)
                 }
                 return true
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
                 if (!isDragging) {
-                    // Tap -> expand window
+                    animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
                     onBubbleClicked?.invoke()
                 } else {
-                    val displayMetrics = context.resources.displayMetrics
-                    val dismissThreshold = displayMetrics.heightPixels - dpToPx(100f)
-                    if (layoutParams.y >= dismissThreshold) {
-                        onDismissRequested?.invoke()
-                    } else {
-                        // Release -> magnetic snap to nearest screen edge
+                    val bubbleSize = (width.takeIf { it > 0 } ?: dpToPx(52f)).toFloat()
+                    val centerX = layoutParams.x + bubbleSize / 2f
+                    val centerY = layoutParams.y + bubbleSize / 2f
+                    val isDismissed = onDragEnded?.invoke(centerX, centerY) ?: false
+                    if (!isDismissed) {
+                        animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
                         snapToEdge()
                     }
                 }
