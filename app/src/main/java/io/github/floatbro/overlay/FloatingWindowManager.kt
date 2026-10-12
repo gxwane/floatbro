@@ -133,9 +133,10 @@ class FloatingWindowManager(private val context: Context) {
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
 
+        val bubbleSize = dpToPx(52f)
         val bubbleParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            bubbleSize,
+            bubbleSize,
             getOverlayWindowType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
@@ -245,7 +246,7 @@ class FloatingWindowManager(private val context: Context) {
         val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
         val bubbleSize = dpToPx(52f)
-        val edgeMargin = dpToPx(12f)
+        val tuckDepth = dpToPx(18f)
 
         val winX = session.windowView.layoutParams.x
         val winWidth = session.windowView.layoutParams.width.takeIf { it > 0 } ?: dpToPx(280f)
@@ -253,9 +254,9 @@ class FloatingWindowManager(private val context: Context) {
         val isRightSide = winCenterX >= screenWidth / 2 || winX > (screenWidth * 0.4f)
 
         val targetX = if (isRightSide) {
-            screenWidth - bubbleSize - edgeMargin
+            screenWidth - bubbleSize + tuckDepth
         } else {
-            edgeMargin
+            -tuckDepth
         }
 
         val winY = session.windowView.layoutParams.y
@@ -329,9 +330,9 @@ class FloatingWindowManager(private val context: Context) {
         val isBubbleOnRight = bubbleX > screenWidth / 2
 
         val targetWinX = if (isBubbleOnRight) {
-            (screenWidth - winWidth - dpToPx(12f)).coerceAtLeast(dpToPx(8f))
+            (screenWidth - winWidth).coerceAtLeast(0)
         } else {
-            dpToPx(12f)
+            0
         }
         val targetWinY = (bubbleY - dpToPx(16f)).coerceIn(
             dpToPx(36f),

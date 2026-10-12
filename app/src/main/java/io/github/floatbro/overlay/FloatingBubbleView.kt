@@ -11,6 +11,8 @@
 
 package io.github.floatbro.overlay
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -69,10 +71,19 @@ class FloatingBubbleView(
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
         addView(iconView)
+        alpha = 0.85f
 
         setOnTouchListener { _, event ->
             handleTouchEvent(event)
         }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val sizePx = dpToPx(52f)
+        super.onMeasure(
+            MeasureSpec.makeMeasureSpec(sizePx, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(sizePx, MeasureSpec.EXACTLY)
+        )
     }
 
     fun updateFavicon(favicon: Bitmap?) {
@@ -99,7 +110,7 @@ class FloatingBubbleView(
                 initialTouchX = event.rawX
                 initialTouchY = event.rawY
                 isDragging = false
-                animate().scaleX(0.92f).scaleY(0.92f).setDuration(100).start()
+                animate().scaleX(0.92f).scaleY(0.92f).alpha(1.0f).setDuration(100).start()
                 return true
             }
 
@@ -142,12 +153,12 @@ class FloatingBubbleView(
 
         val currentX = layoutParams.x
         val centerX = currentX + bubbleWidth / 2
-        val edgeMargin = dpToPx(12f)
+        val tuckDepth = dpToPx(18f)
 
         val targetX = if (centerX < screenWidth / 2) {
-            edgeMargin
+            -tuckDepth
         } else {
-            screenWidth - bubbleWidth - edgeMargin
+            screenWidth - bubbleWidth + tuckDepth
         }
 
         // Clamp Y to safe screen bounds (avoid status bar and gesture navigation bar)
@@ -165,6 +176,11 @@ class FloatingBubbleView(
                 onPositionChanged?.invoke(layoutParams.x, layoutParams.y)
             }
         }
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                animate().alpha(0.85f).setDuration(200).start()
+            }
+        })
         animator.start()
     }
 }

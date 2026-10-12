@@ -602,13 +602,12 @@ class FloatingWindowView(
         }
 
         // 3. Magnetic Edge Snapping: Stay as window, clamp smoothly against edges
-        val snapMargin = dpToPx(8f)
         val edgeDetectRange = dpToPx(36f)
 
         if (layoutParams.x < edgeDetectRange) {
-            layoutParams.x = snapMargin
+            layoutParams.x = 0
         } else if (layoutParams.x + winWidth > screenWidth - edgeDetectRange) {
-            layoutParams.x = screenWidth - winWidth - snapMargin
+            layoutParams.x = screenWidth - winWidth
         }
 
         // Clamp Y in safe bounds
