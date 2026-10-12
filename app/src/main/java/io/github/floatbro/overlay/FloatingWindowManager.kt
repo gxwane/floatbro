@@ -98,8 +98,16 @@ class FloatingWindowManager(private val context: Context) {
     /**
      * Shows or restores the full floating browser window.
      */
-    fun showWindow(url: String? = null) {
-        Timber.d("showWindow requested with url=$url, currentMode=$currentMode")
+    fun showWindow(url: String? = null, initialX: Int? = null, initialY: Int? = null) {
+        Timber.d("showWindow requested with url=$url, initialX=$initialX, initialY=$initialY, currentMode=$currentMode")
+
+        val displayMetrics = context.resources.displayMetrics
+        if (initialX != null) {
+            windowParams.x = initialX.coerceIn(0, (displayMetrics.widthPixels - windowParams.width).coerceAtLeast(0))
+        }
+        if (initialY != null) {
+            windowParams.y = initialY.coerceIn(0, (displayMetrics.heightPixels - windowParams.height).coerceAtLeast(0))
+        }
 
         // 1. Remove bubble if attached
         removeBubbleIfAttached()
@@ -133,8 +141,17 @@ class FloatingWindowManager(private val context: Context) {
                     context.startActivity(intent)
                 }
             }
-        } else if (url != null) {
-            windowView?.webView?.loadUrlSafely(url)
+        } else {
+            if (url != null) {
+                windowView?.webView?.loadUrlSafely(url)
+            }
+            if ((initialX != null || initialY != null) && windowView?.isAttachedToWindow == true) {
+                try {
+                    windowManager.updateViewLayout(windowView, windowParams)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to update layout of FloatingWindowView")
+                }
+            }
         }
 
         // 3. Attach to WindowManager

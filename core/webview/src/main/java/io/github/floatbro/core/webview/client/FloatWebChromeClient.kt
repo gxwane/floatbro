@@ -35,4 +35,11 @@ class FloatWebChromeClient(
         super.onReceivedIcon(view, icon)
         icon?.let { onIconReceivedCallback?.invoke(it) }
     }
+
+    override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+        consoleMessage?.let {
+            timber.log.Timber.d("WebConsole [${it.messageLevel()}]: ${it.message()} -- From line ${it.lineNumber()} of ${it.sourceId()}")
+        }
+        return super.onConsoleMessage(consoleMessage)
+    }
 }

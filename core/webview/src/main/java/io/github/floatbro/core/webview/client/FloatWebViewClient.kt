@@ -40,6 +40,7 @@ class FloatWebViewClient(
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
+        view.evaluateJavascript("window._w = window; var _w = window;", null)
         if (!url.isNullOrEmpty()) {
             // Inject AdFilter CSS :has() element hiding rules & scriptlets
             AdFilter.get().performScript(view, url)
@@ -52,6 +53,28 @@ class FloatWebViewClient(
         if (!url.isNullOrEmpty()) {
             // Inject input focus detection bridge
             InputFocusBridge.inject(view)
+
+            // Bing mobile viewport resize & anti-collapse fallback (scoped strictly to *.bing.com)
+            val isBing = try {
+                android.net.Uri.parse(url).host?.endsWith("bing.com") == true
+            } catch (_: Exception) {
+                false
+            }
+
+            if (isBing) {
+                val bingFixJs = """
+                    (function() {
+                        window.dispatchEvent(new Event('resize'));
+                        var app = document.getElementById('hp_app');
+                        if (app && app.offsetHeight === 0) {
+                            app.style.minHeight = '100vh';
+                            window.dispatchEvent(new Event('resize'));
+                        }
+                    })();
+                """.trimIndent()
+                view.evaluateJavascript(bingFixJs, null)
+            }
+
             onPageFinishedCallback?.invoke(url)
             view.title?.let { onTitleUpdated?.invoke(it) }
         }

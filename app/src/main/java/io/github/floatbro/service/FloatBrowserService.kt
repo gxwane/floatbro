@@ -40,6 +40,8 @@ class FloatBrowserService : LifecycleService() {
         const val ACTION_MINIMIZE = "io.github.floatbro.action.MINIMIZE"
         const val ACTION_CLOSE = "io.github.floatbro.action.CLOSE"
         const val EXTRA_URL = "extra_url"
+        const val EXTRA_INITIAL_X = "extra_initial_x"
+        const val EXTRA_INITIAL_Y = "extra_initial_y"
     }
 
     private lateinit var overlayManager: FloatingWindowManager
@@ -56,8 +58,10 @@ class FloatBrowserService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
         val action = intent?.action
         val url = intent?.getStringExtra(EXTRA_URL) ?: intent?.dataString
+        val initialX = intent?.getIntExtra(EXTRA_INITIAL_X, -1)?.takeIf { it >= 0 }
+        val initialY = intent?.getIntExtra(EXTRA_INITIAL_Y, -1)?.takeIf { it >= 0 }
 
-        Timber.d("onStartCommand: action=$action, url=$url")
+        Timber.d("onStartCommand: action=$action, url=$url, initialX=$initialX, initialY=$initialY")
 
         when (action) {
             ACTION_MINIMIZE -> {
@@ -67,11 +71,11 @@ class FloatBrowserService : LifecycleService() {
                 stopSelf()
             }
             ACTION_SHOW, Intent.ACTION_VIEW -> {
-                overlayManager.showWindow(url)
+                overlayManager.showWindow(url, initialX, initialY)
             }
             else -> {
                 if (overlayManager.currentMode == OverlayMode.HIDDEN) {
-                    overlayManager.showWindow(url)
+                    overlayManager.showWindow(url, initialX, initialY)
                 }
             }
         }

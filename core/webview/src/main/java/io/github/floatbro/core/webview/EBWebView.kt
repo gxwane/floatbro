@@ -43,6 +43,7 @@ open class EBWebView @JvmOverloads constructor(
     }
 
     init {
+        WebView.setWebContentsDebuggingEnabled(true)
         configureSettings()
         setupClients()
 
@@ -60,17 +61,13 @@ open class EBWebView @JvmOverloads constructor(
             domStorageEnabled = true
             databaseEnabled = true
             useWideViewPort = true
-            loadWithOverviewMode = false
-            layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+            loadWithOverviewMode = true
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
 
-            // Modern Chrome Mobile User-Agent without embedded webview artifacts
-            val defaultUa = WebSettings.getDefaultUserAgent(context)
-            userAgentString = defaultUa
-                .replace("; wv", "")
-                .replace(Regex("Version/\\d+\\.\\d+\\s?"), "")
+            // Standard modern Chrome Android User-Agent
+            userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT
@@ -106,6 +103,10 @@ open class EBWebView @JvmOverloads constructor(
             url.contains(".") && !url.contains(" ") -> "https://$url"
             else -> "https://www.bing.com/search?q=${java.net.URLEncoder.encode(url, "UTF-8")}"
         }
-        loadUrl(targetUrl)
+        val headers = mapOf(
+            "Sec-CH-UA-Mobile" to "?1",
+            "Sec-CH-UA-Platform" to "\"Android\""
+        )
+        loadUrl(targetUrl, headers)
     }
 }

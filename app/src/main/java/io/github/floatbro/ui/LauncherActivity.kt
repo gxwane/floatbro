@@ -21,15 +21,24 @@ import android.provider.Settings
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
+import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,28 +88,47 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
+import timber.log.Timber
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import io.github.floatbro.R
 import io.github.floatbro.core.webview.EBWebView
 import io.github.floatbro.service.FloatBrowserService
@@ -156,95 +184,381 @@ class LauncherActivity : ComponentActivity() {
                     activeTabId = previousTabId
                 }
 
+                val coroutineScope = rememberCoroutineScope()
+                val density = LocalDensity.current
+                val view = LocalView.current
+                var rootLayoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+                // Drag state
+                var draggedTab by remember { mutableStateOf<BrowserTab?>(null) }
+                var originOffset by remember { mutableStateOf(Offset.Zero) }
+                var originSize by remember { mutableStateOf(IntSize.Zero) }
+                var isDetached by remember { mutableStateOf(false) }
+                var hasFiredDetachedHaptic by remember { mutableStateOf(false) }
+                var isCommittingOrCancelling by remember { mutableStateOf(false) }
+
+                var totalDragY by remember { mutableFloatStateOf(0f) }
+                var totalDragX by remember { mutableFloatStateOf(0f) }
+
+                val dragOffsetAnim = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+                val cardWidthAnim = remember { Animatable(100f) }
+                val cardHeightAnim = remember { Animatable(36f) }
+                val cardScaleAnim = remember { Animatable(1.0f) }
+                val cardCornerRadiusAnim = remember { Animatable(10f) }
+                val cardTiltAnim = remember { Animatable(0f) }
+                val cardAlphaAnim = remember { Animatable(1.0f) }
+
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding(), // Safe inset padding avoiding status bar and camera hole
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        // 1. Tab Strip (Sole Top Bar when browsing)
-                        if (activeTabId != "settings") {
-                            AppTabStrip(
-                                tabs = tabs,
-                                activeTabId = activeTabId,
-                                onSelectTab = { activeTabId = it },
-                                onCloseTab = { tabId ->
-                                    tabs.removeAll { it.id == tabId }
-                                    if (activeTabId == tabId) {
-                                        activeTabId = "home"
-                                    }
-                                },
-                                onNewTab = {
-                                    val newTab = BrowserTab(title = "新标签页", url = "about:blank")
-                                    tabs.add(newTab)
-                                    activeTabId = newTab.id
-                                },
-                                onOpenSettings = {
-                                    previousTabId = activeTabId
-                                    activeTabId = "settings"
-                                },
-                                onTearOffToFloating = { tab ->
-                                    tabs.removeAll { it.id == tab.id }
-                                    activeTabId = "home"
-                                    startOverlayService(FloatBrowserService.ACTION_SHOW, tab.url)
-                                    Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
-                                }
-                            )
-                        }
-
-                        // 2. Main Viewport Content
-                        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
-                            when (activeTabId) {
-                                "settings" -> {
-                                    SettingsScreen(
-                                        openMode = openMode,
-                                        onOpenModeChange = { mode ->
-                                            openMode = mode
-                                            savePreferences()
-                                        },
-                                        hasOverlayPermission = hasOverlayPermission,
-                                        onRequestOverlayPermission = { requestOverlayPermission() },
-                                        onClearData = { clearBrowsingData() },
-                                        onBack = { activeTabId = previousTabId }
-                                    )
-                                }
-                                "home" -> {
-                                    BrowserHomeView(
-                                        hasPermission = hasOverlayPermission,
-                                        onRequestPermission = { requestOverlayPermission() },
-                                        onOpenUrl = { url, title ->
-                                            handleOpenUrl(url, title)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onGloballyPositioned { rootLayoutCoordinates = it }
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // 1. Tab Strip (Sole Top Bar when browsing)
+                            if (activeTabId != "settings") {
+                                AppTabStrip(
+                                    tabs = tabs,
+                                    activeTabId = activeTabId,
+                                    draggingTabId = draggedTab?.id,
+                                    rootLayoutCoordinates = rootLayoutCoordinates,
+                                    onSelectTab = { activeTabId = it },
+                                    onCloseTab = { tabId ->
+                                        tabs.removeAll { it.id == tabId }
+                                        if (activeTabId == tabId) {
+                                            activeTabId = "home"
                                         }
-                                    )
-                                }
-                                else -> {
-                                    val currentTab = tabs.find { it.id == activeTabId }
-                                    if (currentTab != null) {
-                                        InAppWebViewPane(
-                                            tab = currentTab,
-                                            onTearOff = {
-                                                tabs.removeAll { it.id == currentTab.id }
-                                                activeTabId = "home"
-                                                startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url)
-                                                Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
-                                            },
-                                            onTitleReceived = { newTitle ->
-                                                val idx = tabs.indexOfFirst { it.id == currentTab.id }
-                                                if (idx >= 0) {
-                                                    tabs[idx] = tabs[idx].copy(title = newTitle)
+                                    },
+                                    onNewTab = {
+                                        val newTab = BrowserTab(title = "新标签页", url = "about:blank")
+                                        tabs.add(newTab)
+                                        activeTabId = newTab.id
+                                    },
+                                    onOpenSettings = {
+                                        previousTabId = activeTabId
+                                        activeTabId = "settings"
+                                    },
+                                    onTabDragStart = { tab, origin, size ->
+                                        if (!isCommittingOrCancelling) {
+                                            draggedTab = tab
+                                            originOffset = origin
+                                            originSize = size
+                                            isDetached = false
+                                            hasFiredDetachedHaptic = false
+                                            totalDragX = 0f
+                                            totalDragY = 0f
+                                            coroutineScope.launch {
+                                                dragOffsetAnim.snapTo(origin)
+                                                cardWidthAnim.snapTo(size.width.toFloat())
+                                                cardHeightAnim.snapTo(size.height.toFloat())
+                                                cardScaleAnim.snapTo(1.0f)
+                                                cardCornerRadiusAnim.snapTo(10f)
+                                                cardTiltAnim.snapTo(0f)
+                                                cardAlphaAnim.snapTo(1.0f)
+                                            }
+                                        }
+                                    },
+                                    onTabDrag = { delta ->
+                                        if (!isCommittingOrCancelling && draggedTab != null) {
+                                            totalDragX += delta.x
+                                            totalDragY += delta.y
+                                            val tearThresholdPx = with(density) { 44.dp.toPx() }
+                                            val maxTearDistancePx = with(density) { 200.dp.toPx() }
+
+                                            if (!isDetached) {
+                                                if (totalDragY < tearThresholdPx) {
+                                                    // Phase 1: Touch, Lift & Tension (0 - 44dp)
+                                                    val progress = (totalDragY / tearThresholdPx).coerceIn(0f, 1f)
+                                                    val yResistance = totalDragY * (1f - (totalDragY / maxTearDistancePx).coerceIn(0f, 0.4f))
+                                                    val xResistance = totalDragX * 0.6f
+
+                                                    coroutineScope.launch {
+                                                        dragOffsetAnim.snapTo(Offset(originOffset.x + xResistance, originOffset.y + yResistance))
+                                                        cardCornerRadiusAnim.snapTo(10f + 2f * progress)
+                                                        cardScaleAnim.snapTo(1.0f + 0.04f * progress)
+                                                    }
+                                                } else {
+                                                    // Phase 2: Detachment Threshold Crossed!
+                                                    isDetached = true
+                                                    if (!hasFiredDetachedHaptic) {
+                                                        hasFiredDetachedHaptic = true
+                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                                            view.performHapticFeedback(HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE)
+                                                        } else {
+                                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                                        }
+                                                    }
+
+                                                    val previewWidthPx = with(density) { 240.dp.toPx() }
+                                                    val previewHeightPx = with(density) { 160.dp.toPx() }
+
+                                                    coroutineScope.launch {
+                                                        launch {
+                                                            cardScaleAnim.animateTo(0.98f, tween(60))
+                                                            cardScaleAnim.animateTo(1.0f, tween(60))
+                                                        }
+                                                        launch {
+                                                            cardWidthAnim.animateTo(previewWidthPx, tween(160, easing = FastOutSlowInEasing))
+                                                        }
+                                                        launch {
+                                                            cardHeightAnim.animateTo(previewHeightPx, tween(160, easing = FastOutSlowInEasing))
+                                                        }
+                                                        launch {
+                                                            cardCornerRadiusAnim.animateTo(14f, tween(120))
+                                                        }
+                                                    }
+
+                                                    coroutineScope.launch {
+                                                        dragOffsetAnim.snapTo(dragOffsetAnim.value + delta)
+                                                    }
                                                 }
-                                            },
-                                            onFaviconReceived = { icon ->
-                                                val idx = tabs.indexOfFirst { it.id == currentTab.id }
-                                                if (idx >= 0) {
-                                                    tabs[idx] = tabs[idx].copy(favicon = icon)
+                                            } else {
+                                                // Phase 2: Detached Free 2D Tracking with aerodynamic tilt
+                                                val targetTilt = (delta.x * 0.4f).coerceIn(-7f, 7f)
+                                                coroutineScope.launch {
+                                                    dragOffsetAnim.snapTo(dragOffsetAnim.value + delta)
+                                                    cardTiltAnim.animateTo(targetTilt, tween(50))
                                                 }
+                                            }
+                                        }
+                                    },
+                                    onTabDragEnd = {
+                                        if (draggedTab != null && !isCommittingOrCancelling) {
+                                            isCommittingOrCancelling = true
+                                            val tearThresholdPx = with(density) { 44.dp.toPx() }
+                                            val isCommitted = totalDragY >= tearThresholdPx && isDetached
+
+                                            if (isCommitted) {
+                                                // Phase 3A: Commit & Handover!
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                                } else {
+                                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                                }
+
+                                                val rootSize = rootLayoutCoordinates?.size
+                                                val screenW = rootSize?.width?.toFloat() ?: 1080f
+                                                val screenH = rootSize?.height?.toFloat() ?: 2160f
+                                                val targetW = (screenW * 0.90f).coerceAtLeast(with(density) { 280.dp.toPx() })
+                                                val targetH = (screenH * 0.65f).coerceAtLeast(with(density) { 340.dp.toPx() })
+                                                val targetX = (screenW - targetW) / 2f
+                                                val targetY = (screenH - targetH) / 4f
+
+                                                coroutineScope.launch {
+                                                    launch {
+                                                        cardTiltAnim.animateTo(0f, tween(120))
+                                                    }
+                                                    launch {
+                                                        dragOffsetAnim.animateTo(
+                                                            Offset(targetX, targetY),
+                                                            tween(240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f))
+                                                        )
+                                                    }
+                                                    launch {
+                                                        cardWidthAnim.animateTo(
+                                                            targetW,
+                                                            tween(240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f))
+                                                        )
+                                                    }
+                                                    launch {
+                                                        cardHeightAnim.animateTo(
+                                                            targetH,
+                                                            tween(240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f))
+                                                        )
+                                                    }
+
+                                                    delay(200)
+                                                    cardAlphaAnim.animateTo(0f, tween(60))
+
+                                                    val committingTab = draggedTab ?: return@launch
+                                                    tabs.removeAll { it.id == committingTab.id }
+                                                    if (activeTabId == committingTab.id) {
+                                                        activeTabId = "home"
+                                                    }
+                                                    startOverlayService(
+                                                        FloatBrowserService.ACTION_SHOW,
+                                                        committingTab.url,
+                                                        targetX.roundToInt(),
+                                                        targetY.roundToInt()
+                                                    )
+                                                    Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
+
+                                                    draggedTab = null
+                                                    isCommittingOrCancelling = false
+                                                }
+                                            } else {
+                                                // Phase 3B: Cancel & Snapback with Physics Spring!
+                                                coroutineScope.launch {
+                                                    launch {
+                                                        cardTiltAnim.animateTo(0f, spring(Spring.DampingRatioNoBouncy))
+                                                    }
+                                                    launch {
+                                                        cardScaleAnim.animateTo(1.0f, spring(Spring.DampingRatioLowBouncy))
+                                                    }
+                                                    launch {
+                                                        cardCornerRadiusAnim.animateTo(10f, spring(Spring.DampingRatioLowBouncy))
+                                                    }
+                                                    launch {
+                                                        cardWidthAnim.animateTo(
+                                                            originSize.width.toFloat(),
+                                                            spring(
+                                                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                                                stiffness = Spring.StiffnessMediumLow
+                                                            )
+                                                        )
+                                                    }
+                                                    launch {
+                                                        cardHeightAnim.animateTo(
+                                                            originSize.height.toFloat(),
+                                                            spring(
+                                                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                                                stiffness = Spring.StiffnessMediumLow
+                                                            )
+                                                        )
+                                                    }
+                                                    launch {
+                                                        dragOffsetAnim.animateTo(
+                                                            originOffset,
+                                                            spring(
+                                                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                                                stiffness = Spring.StiffnessMediumLow
+                                                            )
+                                                        )
+                                                    }.join()
+
+                                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+
+                                                    draggedTab = null
+                                                    isCommittingOrCancelling = false
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onTabDragCancel = {
+                                        if (draggedTab != null && !isCommittingOrCancelling) {
+                                            isCommittingOrCancelling = true
+                                            coroutineScope.launch {
+                                                launch {
+                                                    cardTiltAnim.animateTo(0f, spring(Spring.DampingRatioNoBouncy))
+                                                }
+                                                launch {
+                                                    cardScaleAnim.animateTo(1.0f, spring(Spring.DampingRatioLowBouncy))
+                                                }
+                                                launch {
+                                                    cardCornerRadiusAnim.animateTo(10f, spring(Spring.DampingRatioLowBouncy))
+                                                }
+                                                launch {
+                                                    cardWidthAnim.animateTo(
+                                                        originSize.width.toFloat(),
+                                                        spring(
+                                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                                            stiffness = Spring.StiffnessMediumLow
+                                                        )
+                                                    )
+                                                }
+                                                launch {
+                                                    cardHeightAnim.animateTo(
+                                                        originSize.height.toFloat(),
+                                                        spring(
+                                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                                            stiffness = Spring.StiffnessMediumLow
+                                                        )
+                                                    )
+                                                }
+                                                launch {
+                                                    dragOffsetAnim.animateTo(
+                                                        originOffset,
+                                                        spring(
+                                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                                            stiffness = Spring.StiffnessMediumLow
+                                                        )
+                                                    )
+                                                }.join()
+
+                                                draggedTab = null
+                                                isCommittingOrCancelling = false
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+
+                            // 2. Main Viewport Content
+                            Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+                                when (activeTabId) {
+                                    "settings" -> {
+                                        SettingsScreen(
+                                            openMode = openMode,
+                                            onOpenModeChange = { mode ->
+                                                openMode = mode
+                                                savePreferences()
+                                            },
+                                            hasOverlayPermission = hasOverlayPermission,
+                                            onRequestOverlayPermission = { requestOverlayPermission() },
+                                            onClearData = { clearBrowsingData() },
+                                            onBack = { activeTabId = previousTabId }
+                                        )
+                                    }
+                                    "home" -> {
+                                        BrowserHomeView(
+                                            hasPermission = hasOverlayPermission,
+                                            onRequestPermission = { requestOverlayPermission() },
+                                            onOpenUrl = { url, title ->
+                                                handleOpenUrl(url, title)
                                             }
                                         )
                                     }
+                                    else -> {
+                                        val currentTab = tabs.find { it.id == activeTabId }
+                                        if (currentTab != null) {
+                                            key(currentTab.id) {
+                                                InAppWebViewPane(
+                                                    tab = currentTab,
+                                                    onTearOff = {
+                                                        tabs.removeAll { it.id == currentTab.id }
+                                                        activeTabId = "home"
+                                                        startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url)
+                                                        Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    onTitleReceived = { newTitle ->
+                                                        val idx = tabs.indexOfFirst { it.id == currentTab.id }
+                                                        if (idx >= 0) {
+                                                            tabs[idx] = tabs[idx].copy(title = newTitle)
+                                                        }
+                                                    },
+                                                    onFaviconReceived = { icon ->
+                                                        val idx = tabs.indexOfFirst { it.id == currentTab.id }
+                                                        if (idx >= 0) {
+                                                            tabs[idx] = tabs[idx].copy(favicon = icon)
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
+                        }
+
+                        // Top-level unclipped Drag Overlay Layer
+                        val currentDraggedTab = draggedTab
+                        if (currentDraggedTab != null) {
+                            DraggedTabOverlay(
+                                tab = currentDraggedTab,
+                                offset = dragOffsetAnim.value,
+                                width = with(density) { cardWidthAnim.value.toDp() },
+                                height = with(density) { cardHeightAnim.value.toDp() },
+                                scale = cardScaleAnim.value,
+                                tilt = cardTiltAnim.value,
+                                alpha = cardAlphaAnim.value,
+                                cornerRadius = cardCornerRadiusAnim.value.dp,
+                                isDetached = isDetached
+                            )
                         }
                     }
                 }
@@ -343,7 +657,7 @@ class LauncherActivity : ComponentActivity() {
         }
     }
 
-    private fun startOverlayService(action: String, url: String? = null) {
+    private fun startOverlayService(action: String, url: String? = null, initialX: Int? = null, initialY: Int? = null) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "请先授予悬浮窗权限", Toast.LENGTH_SHORT).show()
             requestOverlayPermission()
@@ -354,6 +668,12 @@ class LauncherActivity : ComponentActivity() {
             this.action = action
             if (url != null) {
                 putExtra(FloatBrowserService.EXTRA_URL, url)
+            }
+            if (initialX != null) {
+                putExtra(FloatBrowserService.EXTRA_INITIAL_X, initialX)
+            }
+            if (initialY != null) {
+                putExtra(FloatBrowserService.EXTRA_INITIAL_Y, initialY)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -368,13 +688,24 @@ class LauncherActivity : ComponentActivity() {
 fun AppTabStrip(
     tabs: List<BrowserTab>,
     activeTabId: String,
+    draggingTabId: String? = null,
+    rootLayoutCoordinates: LayoutCoordinates? = null,
     onSelectTab: (String) -> Unit,
     onCloseTab: (String) -> Unit,
     onNewTab: () -> Unit,
     onOpenSettings: () -> Unit,
-    onTearOffToFloating: (BrowserTab) -> Unit
+    onTabDragStart: (BrowserTab, Offset, IntSize) -> Unit = { _, _, _ -> },
+    onTabDrag: (Offset) -> Unit = {},
+    onTabDragEnd: () -> Unit = {},
+    onTabDragCancel: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
+
+    val currentRootCoords by rememberUpdatedState(rootLayoutCoordinates)
+    val currentOnTabDragStart by rememberUpdatedState(onTabDragStart)
+    val currentOnTabDrag by rememberUpdatedState(onTabDrag)
+    val currentOnTabDragEnd by rememberUpdatedState(onTabDragEnd)
+    val currentOnTabDragCancel by rememberUpdatedState(onTabDragCancel)
 
     // Smooth auto-scroll when active tab changes or new tab is added
     LaunchedEffect(activeTabId, tabs.size) {
@@ -435,42 +766,59 @@ fun AppTabStrip(
             // Web Tabs (Supports clean rounded ripple and downward drag-to-tear-off)
             tabs.forEach { tab ->
                 val isActive = tab.id == activeTabId
-                var dragOffsetY by remember { mutableFloatStateOf(0f) }
-                val haptic = LocalHapticFeedback.current
+                val isBeingDragged = tab.id == draggingTabId
+                var tabCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
                 Surface(
                     shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
-                    color = if (isActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    color = when {
+                        isBeingDragged -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
+                        isActive -> MaterialTheme.colorScheme.surface
+                        else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                    },
+                    border = if (isBeingDragged) {
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                    } else null,
                     modifier = Modifier
                         .height(36.dp)
-                        .offset { IntOffset(0, dragOffsetY.roundToInt().coerceAtLeast(0)) }
                         .padding(end = 4.dp)
+                        .onGloballyPositioned { tabCoordinates = it }
                         .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
                         .pointerInput(tab.id) {
                             detectDragGestures(
-                                onDragStart = { dragOffsetY = 0f },
-                                onDrag = { change, dragAmount ->
-                                    if (dragAmount.y > 0 || dragOffsetY > 0f) {
-                                        change.consume()
-                                        dragOffsetY = (dragOffsetY + dragAmount.y).coerceAtLeast(0f)
-                                        if (dragOffsetY > 48f) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onDragStart = {
+                                    val myCoords = tabCoordinates
+                                    if (myCoords != null) {
+                                        val rootCoords = currentRootCoords
+                                        val origin = if (rootCoords != null && rootCoords.isAttached && myCoords.isAttached) {
+                                            rootCoords.localPositionOf(myCoords, Offset.Zero)
+                                        } else {
+                                            myCoords.positionInRoot()
                                         }
+                                        Timber.d("AppTabStrip onDragStart tab=${tab.title}, origin=$origin, size=${myCoords.size}")
+                                        currentOnTabDragStart(tab, origin, myCoords.size)
                                     }
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    currentOnTabDrag(dragAmount)
                                 },
                                 onDragEnd = {
-                                    if (dragOffsetY > 48f) {
-                                        onTearOffToFloating(tab)
-                                    }
-                                    dragOffsetY = 0f
+                                    Timber.d("AppTabStrip onDragEnd tab=${tab.title}")
+                                    currentOnTabDragEnd()
                                 },
-                                onDragCancel = { dragOffsetY = 0f }
+                                onDragCancel = {
+                                    Timber.d("AppTabStrip onDragCancel tab=${tab.title}")
+                                    currentOnTabDragCancel()
+                                }
                             )
                         }
                         .clickable { onSelectTab(tab.id) }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp),
+                        modifier = Modifier
+                            .padding(horizontal = 10.dp)
+                            .then(if (isBeingDragged) Modifier.alpha(0.35f) else Modifier),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Favicon or Web Globe Icon
@@ -546,6 +894,175 @@ fun AppTabStrip(
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/**
+ * Top-level unclipped Drag Overlay rendering the lifted tab or glass preview card.
+ */
+@Composable
+fun DraggedTabOverlay(
+    tab: BrowserTab,
+    offset: Offset,
+    width: Dp,
+    height: Dp,
+    scale: Float,
+    tilt: Float,
+    alpha: Float,
+    cornerRadius: Dp,
+    isDetached: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+            .size(width = width, height = height)
+            .scale(scale)
+            .rotate(tilt)
+            .alpha(alpha)
+            .shadow(
+                elevation = if (isDetached) 16.dp else 8.dp,
+                shape = RoundedCornerShape(cornerRadius)
+            ),
+        shape = RoundedCornerShape(cornerRadius),
+        color = if (isDetached) {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+        border = BorderStroke(
+            1.dp,
+            if (isDetached) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        if (!isDetached) {
+            // Phase 1: Lifted Tab Pill appearance
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (tab.favicon != null) {
+                    Image(
+                        bitmap = tab.favicon!!.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = tab.title,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            // Phase 2 & 3: Floating Window Preview Card (Glassmorphism)
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header Bar (34dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (tab.favicon != null) {
+                        Image(
+                            bitmap = tab.favicon!!.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(10.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = tab.title,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = "悬浮窗",
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Translucent Body Preview
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = tab.url.removePrefix("https://").removePrefix("http://"),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1076,16 +1593,22 @@ fun InAppWebViewPane(
         AndroidView(
             factory = { ctx ->
                 EBWebView(ctx).apply {
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
                     onTitleChangedListener = { title -> onTitleReceived(title) }
                     onReceivedIconListener = { icon -> onFaviconReceived(icon) }
-                    loadUrl(tab.url)
+                    loadUrlSafely(tab.url)
                     webViewInstance = this
                 }
             },
             update = { wv ->
                 webViewInstance = wv
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
         )
     }
 }
