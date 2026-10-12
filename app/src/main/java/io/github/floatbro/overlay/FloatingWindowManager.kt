@@ -16,8 +16,12 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.util.TypedValue
+import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.ViewGroup
 import android.view.WindowManager
+import io.github.floatbro.R
+import io.github.floatbro.core.webview.TabOverlayStateBridge
 import timber.log.Timber
 import java.util.UUID
 
@@ -36,6 +40,8 @@ class FloatingWindowManager(private val context: Context) {
         const val MAX_CONCURRENT_SESSIONS = 3
     }
 
+    private val themedContext: Context = ContextThemeWrapper(context, R.style.Theme_FloatBro)
+
     private val windowManager: WindowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -46,7 +52,7 @@ class FloatingWindowManager(private val context: Context) {
     }
 
     private val focusMutex = FocusMutexCoordinator(windowManager)
-    private val bubbleStack = BubbleStackCoordinator(context, windowManager)
+    private val bubbleStack = BubbleStackCoordinator(themedContext, windowManager)
 
     // Multi-session registry
     val sessions = LinkedHashMap<String, FloatingSession>()
@@ -170,12 +176,20 @@ class FloatingWindowManager(private val context: Context) {
             y = dpToPx(120f) + (sessions.size * dpToPx(62f))
         }
 
+        val existingWv = TabOverlayStateBridge.takeWebView(targetId)
+            ?: windowId?.let { TabOverlayStateBridge.takeWebView(it) }
+
+        if (existingWv != null) {
+            existingWv.updateBaseContext(themedContext)
+        }
+
         val windowView = FloatingWindowView(
-            context = context,
+            context = themedContext,
             sessionId = targetId,
             windowManager = windowManager,
             layoutParams = windowParams,
-            lifecycleContext = lifecycleContext
+            lifecycleContext = lifecycleContext,
+            existingWebView = existingWv
         )
 
         val session = FloatingSession(
@@ -248,7 +262,34 @@ class FloatingWindowManager(private val context: Context) {
             windowManager.addView(windowView, windowParams)
             sessions[targetId] = session
             val loadTarget = url ?: "https://cn.bing.com"
-            windowView.webView.loadUrlSafely(loadTarget)
+
+            windowView.webView.onPageCommitVisibleListener = {
+                TabOverlayStateBridge.notifyCommit(targetId)
+                if (windowId != null) {
+                    TabOverlayStateBridge.notifyCommit(windowId)
+                }
+            }
+
+            if (existingWv != null) {
+                Timber.d("Reusing existing live EBWebView for session $targetId, skipping network load")
+                existingWv.onResume()
+                existingWv.resumeTimers()
+                // True hardware frame commit and visual cover fadeout is coordinated by FloatingWindowView
+            } else {
+                val savedState = TabOverlayStateBridge.takeState(targetId)
+                    ?: windowId?.let { TabOverlayStateBridge.takeState(it) }
+
+                if (savedState != null) {
+                    Timber.d("Restoring state from TabOverlayStateBridge for session $targetId")
+                    val restored = windowView.webView.restoreState(savedState)
+                    if (restored == null || restored.size == 0) {
+                        Timber.w("restoreState returned empty, fallback to loadUrlSafely")
+                        windowView.webView.loadUrlSafely(loadTarget)
+                    }
+                } else {
+                    windowView.webView.loadUrlSafely(loadTarget)
+                }
+            }
             Timber.d("Successfully launched floating session $targetId with url $loadTarget")
         } catch (e: Exception) {
             Timber.e(e, "Failed to add FloatingWindowView to WindowManager for session $targetId")
@@ -464,7 +505,7 @@ class FloatingWindowManager(private val context: Context) {
     /**
      * Completely destroys a floating session and its views.
      */
-    fun closeSession(session: FloatingSession) {
+    fun closeSession(session: FloatingSession, preserveWebView: Boolean = false) {
         focusMutex.releaseFocus(session)
 
         // 1. Remove bubble
@@ -496,15 +537,17 @@ class FloatingWindowManager(private val context: Context) {
             io.github.floatbro.history.BrowsingHistoryManager.getInstance(context).recordVisit(finalUrl, finalTitle)
         }
 
-        // 4. Destroy WebView clean sequence
-        try {
-            window.webView.stopLoading()
-            window.webView.loadUrl("about:blank")
-            window.webView.clearHistory()
-            window.webView.removeAllViews()
-            window.webView.destroy()
-        } catch (e: Exception) {
-            Timber.w(e, "Error destroying WebView for session ${session.id}")
+        // 4. Destroy WebView clean sequence (only if not preserved for docking)
+        if (!preserveWebView) {
+            try {
+                window.webView.stopLoading()
+                window.webView.loadUrl("about:blank")
+                window.webView.clearHistory()
+                window.webView.removeAllViews()
+                window.webView.destroy()
+            } catch (e: Exception) {
+                Timber.w(e, "Error destroying WebView for session ${session.id}")
+            }
         }
 
         session.state = SessionLifecycleState.DETACHED
@@ -512,19 +555,35 @@ class FloatingWindowManager(private val context: Context) {
         if (sessions.isEmpty()) {
             dismissTargetView?.hideTarget()
         }
-        Timber.d("Cleanly closed and destroyed session ${session.id}. Remaining active: ${sessions.size}")
+        Timber.d("Cleanly closed session ${session.id} (preserveWebView=$preserveWebView). Remaining active: ${sessions.size}")
     }
 
     /**
      * Closes the floating session and sends its URL back to the host launcher activity.
      */
     fun dockSessionToApp(session: FloatingSession, dockUrl: String, dockTitle: String) {
-        closeSession(session)
+        val windowView = session.windowView
+        val wv = windowView.webView
+
+        (wv.parent as? ViewGroup)?.removeView(wv)
+        TabOverlayStateBridge.putWebView(session.id, wv)
+
+        val stateBundle = android.os.Bundle()
+        try {
+            wv.saveState(stateBundle)
+            TabOverlayStateBridge.putState(session.id, stateBundle, dockUrl, dockTitle)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to saveState before dockSessionToApp")
+        }
+
+        closeSession(session, preserveWebView = true)
+
         val intent = Intent(context, io.github.floatbro.ui.LauncherActivity::class.java).apply {
             action = io.github.floatbro.ui.LauncherActivity.ACTION_DOCK_TAB
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_URL, dockUrl)
             putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_TITLE, dockTitle)
+            putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_SESSION_ID, session.id)
         }
         context.startActivity(intent)
     }

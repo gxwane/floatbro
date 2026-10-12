@@ -90,8 +90,8 @@ object FloatBroUiTokens {
 object FloatingWindowThemeColors {
     const val LightWindowBackground: Int = 0xFFFFFFFF.toInt()
     const val DarkWindowBackground: Int = 0xFF1E293B.toInt()
-    const val LightHeaderBackground: Int = 0xFFF8FAFC.toInt()
-    const val DarkHeaderBackground: Int = 0xFF0F172A.toInt()
+    const val LightHeaderBackground: Int = 0xFFF1F5F9.toInt()
+    const val DarkHeaderBackground: Int = 0xFF1E293B.toInt()
 }
 
 val FloatBroTypography = Typography(

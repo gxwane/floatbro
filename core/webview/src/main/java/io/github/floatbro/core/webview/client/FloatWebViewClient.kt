@@ -24,7 +24,8 @@ import timber.log.Timber
 class FloatWebViewClient(
     private val onPageStartedCallback: ((url: String) -> Unit)? = null,
     private val onPageFinishedCallback: ((url: String) -> Unit)? = null,
-    private val onTitleUpdated: ((title: String) -> Unit)? = null
+    private val onTitleUpdated: ((title: String) -> Unit)? = null,
+    private val onPageCommitVisibleCallback: ((url: String) -> Unit)? = null
 ) : WebViewClient() {
 
     override fun shouldInterceptRequest(
@@ -121,6 +122,12 @@ class FloatWebViewClient(
             onPageFinishedCallback?.invoke(url)
             view.title?.let { onTitleUpdated?.invoke(it) }
         }
+    }
+
+    override fun onPageCommitVisible(view: WebView, url: String) {
+        super.onPageCommitVisible(view, url)
+        Timber.d("onPageCommitVisible: %s", url)
+        onPageCommitVisibleCallback?.invoke(url)
     }
 
     override fun onReceivedError(

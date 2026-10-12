@@ -37,6 +37,7 @@ open class EBWebView @JvmOverloads constructor(
     var onInputFocusListener: ((Boolean) -> Unit)? = null
     var onPageStartedListener: ((String) -> Unit)? = null
     var onPageFinishedListener: ((String) -> Unit)? = null
+    var onPageCommitVisibleListener: ((String) -> Unit)? = null
 
     private val inputFocusBridge = InputFocusBridge { isFocused ->
         post { onInputFocusListener?.invoke(isFocused) }
@@ -78,6 +79,9 @@ open class EBWebView @JvmOverloads constructor(
         // Hardware acceleration
         setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
+        // Align background color with current theme to eliminate default pure white flash while preserving subpixel text AA
+        updateThemeBackgroundColor()
+
         // Inject JS bridge for soft keyboard focus detection
         addJavascriptInterface(inputFocusBridge, InputFocusBridge.INTERFACE_NAME)
     }
@@ -86,7 +90,8 @@ open class EBWebView @JvmOverloads constructor(
         webViewClient = FloatWebViewClient(
             onPageStartedCallback = { url -> onPageStartedListener?.invoke(url) },
             onPageFinishedCallback = { url -> onPageFinishedListener?.invoke(url) },
-            onTitleUpdated = { title -> onTitleChangedListener?.invoke(title) }
+            onTitleUpdated = { title -> onTitleChangedListener?.invoke(title) },
+            onPageCommitVisibleCallback = { url -> onPageCommitVisibleListener?.invoke(url) }
         )
 
         webChromeClient = FloatWebChromeClient(
@@ -108,5 +113,37 @@ open class EBWebView @JvmOverloads constructor(
             "Sec-CH-UA-Platform" to "\"Android\""
         )
         loadUrl(targetUrl, headers)
+    }
+
+    /**
+     * Clears all external callbacks to prevent Activity leaks during instance transfer.
+     */
+    fun detachAllListeners() {
+        onProgressChangedListener = null
+        onTitleChangedListener = null
+        onReceivedIconListener = null
+        onInputFocusListener = null
+        onPageStartedListener = null
+        onPageFinishedListener = null
+        onPageCommitVisibleListener = null
+    }
+
+    /**
+     * Updates the base Context via MutableContextWrapper without re-creating the WebView.
+     */
+    fun updateBaseContext(newContext: Context) {
+        (context as? android.content.MutableContextWrapper)?.baseContext = newContext
+        updateThemeBackgroundColor()
+    }
+
+    /**
+     * Dynamically synchronizes background color with the current theme surface,
+     * ensuring that no 0xFFFFFFFF white flash is exposed during Surface re-attachment,
+     * while retaining an opaque canvas to preserve LCD subpixel text anti-aliasing.
+     */
+    fun updateThemeBackgroundColor() {
+        val isDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val themeBgColor = if (isDarkMode) 0xFF0F172A.toInt() else 0xFFFFFFFF.toInt()
+        setBackgroundColor(themeBgColor)
     }
 }

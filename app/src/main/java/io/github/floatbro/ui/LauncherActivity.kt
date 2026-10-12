@@ -46,6 +46,17 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material.icons.filled.SystemUpdate
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import android.view.PixelCopy
+import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
+import io.github.floatbro.core.webview.TabOverlayStateBridge
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -55,6 +66,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -165,6 +177,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import android.view.ContextThemeWrapper
 import android.view.ViewGroup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
@@ -201,6 +214,7 @@ class LauncherActivity : ComponentActivity() {
         const val ACTION_DOCK_TAB = "io.github.floatbro.action.DOCK_TAB"
         const val EXTRA_TAB_URL = "extra_tab_url"
         const val EXTRA_TAB_TITLE = "extra_tab_title"
+        const val EXTRA_SESSION_ID = "extra_session_id"
 
         fun resolveBrowserUrl(input: String): String {
             return BrowserUrlResolver.resolve(input)
@@ -235,6 +249,61 @@ class LauncherActivity : ComponentActivity() {
         activeWebViews.clear()
     }
 
+    private fun captureWebViewHardwareBitmap(
+        view: android.view.View,
+        scale: Float = 0.5f,
+        onCaptured: (Bitmap?) -> Unit
+    ) {
+        if (!view.isAttachedToWindow || view.width <= 0 || view.height <= 0) {
+            onCaptured(null)
+            return
+        }
+        val decorView = window.decorView
+        val windowW = decorView.width
+        val windowH = decorView.height
+        if (windowW <= 0 || windowH <= 0) {
+            onCaptured(null)
+            return
+        }
+
+        val location = IntArray(2)
+        view.getLocationInWindow(location)
+        val left = location[0].coerceIn(0, windowW)
+        val top = location[1].coerceIn(0, windowH)
+        val right = (location[0] + view.width).coerceIn(left, windowW)
+        val bottom = (location[1] + view.height).coerceIn(top, windowH)
+        val srcW = right - left
+        val srcH = bottom - top
+        if (srcW <= 0 || srcH <= 0) {
+            onCaptured(null)
+            return
+        }
+
+        try {
+            val targetW = (srcW * scale).toInt().coerceAtLeast(1)
+            val targetH = (srcH * scale).toInt().coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565)
+            val srcRect = Rect(left, top, right, bottom)
+
+            PixelCopy.request(
+                window,
+                srcRect,
+                bitmap,
+                { copyResult ->
+                    if (copyResult == PixelCopy.SUCCESS) {
+                        onCaptured(bitmap)
+                    } else {
+                        onCaptured(null)
+                    }
+                },
+                Handler(Looper.getMainLooper())
+            )
+        } catch (e: Throwable) {
+            Timber.w(e, "PixelCopy request failed")
+            onCaptured(null)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Ensure status bar icon color adapts dynamically to dark mode
@@ -247,6 +316,12 @@ class LauncherActivity : ComponentActivity() {
 
         setContent {
             FloatBroTheme {
+                val isDark = isSystemInDarkTheme()
+                DisposableEffect(isDark) {
+                    WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !isDark
+                    onDispose {}
+                }
+
                 if (showPermissionRationaleDialog) {
                     AlertDialog(
                         onDismissRequest = { showPermissionRationaleDialog = false },
@@ -278,6 +353,14 @@ class LauncherActivity : ComponentActivity() {
                     activeTabId = previousTabId
                 }
 
+                // BackHandler for active tab at root to return to Home
+                BackHandler(enabled = activeTabId != "home" && activeTabId != "settings" && tabs.isNotEmpty()) {
+                    val currentWv = activeWebViews[activeTabId]
+                    if (currentWv == null || !currentWv.canGoBack()) {
+                        activeTabId = "home"
+                    }
+                }
+
                 val coroutineScope = rememberCoroutineScope()
                 val density = LocalDensity.current
                 val view = LocalView.current
@@ -290,6 +373,8 @@ class LauncherActivity : ComponentActivity() {
                 var isDetached by remember { mutableStateOf(false) }
                 var hasFiredDetachedHaptic by remember { mutableStateOf(false) }
                 var isCommittingOrCancelling by remember { mutableStateOf(false) }
+                var snapshotBitmap by remember { mutableStateOf<Bitmap?>(null) }
+                var isCapturingSnapshot by remember { mutableStateOf(false) }
 
                 var totalDragY by remember { mutableFloatStateOf(0f) }
                 var totalDragX by remember { mutableFloatStateOf(0f) }
@@ -356,8 +441,10 @@ class LauncherActivity : ComponentActivity() {
                                         previousTabId = activeTabId
                                         activeTabId = "settings"
                                     },
-                                    onTabDragStart = { tab, origin, size ->
+                                     onTabDragStart = { tab, origin, size ->
                                         if (!isCommittingOrCancelling) {
+                                            snapshotBitmap = null
+                                            isCapturingSnapshot = false
                                             draggedTab = tab
                                             originOffset = origin
                                             originSize = size
@@ -365,6 +452,18 @@ class LauncherActivity : ComponentActivity() {
                                             hasFiredDetachedHaptic = false
                                             totalDragX = 0f
                                             totalDragY = 0f
+
+                                            val currentWv = activeWebViews[tab.id]
+                                            if (currentWv != null && !isCapturingSnapshot) {
+                                                isCapturingSnapshot = true
+                                                captureWebViewHardwareBitmap(currentWv, scale = 0.5f) { bmp ->
+                                                    isCapturingSnapshot = false
+                                                    if (draggedTab?.id == tab.id) {
+                                                        snapshotBitmap = bmp
+                                                    }
+                                                }
+                                            }
+
                                             coroutineScope.launch {
                                                 dragOffsetAnim.snapTo(origin)
                                                 cardWidthAnim.snapTo(size.width.toFloat())
@@ -398,6 +497,16 @@ class LauncherActivity : ComponentActivity() {
                                                 } else {
                                                     // Phase 2: Detachment Threshold Crossed!
                                                     isDetached = true
+                                                    val sourceWv = activeWebViews[draggedTab?.id]
+                                                    if (sourceWv != null && snapshotBitmap == null && !isCapturingSnapshot) {
+                                                        isCapturingSnapshot = true
+                                                        captureWebViewHardwareBitmap(sourceWv, scale = 0.5f) { bmp ->
+                                                            isCapturingSnapshot = false
+                                                            if (isDetached) {
+                                                                snapshotBitmap = bmp
+                                                            }
+                                                        }
+                                                    }
                                                     if (!hasFiredDetachedHaptic) {
                                                         hasFiredDetachedHaptic = true
                                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -444,7 +553,8 @@ class LauncherActivity : ComponentActivity() {
                                         if (draggedTab != null && !isCommittingOrCancelling) {
                                             isCommittingOrCancelling = true
                                             val tearThresholdPx = with(density) { 44.dp.toPx() }
-                                            val isCommitted = totalDragY >= tearThresholdPx && isDetached
+                                            val hasPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this@LauncherActivity)
+                                            val isCommitted = totalDragY >= tearThresholdPx && isDetached && hasPermission
 
                                             if (isCommitted) {
                                                 // Phase 3A: Commit & Handover!
@@ -454,65 +564,72 @@ class LauncherActivity : ComponentActivity() {
                                                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                                 }
 
-                                                val rootSize = rootLayoutCoordinates?.size
-                                                val screenW = rootSize?.width?.toFloat() ?: 1080f
-                                                val screenH = rootSize?.height?.toFloat() ?: 2160f
-                                                val targetW = (screenW * 0.90f).coerceAtLeast(with(density) { 280.dp.toPx() })
-                                                val targetH = (screenH * 0.65f).coerceAtLeast(with(density) { 340.dp.toPx() })
-                                                val targetX = (screenW - targetW) / 2f
-                                                val targetY = (screenH - targetH) / 4f
+                                                val dropX = dragOffsetAnim.value.x.roundToInt()
+                                                val dropY = dragOffsetAnim.value.y.roundToInt()
 
                                                 coroutineScope.launch {
                                                     launch {
-                                                        cardTiltAnim.animateTo(0f, tween(120))
-                                                    }
-                                                    launch {
-                                                        dragOffsetAnim.animateTo(
-                                                            Offset(targetX, targetY),
-                                                            tween(240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f))
-                                                        )
-                                                    }
-                                                    launch {
-                                                        cardWidthAnim.animateTo(
-                                                            targetW,
-                                                            tween(240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f))
-                                                        )
-                                                    }
-                                                    launch {
-                                                        cardHeightAnim.animateTo(
-                                                            targetH,
-                                                            tween(240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f))
-                                                        )
+                                                        cardTiltAnim.animateTo(0f, tween(80))
                                                     }
 
                                                     val committingTab = draggedTab ?: return@launch
-                                                    activeWebViews.remove(committingTab.id)?.let { wv ->
-                                                        try {
-                                                            wv.stopLoading()
-                                                            wv.loadUrl("about:blank")
-                                                            wv.clearHistory()
-                                                            wv.removeAllViews()
-                                                            wv.destroy()
-                                                        } catch (_: Exception) {}
+                                                    val sourceWv = activeWebViews.remove(committingTab.id)
+                                                    if (sourceWv != null) {
+                                                        (sourceWv.parent as? ViewGroup)?.removeView(sourceWv)
+                                                        val themedServiceContext = ContextThemeWrapper(applicationContext, R.style.Theme_FloatBro)
+                                                        sourceWv.updateBaseContext(themedServiceContext)
+                                                        TabOverlayStateBridge.putWebView(committingTab.id, sourceWv)
                                                     }
+
+                                                    val stateBundle = Bundle()
+                                                    try {
+                                                        sourceWv?.saveState(stateBundle)
+                                                        TabOverlayStateBridge.putState(committingTab.id, stateBundle, committingTab.url, committingTab.title)
+                                                    } catch (e: Exception) {
+                                                        Timber.w(e, "Failed to saveState for tab ${committingTab.id}")
+                                                    }
+
+                                                    if (snapshotBitmap != null && !snapshotBitmap!!.isRecycled) {
+                                                        TabOverlayStateBridge.putSnapshot(committingTab.id, snapshotBitmap!!)
+                                                    }
+
+                                                    // Immediately remove from tabs & switch activeTabId to prevent Compose recomposition from stealing or recreating the tab
+                                                    val remainingTab = tabs.lastOrNull { it.id != committingTab.id }
+                                                    tabs.removeAll { it.id == committingTab.id }
+                                                    if (activeTabId == committingTab.id) {
+                                                        activeTabId = remainingTab?.id ?: "home"
+                                                    }
+
                                                     startOverlayService(
                                                         FloatBrowserService.ACTION_SHOW,
                                                         committingTab.url,
-                                                        targetX.roundToInt(),
-                                                        targetY.roundToInt(),
+                                                        dropX,
+                                                        dropY,
                                                         committingTab.id
                                                     )
-                                                    delay(160)
-                                                    cardAlphaAnim.animateTo(0f, tween(80))
-                                                    tabs.removeAll { it.id == committingTab.id }
-                                                    if (activeTabId == committingTab.id) {
-                                                        activeTabId = "home"
+
+                                                    // Wait for target floating window's first visible frame commit with 450ms safety timeout
+                                                    withTimeoutOrNull(450L) {
+                                                        suspendCancellableCoroutine<Unit> { cont ->
+                                                            TabOverlayStateBridge.registerCommitListener(committingTab.id) {
+                                                                if (cont.isActive) cont.resume(Unit)
+                                                            }
+                                                        }
                                                     }
+
+                                                    // Smooth quick fade out handover right at drop location
+                                                    cardAlphaAnim.animateTo(0f, tween(100))
+
+                                                    snapshotBitmap = null
+                                                    isCapturingSnapshot = false
                                                     draggedTab = null
                                                     isCommittingOrCancelling = false
                                                 }
                                             } else {
                                                 // Phase 3B: Cancel & Snapback with Physics Spring!
+                                                if (totalDragY >= tearThresholdPx && isDetached && !hasPermission) {
+                                                    showPermissionRationaleDialog = true
+                                                }
                                                 coroutineScope.launch {
                                                     launch {
                                                         cardTiltAnim.animateTo(0f, spring(Spring.DampingRatioNoBouncy))
@@ -527,7 +644,7 @@ class LauncherActivity : ComponentActivity() {
                                                         cardWidthAnim.animateTo(
                                                             originSize.width.toFloat(),
                                                             spring(
-                                                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                                                 dampingRatio = Spring.DampingRatioLowBouncy,
                                                                 stiffness = Spring.StiffnessMediumLow
                                                             )
                                                         )
@@ -553,6 +670,9 @@ class LauncherActivity : ComponentActivity() {
 
                                                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
 
+                                                    TabOverlayStateBridge.clear(draggedTab?.id ?: "")
+                                                    snapshotBitmap = null
+                                                    isCapturingSnapshot = false
                                                     draggedTab = null
                                                     isCommittingOrCancelling = false
                                                 }
@@ -600,6 +720,9 @@ class LauncherActivity : ComponentActivity() {
                                                     )
                                                 }.join()
 
+                                                TabOverlayStateBridge.clear(draggedTab?.id ?: "")
+                                                snapshotBitmap = null
+                                                isCapturingSnapshot = false
                                                 draggedTab = null
                                                 isCommittingOrCancelling = false
                                             }
@@ -659,7 +782,8 @@ class LauncherActivity : ComponentActivity() {
                                             } else {
                                                 key(currentTab.id) {
                                                     val webView = activeWebViews.getOrPut(currentTab.id) {
-                                                        EBWebView(this@LauncherActivity).apply {
+                                                        val wrapper = android.content.MutableContextWrapper(this@LauncherActivity)
+                                                        EBWebView(wrapper).apply {
                                                             layoutParams = ViewGroup.LayoutParams(
                                                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                                                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -668,24 +792,39 @@ class LauncherActivity : ComponentActivity() {
                                                             bp.resolveUserAgent(settings.userAgentString)?.let { ua ->
                                                                 settings.userAgentString = ua
                                                             }
-                                                            loadUrlSafely(currentTab.url)
+                                                            val restored = TabOverlayStateBridge.takeState(currentTab.id)
+                                                            if (restored != null) {
+                                                                Timber.d("Restoring state from TabOverlayStateBridge for tab ${currentTab.id}")
+                                                                restoreState(restored)
+                                                            } else {
+                                                                loadUrlSafely(currentTab.url)
+                                                            }
                                                         }
                                                     }
                                                     InAppWebViewPane(
                                                         tab = currentTab,
                                                         webView = webView,
                                                         onTearOff = {
-                                                            activeWebViews.remove(currentTab.id)?.let { wv ->
-                                                                try {
-                                                                    wv.stopLoading()
-                                                                    wv.loadUrl("about:blank")
-                                                                    wv.clearHistory()
-                                                                    wv.removeAllViews()
-                                                                    wv.destroy()
-                                                                } catch (_: Exception) {}
+                                                            val sourceWv = activeWebViews.remove(currentTab.id)
+                                                            if (sourceWv != null) {
+                                                                (sourceWv.parent as? ViewGroup)?.removeView(sourceWv)
+                                                                val themedServiceContext = ContextThemeWrapper(applicationContext, R.style.Theme_FloatBro)
+                                                                sourceWv.updateBaseContext(themedServiceContext)
+                                                                TabOverlayStateBridge.putWebView(currentTab.id, sourceWv)
                                                             }
+                                                            val stateBundle = Bundle()
+                                                            try {
+                                                                sourceWv?.saveState(stateBundle)
+                                                                TabOverlayStateBridge.putState(currentTab.id, stateBundle, currentTab.url, currentTab.title)
+                                                            } catch (e: Exception) {
+                                                                Timber.w(e, "Failed to saveState on tear off")
+                                                            }
+
+                                                            val remainingTab = tabs.lastOrNull { it.id != currentTab.id }
                                                             tabs.removeAll { it.id == currentTab.id }
-                                                            activeTabId = "home"
+                                                            if (activeTabId == currentTab.id) {
+                                                                activeTabId = remainingTab?.id ?: "home"
+                                                            }
                                                             startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url, windowId = currentTab.id)
                                                         },
                                                         onUrlChanged = { newUrl ->
@@ -729,7 +868,8 @@ class LauncherActivity : ComponentActivity() {
                                 tilt = cardTiltAnim.value,
                                 alpha = cardAlphaAnim.value,
                                 cornerRadius = cardCornerRadiusAnim.value.dp,
-                                isDetached = isDetached
+                                isDetached = isDetached,
+                                snapshotBitmap = snapshotBitmap
                             )
                         }
                     }
@@ -753,7 +893,25 @@ class LauncherActivity : ComponentActivity() {
         if (intent?.action == ACTION_DOCK_TAB) {
             val url = intent.getStringExtra(EXTRA_TAB_URL) ?: return
             val title = intent.getStringExtra(EXTRA_TAB_TITLE) ?: "已收回网页"
-            val newTab = BrowserTab(title = title, url = url)
+            val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
+            val newTab = if (sessionId != null) {
+                BrowserTab(id = sessionId, title = title, url = url)
+            } else {
+                BrowserTab(title = title, url = url)
+            }
+
+            if (sessionId != null) {
+                val existingWv = TabOverlayStateBridge.takeWebView(sessionId)
+                if (existingWv != null) {
+                    existingWv.updateBaseContext(this@LauncherActivity)
+                    (existingWv.parent as? ViewGroup)?.removeView(existingWv)
+                    existingWv.onResume()
+                    existingWv.resumeTimers()
+                    activeWebViews[newTab.id] = existingWv
+                    Timber.d("Reusing live EBWebView from bridge for docked tab ${newTab.id}")
+                }
+            }
+
             tabs.add(newTab)
             activeTabId = newTab.id
         }
@@ -1143,7 +1301,8 @@ fun DraggedTabOverlay(
     tilt: Float,
     alpha: Float,
     cornerRadius: Dp,
-    isDetached: Boolean
+    isDetached: Boolean,
+    snapshotBitmap: Bitmap? = null
 ) {
     Surface(
         modifier = Modifier
@@ -1212,11 +1371,11 @@ fun DraggedTabOverlay(
         } else {
             // Phase 2 & 3: Floating Window Preview Card (Glassmorphism)
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header Bar (34dp)
+                // Header Bar (44dp aligned to standard)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(34.dp)
+                        .height(44.dp)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1265,7 +1424,7 @@ fun DraggedTabOverlay(
 
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-                // Translucent Body Preview
+                // Translucent Body Preview with live hardware snapshot
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1273,25 +1432,34 @@ fun DraggedTabOverlay(
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Language,
+                    if (snapshotBitmap != null && !snapshotBitmap.isRecycled) {
+                        Image(
+                            bitmap = snapshotBitmap.asImageBitmap(),
                             contentDescription = null,
-                            modifier = Modifier.size(28.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = tab.url.removePrefix("https://").removePrefix("http://"),
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = tab.url.removePrefix("https://").removePrefix("http://"),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -2833,14 +3001,21 @@ fun InAppWebViewPane(
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = canGoBack) {
+    // Level 1: Priority BackHandler for URL editing mode
+    BackHandler(enabled = isEditingUrl) {
+        isEditingUrl = false
+        keyboardController?.hide()
+    }
+
+    // Level 3: BackHandler for WebView web history navigation
+    BackHandler(enabled = !isEditingUrl && canGoBack) {
         if (webView.canGoBack()) {
             webView.goBack()
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Mini Toolbar matching FloatingWindowView: [Back] [Forward] [Capsule 32dp] [Refresh] [Popout]
+        // Mini Toolbar matching FloatingWindowView: [Back] [Forward] [Capsule 34dp] [Refresh] [Popout]
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2858,7 +3033,7 @@ fun InAppWebViewPane(
                     painter = painterResource(id = R.drawable.ic_nav_back),
                     contentDescription = "后退",
                     modifier = Modifier.size(18.dp),
-                    tint = if (canGoBack) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                    tint = if (canGoBack) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 )
             }
             Spacer(modifier = Modifier.width(2.dp))
@@ -2871,19 +3046,19 @@ fun InAppWebViewPane(
                     painter = painterResource(id = R.drawable.ic_nav_forward),
                     contentDescription = "前进",
                     modifier = Modifier.size(18.dp),
-                    tint = if (canGoForward) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                    tint = if (canGoForward) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
 
             if (isEditingUrl) {
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(17.dp),
                     color = MaterialTheme.colorScheme.surface,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     modifier = Modifier
                         .weight(1f)
-                        .height(32.dp)
+                        .height(34.dp)
                         .padding(horizontal = 2.dp)
                 ) {
                     Row(
@@ -2936,11 +3111,11 @@ fun InAppWebViewPane(
                 }
             } else {
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(17.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier
                         .weight(1f)
-                        .height(32.dp)
+                        .height(34.dp)
                         .padding(horizontal = 2.dp)
                         .clickable {
                             editingUrlText = tab.url
@@ -2976,7 +3151,12 @@ fun InAppWebViewPane(
                 onClick = { webView.reload() },
                 modifier = Modifier.size(36.dp)
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = "刷新", modifier = Modifier.size(20.dp))
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_refresh),
+                    contentDescription = "刷新",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
             Spacer(modifier = Modifier.width(2.dp))
             IconButton(
@@ -3007,48 +3187,57 @@ fun InAppWebViewPane(
         }
 
         // Web Content reusing cached webView
-        AndroidView(
-            factory = { _ ->
-                (webView.parent as? ViewGroup)?.removeView(webView)
-                webView.apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    onProgressChangedListener = { progress ->
-                        loadingProgress = progress
-                        canGoBack = webView.canGoBack()
-                        canGoForward = webView.canGoForward()
-                    }
-                    onTitleChangedListener = { title -> onTitleReceived(title) }
-                    onReceivedIconListener = { icon -> onFaviconReceived(icon) }
-                    onPageStartedListener = { startedUrl ->
-                        onUrlChanged(startedUrl)
-                        canGoBack = webView.canGoBack()
-                        canGoForward = webView.canGoForward()
-                    }
-                }
-            },
-            update = { wv ->
-                wv.onProgressChangedListener = { progress ->
-                    loadingProgress = progress
-                    canGoBack = wv.canGoBack()
-                    canGoForward = wv.canGoForward()
-                }
-                wv.onTitleChangedListener = { title -> onTitleReceived(title) }
-                wv.onReceivedIconListener = { icon -> onFaviconReceived(icon) }
-                wv.onPageStartedListener = { startedUrl ->
-                    onUrlChanged(startedUrl)
-                    canGoBack = wv.canGoBack()
-                    canGoForward = wv.canGoForward()
-                }
-            },
-            onRelease = { wv ->
-                (wv.parent as? ViewGroup)?.removeView(wv)
-            },
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-        )
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
+            AndroidView(
+                factory = { _ ->
+                    (webView.parent as? ViewGroup)?.removeView(webView)
+                    webView.apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        updateThemeBackgroundColor()
+                        onProgressChangedListener = { progress ->
+                            loadingProgress = progress
+                            canGoBack = webView.canGoBack()
+                            canGoForward = webView.canGoForward()
+                        }
+                        onTitleChangedListener = { title -> onTitleReceived(title) }
+                        onReceivedIconListener = { icon -> onFaviconReceived(icon) }
+                        onPageStartedListener = { startedUrl ->
+                            onUrlChanged(startedUrl)
+                            canGoBack = webView.canGoBack()
+                            canGoForward = webView.canGoForward()
+                        }
+                    }
+                },
+                update = { wv ->
+                    wv.onProgressChangedListener = { progress ->
+                        loadingProgress = progress
+                        canGoBack = wv.canGoBack()
+                        canGoForward = wv.canGoForward()
+                    }
+                    wv.onTitleChangedListener = { title -> onTitleReceived(title) }
+                    wv.onReceivedIconListener = { icon -> onFaviconReceived(icon) }
+                    wv.onPageStartedListener = { startedUrl ->
+                        onUrlChanged(startedUrl)
+                        canGoBack = wv.canGoBack()
+                        canGoForward = wv.canGoForward()
+                    }
+                },
+                onRelease = { wv ->
+                    val parent = wv.parent as? ViewGroup
+                    if (parent != null && parent.javaClass.name.contains("AndroidViewHolder")) {
+                        parent.removeView(wv)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }

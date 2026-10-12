@@ -57,7 +57,7 @@ class ThemeTokensTest {
     fun testFloatingWindowThemeColors() {
         assertEquals(0xFFFFFFFF.toInt(), FloatingWindowThemeColors.LightWindowBackground)
         assertEquals(0xFF1E293B.toInt(), FloatingWindowThemeColors.DarkWindowBackground)
-        assertEquals(0xFFF8FAFC.toInt(), FloatingWindowThemeColors.LightHeaderBackground)
-        assertEquals(0xFF0F172A.toInt(), FloatingWindowThemeColors.DarkHeaderBackground)
+        assertEquals(0xFFF1F5F9.toInt(), FloatingWindowThemeColors.LightHeaderBackground)
+        assertEquals(0xFF1E293B.toInt(), FloatingWindowThemeColors.DarkHeaderBackground)
     }
 }

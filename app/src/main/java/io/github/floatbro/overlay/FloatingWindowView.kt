@@ -17,10 +17,12 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import io.github.floatbro.core.webview.TabOverlayStateBridge
 import android.view.HapticFeedbackConstants
 import android.view.animation.DecelerateInterpolator
 import io.github.floatbro.ui.theme.FloatingWindowThemeColors
@@ -30,6 +32,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
@@ -63,10 +66,11 @@ class FloatingWindowView(
     val sessionId: String,
     private val windowManager: WindowManager,
     val layoutParams: WindowManager.LayoutParams,
-    private val lifecycleContext: OverlayLifecycleContext
+    private val lifecycleContext: OverlayLifecycleContext,
+    existingWebView: EBWebView? = null
 ) : FrameLayout(context) {
 
-    val webView: EBWebView = EBWebView(context)
+    val webView: EBWebView = existingWebView ?: EBWebView(android.content.MutableContextWrapper(context))
     private val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
 
     // Header views
@@ -162,9 +166,11 @@ class FloatingWindowView(
         mainLayout.addView(progressBar)
 
         // 3. Central Web Content
-        val browserPrefs = io.github.floatbro.browser.BrowserPreferences.getInstance(context)
-        browserPrefs.resolveUserAgent(webView.settings.userAgentString)?.let { ua ->
-            webView.settings.userAgentString = ua
+        if (existingWebView == null) {
+            val browserPrefs = io.github.floatbro.browser.BrowserPreferences.getInstance(context)
+            browserPrefs.resolveUserAgent(webView.settings.userAgentString)?.let { ua ->
+                webView.settings.userAgentString = ua
+            }
         }
         webView.apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -204,8 +210,84 @@ class FloatingWindowView(
                 this@FloatingWindowView.onFaviconReceived?.invoke(icon)
             }
         }
-        mainLayout.addView(webView)
+        val webContainer = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        }
+        (webView.parent as? ViewGroup)?.removeView(webView)
+        webContainer.addView(
+            webView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
 
+        if (existingWebView != null) {
+            val initTitle = existingWebView.title?.takeIf { it.isNotBlank() } ?: existingWebView.url ?: "FloatBro 悬浮浏览"
+            updateOmniText(initTitle)
+            updateNavigationState()
+
+            val snapshot = TabOverlayStateBridge.takeSnapshot(sessionId)
+            if (snapshot != null && !snapshot.isRecycled) {
+                val coverImageView = ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setImageBitmap(snapshot)
+                }
+                webContainer.addView(
+                    coverImageView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    viewTreeObserver.registerFrameCommitCallback {
+                        postDelayed({
+                            coverImageView.animate()
+                                .alpha(0f)
+                                .setDuration(120L)
+                                .withEndAction {
+                                    coverImageView.setImageDrawable(null)
+                                    webContainer.removeView(coverImageView)
+                                }
+                                .start()
+                            TabOverlayStateBridge.notifyCommit(sessionId)
+                        }, 16L)
+                    }
+                } else {
+                    postDelayed({
+                        coverImageView.animate()
+                            .alpha(0f)
+                            .setDuration(120L)
+                            .withEndAction {
+                                coverImageView.setImageDrawable(null)
+                                webContainer.removeView(coverImageView)
+                            }
+                            .start()
+                        TabOverlayStateBridge.notifyCommit(sessionId)
+                    }, 48L)
+                }
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    viewTreeObserver.registerFrameCommitCallback {
+                        postDelayed({
+                            TabOverlayStateBridge.notifyCommit(sessionId)
+                        }, 16L)
+                    }
+                } else {
+                    postDelayed({
+                        TabOverlayStateBridge.notifyCommit(sessionId)
+                    }, 48L)
+                }
+            }
+        }
+
+        mainLayout.addView(webContainer)
         addView(mainLayout)
 
         // 4. Invisible 48dp Bottom-Right Resize Handle
@@ -232,11 +314,11 @@ class FloatingWindowView(
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(8f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
+            setPadding(dpToPx(4f), dpToPx(2f), dpToPx(4f), dpToPx(2f))
             setBackgroundColor(headerBg)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(48f)
+                dpToPx(44f)
             )
         }
 
@@ -246,7 +328,7 @@ class FloatingWindowView(
                 webView.goBack()
             }
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(2f)
+            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(1f)
         }
 
         btnForward = createHeaderButton(R.drawable.ic_nav_forward, "前进") {
@@ -254,20 +336,20 @@ class FloatingWindowView(
                 webView.goForward()
             }
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(4f)
+            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(3f)
         }
 
-        // 2. Center Omnibar Capsule (Height 36dp, Radius 18dp, Expandable)
+        // 2. Center Omnibar Capsule (Height 34dp, Radius 17dp, Expandable)
         omniCapsule = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f).apply {
-                marginEnd = dpToPx(4f)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(34f), 1f).apply {
+                marginEnd = dpToPx(3f)
             }
             setPadding(dpToPx(10f), 0, dpToPx(6f), 0)
             background = GradientDrawable().apply {
                 setColor(capsuleBg)
-                cornerRadius = dpToPx(18f).toFloat()
+                cornerRadius = dpToPx(17f).toFloat()
                 setStroke(dpToPx(1f), capsuleStroke)
             }
 
@@ -377,17 +459,22 @@ class FloatingWindowView(
 
     private fun createHeaderButton(drawableRes: Int, tooltip: String, onClick: () -> Unit): ImageButton {
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val iconTint = if (isDarkMode) Color.parseColor("#CBD5E1") else Color.parseColor("#475569")
+        val iconTint = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
         return ImageButton(context).apply {
-            val btnSize = dpToPx(32f)
+            val btnSize = dpToPx(36f)
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
-                marginStart = dpToPx(2f)
+                marginStart = dpToPx(1f)
             }
-            setBackgroundColor(Color.TRANSPARENT)
+            val typedValue = TypedValue()
+            if (context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)) {
+                setBackgroundResource(typedValue.resourceId)
+            } else {
+                setBackgroundColor(Color.TRANSPARENT)
+            }
             setImageResource(drawableRes)
             setColorFilter(iconTint)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
             contentDescription = tooltip
             setOnClickListener { onClick() }
         }

@@ -42,4 +42,28 @@ class FloatWebChromeClient(
         }
         return super.onConsoleMessage(consoleMessage)
     }
+
+    override fun onJsAlert(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
+        timber.log.Timber.i("JsAlert intercepted safely: $message")
+        result?.confirm()
+        return true
+    }
+
+    override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
+        timber.log.Timber.i("JsConfirm intercepted safely: $message")
+        result?.confirm()
+        return true
+    }
+
+    override fun onJsPrompt(
+        view: WebView?,
+        url: String?,
+        message: String?,
+        defaultValue: String?,
+        result: android.webkit.JsPromptResult?
+    ): Boolean {
+        timber.log.Timber.i("JsPrompt intercepted safely: $message")
+        result?.confirm(defaultValue ?: "")
+        return true
+    }
 }
