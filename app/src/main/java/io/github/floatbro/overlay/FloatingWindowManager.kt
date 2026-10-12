@@ -12,21 +12,29 @@
 package io.github.floatbro.overlay
 
 import android.content.Context
-import android.graphics.Bitmap
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.WindowManager
 import timber.log.Timber
+import java.util.UUID
 
 /**
- * Core manager controlling WindowManager TYPE_APPLICATION_OVERLAY views.
+ * Core manager controlling multiple concurrent TYPE_APPLICATION_OVERLAY floating windows.
  * Responsibilities:
- * 1. Orchestrates window and bubble transitions (WINDOW <-> BUBBLE <-> HIDDEN);
- * 2. Dynamically toggles FLAG_NOT_FOCUSABLE on input focus for seamless soft keyboard support;
- * 3. Maintains window coordinates, bounds, and lifecycle states.
+ * 1. Manages multi-session registry (LinkedHashMap<String, FloatingSession>, max 3 concurrent);
+ * 2. Cascades initial window positioning and coordinates vertical edge bubble stacking;
+ * 3. Enforces strict single-window keyboard focus mutex via FocusMutexCoordinator;
+ * 4. Safe Z-order elevation on touch and CPU/memory throttling on inactive windows;
+ * 5. Full bidirectional docking back to host app tabs.
  */
 class FloatingWindowManager(private val context: Context) {
+
+    companion object {
+        const val MAX_CONCURRENT_SESSIONS = 3
+    }
 
     private val windowManager: WindowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -37,240 +45,415 @@ class FloatingWindowManager(private val context: Context) {
         onResume()
     }
 
-    private var windowView: FloatingWindowView? = null
-    private var bubbleView: FloatingBubbleView? = null
-    private var currentFavicon: Bitmap? = null
+    private val focusMutex = FocusMutexCoordinator(windowManager)
+    private val bubbleStack = BubbleStackCoordinator(context, windowManager)
 
-    var currentMode: OverlayMode = OverlayMode.HIDDEN
-        private set
+    // Multi-session registry
+    val sessions = LinkedHashMap<String, FloatingSession>()
 
-    private val windowParams: WindowManager.LayoutParams
-    private val bubbleParams: WindowManager.LayoutParams
+    val activeSessionCount: Int
+        get() = sessions.size
 
-    private var isWindowFocusable = false
+    val hasActiveOverlays: Boolean
+        get() = sessions.isNotEmpty()
 
-    init {
-        val displayMetrics = context.resources.displayMetrics
-        val initialWidth = (displayMetrics.widthPixels * 0.90f).toInt().coerceAtLeast(600)
-        val initialHeight = (displayMetrics.heightPixels * 0.65f).toInt().coerceAtLeast(800)
-        val initialX = (displayMetrics.widthPixels - initialWidth) / 2
-        val initialY = (displayMetrics.heightPixels - initialHeight) / 4
+    private fun dpToPx(dp: Float): Int {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            dp,
+            context.resources.displayMetrics
+        ).toInt()
+    }
 
-        // Window LayoutParams
-        val windowType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    private fun getOverlayWindowType(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
+    }
 
-        windowParams = WindowManager.LayoutParams(
-            initialWidth,
-            initialHeight,
-            windowType,
+    /**
+     * Shows, restores, or launches a new floating browser session.
+     */
+    fun showWindow(
+        url: String? = null,
+        initialX: Int? = null,
+        initialY: Int? = null,
+        windowId: String? = null
+    ) {
+        val targetId = windowId ?: UUID.randomUUID().toString()
+        Timber.d("showWindow requested: id=$targetId, url=$url, initialX=$initialX, initialY=$initialY")
+
+        val existingSession = sessions[targetId]
+        if (existingSession != null) {
+            // Restore or update existing session
+            if (existingSession.mode == OverlayMode.BUBBLE) {
+                restoreBubbleToWindow(existingSession)
+            }
+            if (url != null) {
+                existingSession.windowView.webView.loadUrlSafely(url)
+            }
+            bringSessionToFront(existingSession)
+            return
+        }
+
+        // Enforce max concurrent sessions policy
+        if (sessions.size >= MAX_CONCURRENT_SESSIONS) {
+            evictOrMinimizeOldestSession()
+        }
+
+        // Calculate initial cascaded window bounds
+        val displayMetrics = context.resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val screenHeight = displayMetrics.heightPixels
+
+        val defaultWidth = (screenWidth * 0.88f).toInt().coerceIn(dpToPx(280f), dpToPx(380f))
+        val defaultHeight = (screenHeight * 0.60f).toInt().coerceIn(dpToPx(380f), dpToPx(560f))
+
+        val cascadeOffset = sessions.size * dpToPx(24f)
+        val targetX = ((initialX ?: (screenWidth - defaultWidth) / 2) + cascadeOffset)
+            .coerceIn(dpToPx(8f), (screenWidth - defaultWidth - dpToPx(8f)).coerceAtLeast(0))
+        val targetY = ((initialY ?: (screenHeight - defaultHeight) / 4) + cascadeOffset)
+            .coerceIn(dpToPx(36f), (screenHeight - defaultHeight - dpToPx(48f)).coerceAtLeast(0))
+
+        val windowParams = WindowManager.LayoutParams(
+            defaultWidth,
+            defaultHeight,
+            getOverlayWindowType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = initialX
-            y = initialY
+            x = targetX
+            y = targetY
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
 
-        // Bubble LayoutParams
-        bubbleParams = WindowManager.LayoutParams(
+        val bubbleParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            windowType,
+            getOverlayWindowType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 16
-            y = displayMetrics.heightPixels / 3
+            x = dpToPx(12f)
+            y = dpToPx(120f) + (sessions.size * dpToPx(62f))
+        }
+
+        val windowView = FloatingWindowView(
+            context = context,
+            sessionId = targetId,
+            windowManager = windowManager,
+            layoutParams = windowParams,
+            lifecycleContext = lifecycleContext
+        )
+
+        val session = FloatingSession(
+            id = targetId,
+            url = url ?: "https://cn.bing.com",
+            windowView = windowView,
+            windowParams = windowParams,
+            bubbleParams = bubbleParams,
+            mode = OverlayMode.WINDOW
+        )
+
+        // Setup session callbacks
+        windowView.apply {
+            onMinimizeRequested = { minimizeToBubble(session) }
+            onCloseRequested = { closeSession(session) }
+            onBringToFrontRequested = { bringSessionToFront(session) }
+            onInputFocusRequested = { isFocused ->
+                if (isFocused) {
+                    focusMutex.acquireFocus(session)
+                } else {
+                    focusMutex.releaseFocus(session)
+                }
+            }
+            onMaximizeToggleRequested = { toggleMaximizeSession(session) }
+            onFaviconReceived = { icon ->
+                session.favicon = icon
+                session.bubbleView?.updateFavicon(icon)
+            }
+            onDockRequested = { dockUrl, dockTitle ->
+                dockSessionToApp(session, dockUrl, dockTitle)
+            }
+        }
+
+        // Attach window
+        try {
+            windowManager.addView(windowView, windowParams)
+            sessions[targetId] = session
+            val loadTarget = url ?: "https://cn.bing.com"
+            windowView.webView.loadUrlSafely(loadTarget)
+            Timber.d("Successfully launched floating session $targetId with url $loadTarget")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to add FloatingWindowView to WindowManager for session $targetId")
         }
     }
 
     /**
-     * Shows or restores the full floating browser window.
+     * Brings the session window to the top of WindowManager via safe view re-insertion.
      */
-    fun showWindow(url: String? = null, initialX: Int? = null, initialY: Int? = null) {
-        Timber.d("showWindow requested with url=$url, initialX=$initialX, initialY=$initialY, currentMode=$currentMode")
-
-        val displayMetrics = context.resources.displayMetrics
-        if (initialX != null) {
-            windowParams.x = initialX.coerceIn(0, (displayMetrics.widthPixels - windowParams.width).coerceAtLeast(0))
+    fun bringSessionToFront(session: FloatingSession) {
+        session.lastInteractedTimestamp = System.currentTimeMillis()
+        if (sessions.values.lastOrNull()?.id == session.id) {
+            // Already top-most window; do not re-insert to preserve active touch stream
+            return
         }
-        if (initialY != null) {
-            windowParams.y = initialY.coerceIn(0, (displayMetrics.heightPixels - windowParams.height).coerceAtLeast(0))
-        }
-
-        // 1. Remove bubble if attached
-        removeBubbleIfAttached()
-
-        // 2. Prepare Window View
-        if (windowView == null) {
-            windowView = FloatingWindowView(
-                context = context,
-                windowManager = windowManager,
-                layoutParams = windowParams,
-                lifecycleContext = lifecycleContext
-            ).apply {
-                onMinimizeRequested = { minimizeToBubble() }
-                onCloseRequested = { hide() }
-                onInputFocusChanged = { isFocused -> setWindowFocusable(isFocused) }
-                onFaviconReceived = { icon ->
-                    currentFavicon = icon
-                    bubbleView?.updateFavicon(icon)
-                }
-                
-                val defaultUrl = url ?: "https://cn.bing.com"
-                webView.loadUrlSafely(defaultUrl)
-                onDockRequested = { dockUrl, dockTitle ->
-                    hide()
-                    val intent = android.content.Intent(context, io.github.floatbro.ui.LauncherActivity::class.java).apply {
-                        action = io.github.floatbro.ui.LauncherActivity.ACTION_DOCK_TAB
-                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_URL, dockUrl)
-                        putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_TITLE, dockTitle)
-                    }
-                    context.startActivity(intent)
-                }
-            }
-        } else {
-            if (url != null) {
-                windowView?.webView?.loadUrlSafely(url)
-            }
-            if ((initialX != null || initialY != null) && windowView?.isAttachedToWindow == true) {
-                try {
-                    windowManager.updateViewLayout(windowView, windowParams)
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to update layout of FloatingWindowView")
-                }
-            }
-        }
-
-        // 3. Attach to WindowManager
-        val view = windowView ?: return
-        if (!view.isAttachedToWindow) {
+        val view = session.windowView
+        if (view.isAttachedToWindow && session.mode == OverlayMode.WINDOW) {
             try {
-                windowManager.addView(view, windowParams)
+                windowManager.removeViewImmediate(view)
+                windowManager.addView(view, session.windowParams)
+                sessions.remove(session.id)
+                sessions[session.id] = session
+                Timber.d("Elevated session ${session.id} to front")
             } catch (e: Exception) {
-                Timber.e(e, "Failed to add FloatingWindowView to WindowManager")
+                Timber.w(e, "Safe Z-order re-insertion failed for session ${session.id}")
             }
         }
-
-        currentMode = OverlayMode.WINDOW
     }
 
     /**
-     * Minimizes the floating window into an edge-docking bubble.
+     * Collapses an active window into an edge-docked bubble.
      */
-    fun minimizeToBubble() {
-        Timber.d("minimizeToBubble requested, currentMode=$currentMode")
+    fun minimizeToBubble(session: FloatingSession) {
+        if (session.mode == OverlayMode.BUBBLE) return
+        focusMutex.releaseFocus(session)
 
-        // 1. Remove window if attached
-        removeWindowIfAttached()
+        // 1. Throttling WebView background execution
+        session.windowView.webView.onPause()
+        session.windowView.webView.pauseTimers()
 
-        // 2. Prepare Bubble View
-        if (bubbleView == null) {
-            bubbleView = FloatingBubbleView(
-                context = context,
-                windowManager = windowManager,
-                layoutParams = bubbleParams
-            ).apply {
-                onBubbleClicked = { showWindow() }
+        // 2. Remove window view
+        if (session.windowView.isAttachedToWindow) {
+            try {
+                windowManager.removeView(session.windowView)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to remove window view during minimize for session ${session.id}")
             }
         }
-        bubbleView?.updateFavicon(currentFavicon)
 
-        // 3. Attach to WindowManager
-        val bubble = bubbleView ?: return
+        // 3. Create or attach bubble
+        if (session.bubbleView == null) {
+            session.bubbleView = FloatingBubbleView(
+                context = context,
+                windowManager = windowManager,
+                layoutParams = session.bubbleParams
+            ).apply {
+                updateFavicon(session.favicon)
+                onBubbleClicked = { restoreBubbleToWindow(session) }
+            }
+        }
+
+        val bubble = session.bubbleView!!
         if (!bubble.isAttachedToWindow) {
             try {
-                windowManager.addView(bubble, bubbleParams)
+                bubbleStack.attachBubble(session)
+                windowManager.addView(bubble, session.bubbleParams)
+                session.mode = OverlayMode.BUBBLE
+                Timber.d("Minimized session ${session.id} to edge bubble")
             } catch (e: Exception) {
-                Timber.e(e, "Failed to add FloatingBubbleView to WindowManager")
+                Timber.e(e, "Failed to add bubble view for session ${session.id}")
+            }
+        }
+    }
+
+    /**
+     * Restores a bubble back into its full floating browser window.
+     */
+    fun restoreBubbleToWindow(session: FloatingSession) {
+        if (session.mode == OverlayMode.WINDOW) return
+
+        // 1. Remove bubble
+        session.bubbleView?.let { bubble ->
+            if (bubble.isAttachedToWindow) {
+                try {
+                    windowManager.removeView(bubble)
+                    bubbleStack.detachBubble(session)
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to remove bubble during restore for session ${session.id}")
+                }
             }
         }
 
-        currentMode = OverlayMode.BUBBLE
+        // 2. Resume WebView
+        session.windowView.webView.onResume()
+        session.windowView.webView.resumeTimers()
+
+        // 3. Attach window
+        val window = session.windowView
+        if (!window.isAttachedToWindow) {
+            try {
+                windowManager.addView(window, session.windowParams)
+                session.mode = OverlayMode.WINDOW
+                bringSessionToFront(session)
+                Timber.d("Restored session ${session.id} to window")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to re-add window view during restore for session ${session.id}")
+            }
+        }
     }
 
     /**
-     * Hides all overlay views.
+     * Toggles between standard floating dimensions and near-fullscreen maximized overlay.
      */
-    fun hide() {
-        Timber.d("hide overlay requested")
-        removeWindowIfAttached()
-        removeBubbleIfAttached()
-        currentMode = OverlayMode.HIDDEN
-    }
+    fun toggleMaximizeSession(session: FloatingSession) {
+        val displayMetrics = context.resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val screenHeight = displayMetrics.heightPixels
 
-    /**
-     * Dynamically switches FLAG_NOT_FOCUSABLE.
-     * When focused: removes FLAG_NOT_FOCUSABLE to allow keyboard IME input.
-     * When unfocused: adds FLAG_NOT_FOCUSABLE so touches pass through to underlying apps.
-     */
-    fun setWindowFocusable(focusable: Boolean) {
-        if (isWindowFocusable == focusable) return
-        isWindowFocusable = focusable
-
-        if (focusable) {
-            windowParams.flags = windowParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        if (session.isMaximized) {
+            // Restore previous bounds
+            val saved = session.savedBounds ?: WindowSavedBounds(
+                x = (screenWidth * 0.05f).toInt(),
+                y = (screenHeight * 0.15f).toInt(),
+                width = (screenWidth * 0.90f).toInt(),
+                height = (screenHeight * 0.65f).toInt()
+            )
+            session.windowParams.x = saved.x
+            session.windowParams.y = saved.y
+            session.windowParams.width = saved.width
+            session.windowParams.height = saved.height
+            session.isMaximized = false
         } else {
-            windowParams.flags = windowParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            // Save current bounds
+            session.savedBounds = WindowSavedBounds(
+                x = session.windowParams.x,
+                y = session.windowParams.y,
+                width = session.windowParams.width,
+                height = session.windowParams.height
+            )
+            // Maximize to full screen bounds avoiding status bar
+            session.windowParams.x = 0
+            session.windowParams.y = dpToPx(36f)
+            session.windowParams.width = screenWidth
+            session.windowParams.height = screenHeight - dpToPx(36f)
+            session.isMaximized = true
         }
 
-        val view = windowView
-        if (view != null && view.isAttachedToWindow && currentMode == OverlayMode.WINDOW) {
+        if (session.windowView.isAttachedToWindow) {
             try {
-                windowManager.updateViewLayout(view, windowParams)
-                Timber.d("Updated WindowManager focusable=$focusable")
+                windowManager.updateViewLayout(session.windowView, session.windowParams)
+                session.windowView.onBoundsChanged?.invoke(
+                    session.windowParams.width,
+                    session.windowParams.height,
+                    session.windowParams.x,
+                    session.windowParams.y
+                )
             } catch (e: Exception) {
-                Timber.e(e, "Failed to update layout params for focus change")
+                Timber.e(e, "Failed to toggle maximize layout params for session ${session.id}")
             }
         }
     }
 
-    private fun removeWindowIfAttached() {
-        val view = windowView
-        if (view != null && view.isAttachedToWindow) {
+    /**
+     * Completely destroys a floating session and its views.
+     */
+    fun closeSession(session: FloatingSession) {
+        focusMutex.releaseFocus(session)
+
+        // 1. Remove bubble
+        session.bubbleView?.let { bubble ->
+            if (bubble.isAttachedToWindow) {
+                try {
+                    windowManager.removeView(bubble)
+                    bubbleStack.detachBubble(session)
+                } catch (e: Exception) {
+                    Timber.w(e, "Error removing bubble on close for session ${session.id}")
+                }
+            }
+        }
+
+        // 2. Remove window
+        val window = session.windowView
+        if (window.isAttachedToWindow) {
             try {
-                windowManager.removeView(view)
+                windowManager.removeView(window)
             } catch (e: Exception) {
-                Timber.e(e, "Failed to remove FloatingWindowView")
+                Timber.w(e, "Error removing window on close for session ${session.id}")
+            }
+        }
+
+        // 3. Destroy WebView clean sequence
+        try {
+            window.webView.stopLoading()
+            window.webView.loadUrl("about:blank")
+            window.webView.clearHistory()
+            window.webView.removeAllViews()
+            window.webView.destroy()
+        } catch (e: Exception) {
+            Timber.w(e, "Error destroying WebView for session ${session.id}")
+        }
+
+        session.state = SessionLifecycleState.DETACHED
+        sessions.remove(session.id)
+        Timber.d("Cleanly closed and destroyed session ${session.id}. Remaining active: ${sessions.size}")
+    }
+
+    /**
+     * Closes the floating session and sends its URL back to the host launcher activity.
+     */
+    fun dockSessionToApp(session: FloatingSession, dockUrl: String, dockTitle: String) {
+        closeSession(session)
+        val intent = Intent(context, io.github.floatbro.ui.LauncherActivity::class.java).apply {
+            action = io.github.floatbro.ui.LauncherActivity.ACTION_DOCK_TAB
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_URL, dockUrl)
+            putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_TITLE, dockTitle)
+        }
+        context.startActivity(intent)
+    }
+
+    /**
+     * Minimizes all active windows to edge bubbles.
+     */
+    fun minimizeAllToBubbles() {
+        sessions.values.toList().forEach { session ->
+            if (session.mode == OverlayMode.WINDOW) {
+                minimizeToBubble(session)
             }
         }
     }
 
-    private fun removeBubbleIfAttached() {
-        val bubble = bubbleView
-        if (bubble != null && bubble.isAttachedToWindow) {
-            try {
-                windowManager.removeView(bubble)
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to remove FloatingBubbleView")
-            }
+    /**
+     * Evicts or minimizes the least-recently-interacted session to maintain max limit.
+     */
+    private fun evictOrMinimizeOldestSession() {
+        val oldest = sessions.values.minByOrNull { it.lastInteractedTimestamp } ?: return
+        if (oldest.mode == OverlayMode.WINDOW) {
+            minimizeToBubble(oldest)
+        } else {
+            // Already a bubble, dock back to app
+            dockSessionToApp(oldest, oldest.url, oldest.title.takeIf { it.isNotBlank() } ?: "已收回网页")
         }
     }
 
     fun onTrimMemory(level: Int) {
         Timber.d("FloatingWindowManager onTrimMemory: level=$level")
-        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
-            windowView?.webView?.clearCache(false)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            sessions.values.forEach { session ->
+                if (session.mode == OverlayMode.BUBBLE) {
+                    session.windowView.webView.clearCache(false)
+                }
+            }
         }
     }
 
     fun onDestroy() {
-        hide()
-        windowView?.webView?.destroy()
-        windowView = null
-        bubbleView = null
+        focusMutex.releaseAll()
+        sessions.values.toList().forEach { session ->
+            closeSession(session)
+        }
+        sessions.clear()
+        bubbleStack.clear()
         lifecycleContext.onDestroy()
     }
 }

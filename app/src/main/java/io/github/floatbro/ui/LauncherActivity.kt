@@ -384,7 +384,8 @@ class LauncherActivity : ComponentActivity() {
                                                         FloatBrowserService.ACTION_SHOW,
                                                         committingTab.url,
                                                         targetX.roundToInt(),
-                                                        targetY.roundToInt()
+                                                        targetY.roundToInt(),
+                                                        committingTab.id
                                                     )
                                                     Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
 
@@ -522,7 +523,7 @@ class LauncherActivity : ComponentActivity() {
                                                     onTearOff = {
                                                         tabs.removeAll { it.id == currentTab.id }
                                                         activeTabId = "home"
-                                                        startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url)
+                                                        startOverlayService(FloatBrowserService.ACTION_SHOW, currentTab.url, windowId = currentTab.id)
                                                         Toast.makeText(this@LauncherActivity, "网页已撕裂转化为全局悬浮窗", Toast.LENGTH_SHORT).show()
                                                     },
                                                     onTitleReceived = { newTitle ->
@@ -657,7 +658,13 @@ class LauncherActivity : ComponentActivity() {
         }
     }
 
-    private fun startOverlayService(action: String, url: String? = null, initialX: Int? = null, initialY: Int? = null) {
+    private fun startOverlayService(
+        action: String,
+        url: String? = null,
+        initialX: Int? = null,
+        initialY: Int? = null,
+        windowId: String? = null
+    ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "请先授予悬浮窗权限", Toast.LENGTH_SHORT).show()
             requestOverlayPermission()
@@ -674,6 +681,9 @@ class LauncherActivity : ComponentActivity() {
             }
             if (initialY != null) {
                 putExtra(FloatBrowserService.EXTRA_INITIAL_Y, initialY)
+            }
+            if (windowId != null) {
+                putExtra(FloatBrowserService.EXTRA_WINDOW_ID, windowId)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

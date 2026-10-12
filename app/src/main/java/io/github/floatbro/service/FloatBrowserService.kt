@@ -42,6 +42,7 @@ class FloatBrowserService : LifecycleService() {
         const val EXTRA_URL = "extra_url"
         const val EXTRA_INITIAL_X = "extra_initial_x"
         const val EXTRA_INITIAL_Y = "extra_initial_y"
+        const val EXTRA_WINDOW_ID = "extra_window_id"
     }
 
     private lateinit var overlayManager: FloatingWindowManager
@@ -60,22 +61,27 @@ class FloatBrowserService : LifecycleService() {
         val url = intent?.getStringExtra(EXTRA_URL) ?: intent?.dataString
         val initialX = intent?.getIntExtra(EXTRA_INITIAL_X, -1)?.takeIf { it >= 0 }
         val initialY = intent?.getIntExtra(EXTRA_INITIAL_Y, -1)?.takeIf { it >= 0 }
+        val windowId = intent?.getStringExtra(EXTRA_WINDOW_ID)
 
-        Timber.d("onStartCommand: action=$action, url=$url, initialX=$initialX, initialY=$initialY")
+        Timber.d("onStartCommand: action=$action, url=$url, initialX=$initialX, initialY=$initialY, windowId=$windowId")
 
         when (action) {
             ACTION_MINIMIZE -> {
-                overlayManager.minimizeToBubble()
+                if (windowId != null) {
+                    overlayManager.sessions[windowId]?.let { overlayManager.minimizeToBubble(it) }
+                } else {
+                    overlayManager.minimizeAllToBubbles()
+                }
             }
             ACTION_CLOSE -> {
                 stopSelf()
             }
             ACTION_SHOW, Intent.ACTION_VIEW -> {
-                overlayManager.showWindow(url, initialX, initialY)
+                overlayManager.showWindow(url, initialX, initialY, windowId)
             }
             else -> {
-                if (overlayManager.currentMode == OverlayMode.HIDDEN) {
-                    overlayManager.showWindow(url, initialX, initialY)
+                if (!overlayManager.hasActiveOverlays) {
+                    overlayManager.showWindow(url, initialX, initialY, windowId)
                 }
             }
         }
