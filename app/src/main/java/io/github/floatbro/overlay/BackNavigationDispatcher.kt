@@ -16,6 +16,11 @@ package io.github.floatbro.overlay
  */
 enum class BackAction {
     /**
+     * Exit fullscreen video playback.
+     */
+    EXIT_VIDEO_FULLSCREEN,
+
+    /**
      * Close the in-window Compose overlay menu.
      */
     CLOSE_MENU,
@@ -39,24 +44,40 @@ enum class BackAction {
 /**
  * Pure Kotlin decision dispatcher for tiered Back button navigation.
  * Hierarchy:
- * 1. In-Window Menu (Top Priority)
- * 2. Second Pane Web History (if active and can go back)
- * 3. Primary Pane Web History
- * 4. Smooth Minimize to Bubble (Bottom Priority)
+ * 1. Fullscreen Video Playback (Top Priority)
+ * 2. In-Window Menu
+ * 3. Second Pane Web History (if active and can go back)
+ * 4. Primary Pane Web History
+ * 5. Smooth Minimize to Bubble (Bottom Priority)
  */
 object BackNavigationDispatcher {
+
+    fun resolveBackAction(
+        isVideoFullscreen: Boolean,
+        isMenuOpen: Boolean,
+        canPane2GoBack: Boolean,
+        canPane1GoBack: Boolean
+    ): BackAction {
+        return when {
+            isVideoFullscreen -> BackAction.EXIT_VIDEO_FULLSCREEN
+            isMenuOpen -> BackAction.CLOSE_MENU
+            canPane2GoBack -> BackAction.GO_BACK_PANE2
+            canPane1GoBack -> BackAction.GO_BACK_PANE1
+            else -> BackAction.MINIMIZE_TO_BUBBLE
+        }
+    }
 
     fun resolveBackAction(
         isMenuOpen: Boolean,
         canPane2GoBack: Boolean,
         canPane1GoBack: Boolean
     ): BackAction {
-        return when {
-            isMenuOpen -> BackAction.CLOSE_MENU
-            canPane2GoBack -> BackAction.GO_BACK_PANE2
-            canPane1GoBack -> BackAction.GO_BACK_PANE1
-            else -> BackAction.MINIMIZE_TO_BUBBLE
-        }
+        return resolveBackAction(
+            isVideoFullscreen = false,
+            isMenuOpen = isMenuOpen,
+            canPane2GoBack = canPane2GoBack,
+            canPane1GoBack = canPane1GoBack
+        )
     }
 
     fun resolveBackAction(canGoBack: Boolean): BackAction {

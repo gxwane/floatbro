@@ -40,6 +40,8 @@ open class EBWebView @JvmOverloads constructor(
     var onPageStartedListener: ((String) -> Unit)? = null
     var onPageFinishedListener: ((String) -> Unit)? = null
     var onPageCommitVisibleListener: ((String) -> Unit)? = null
+    var onShowCustomViewListener: ((View, android.webkit.WebChromeClient.CustomViewCallback) -> Unit)? = null
+    var onHideCustomViewListener: (() -> Unit)? = null
 
     private val inputFocusBridge = InputFocusBridge { isFocused ->
         post {
@@ -123,7 +125,10 @@ open class EBWebView @JvmOverloads constructor(
             onProgressChangedCallback = { progress -> onProgressChangedListener?.invoke(progress) },
             onTitleReceivedCallback = { title -> onTitleChangedListener?.invoke(title) },
             onIconReceivedCallback = { icon -> onReceivedIconListener?.invoke(icon) }
-        )
+        ).apply {
+            onShowCustomViewCallback = { view, callback -> onShowCustomViewListener?.invoke(view, callback) }
+            onHideCustomViewCallback = { onHideCustomViewListener?.invoke() }
+        }
     }
 
     fun loadUrlSafely(url: String) {
@@ -151,6 +156,8 @@ open class EBWebView @JvmOverloads constructor(
         onPageStartedListener = null
         onPageFinishedListener = null
         onPageCommitVisibleListener = null
+        onShowCustomViewListener = null
+        onHideCustomViewListener = null
     }
 
     /**

@@ -22,6 +22,30 @@ import org.junit.Test
 class OverlayBackNavigationTest {
 
     @Test
+    fun `scenario - when video is fullscreen, back button prioritizes exiting video fullscreen above all`() {
+        // GIVEN: Video is in fullscreen, even if menu is open and panes have history
+        val isVideoFullscreen = true
+        val isMenuOpen = true
+        val canPane2Back = true
+        val canPane1Back = true
+
+        // WHEN: Resolving back action
+        val action = BackNavigationDispatcher.resolveBackAction(
+            isVideoFullscreen = isVideoFullscreen,
+            isMenuOpen = isMenuOpen,
+            canPane2GoBack = canPane2Back,
+            canPane1GoBack = canPane1Back
+        )
+
+        // THEN: Priority 1 is EXIT_VIDEO_FULLSCREEN
+        assertEquals(BackAction.EXIT_VIDEO_FULLSCREEN, action)
+        assertNotEquals(BackAction.CLOSE_MENU, action)
+        assertNotEquals(BackAction.GO_BACK_PANE2, action)
+        assertNotEquals(BackAction.GO_BACK_PANE1, action)
+        assertNotEquals(BackAction.MINIMIZE_TO_BUBBLE, action)
+    }
+
+    @Test
     fun `scenario - when in-window menu is open, back button prioritizes closing menu`() {
         // GIVEN: Menu is open, even if web pages have history
         val isMenuOpen = true

@@ -12,6 +12,7 @@
 package io.github.floatbro.core.webview.client
 
 import android.graphics.Bitmap
+import android.view.View
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 
@@ -20,6 +21,23 @@ class FloatWebChromeClient(
     private val onTitleReceivedCallback: ((title: String) -> Unit)? = null,
     private val onIconReceivedCallback: ((icon: Bitmap) -> Unit)? = null
 ) : WebChromeClient() {
+
+    var onShowCustomViewCallback: ((View, CustomViewCallback) -> Unit)? = null
+    var onHideCustomViewCallback: (() -> Unit)? = null
+
+    override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+        super.onShowCustomView(view, callback)
+        if (view != null && callback != null) {
+            timber.log.Timber.d("onShowCustomView triggered for HTML5 video")
+            onShowCustomViewCallback?.invoke(view, callback)
+        }
+    }
+
+    override fun onHideCustomView() {
+        super.onHideCustomView()
+        timber.log.Timber.d("onHideCustomView triggered")
+        onHideCustomViewCallback?.invoke()
+    }
 
     override fun onProgressChanged(view: WebView?, newProgress: Int) {
         super.onProgressChanged(view, newProgress)

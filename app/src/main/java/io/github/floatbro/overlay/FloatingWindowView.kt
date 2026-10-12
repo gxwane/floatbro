@@ -37,6 +37,7 @@ import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.webkit.WebChromeClient
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -74,6 +75,7 @@ class FloatingWindowView(
     private val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
 
     // Header views
+    private lateinit var headerView: View
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
     private lateinit var omniCapsule: LinearLayout
@@ -102,9 +104,15 @@ class FloatingWindowView(
         private set
 
     private var isEditMode = false
+    private var isResizing = false
     private var preEditY: Int? = null
     private var preWebInputAvoidanceY: Int? = null
     private var resizeHandleView: ImageView? = null
+
+    // Video Fullscreen layer
+    private lateinit var customVideoContainer: FrameLayout
+    private var customVideoView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
     // Drag coordinates
     private var dragStartX = 0f
@@ -154,7 +162,7 @@ class FloatingWindowView(
         }
 
         // 1. Adaptive 42dp Header Bar
-        val headerView = createAdaptiveHeaderView()
+        headerView = createAdaptiveHeaderView()
         mainLayout.addView(headerView)
 
         // 2. 2dp Progress Bar
@@ -182,6 +190,7 @@ class FloatingWindowView(
             )
 
             onPageStartedListener = { url ->
+                exitFullscreenVideo(notifyCallback = true)
                 updateOmniText(url)
                 updateNavigationState()
             }
@@ -211,6 +220,14 @@ class FloatingWindowView(
                 currentFavicon = icon
                 updateNavigationState()
                 this@FloatingWindowView.onFaviconReceived?.invoke(icon)
+            }
+
+            onShowCustomViewListener = { view, callback ->
+                enterFullscreenVideo(view, callback)
+            }
+
+            onHideCustomViewListener = {
+                exitFullscreenVideo(notifyCallback = false)
             }
         }
         val webContainer = FrameLayout(context).apply {
@@ -292,6 +309,14 @@ class FloatingWindowView(
 
         mainLayout.addView(webContainer)
         addView(mainLayout)
+
+        // Video Fullscreen Container (window-scoped overlay)
+        customVideoContainer = FrameLayout(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.BLACK)
+            visibility = GONE
+        }
+        addView(customVideoContainer)
 
         // 4. Invisible 48dp Bottom-Right Resize Handle
         val resizeHandle = createResizeHandle()
@@ -440,10 +465,12 @@ class FloatingWindowView(
         btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
             val currentUrl = webView.url ?: "about:blank"
             val currentTitle = webView.title ?: "已收回网页"
+            exitFullscreenVideo(notifyCallback = true)
             onDockRequested?.invoke(currentUrl, currentTitle)
         }
 
         btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗") {
+            exitFullscreenVideo(notifyCallback = true)
             onCloseRequested?.invoke()
         }.apply {
             (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(2f)
@@ -492,6 +519,7 @@ class FloatingWindowView(
             scaleType = ImageView.ScaleType.FIT_END
             setPadding(dpToPx(24f), dpToPx(24f), dpToPx(4f), dpToPx(4f))
             alpha = 0.5f
+            isClickable = true
             contentDescription = "调整窗口大小"
             setOnTouchListener { _, event -> handleResizeTouchEvent(event) }
         }
@@ -620,6 +648,54 @@ class FloatingWindowView(
         Timber.d("Exited Omnibar Edit Mode for session $sessionId")
     }
 
+    fun enterFullscreenVideo(view: View, callback: WebChromeClient.CustomViewCallback?) {
+        if (customVideoView != null) {
+            callback?.onCustomViewHidden()
+            return
+        }
+        if (isEditMode) {
+            exitEditMode()
+        }
+        customVideoView = view
+        customViewCallback = callback
+        headerView.visibility = GONE
+        progressBar.visibility = GONE
+        resizeHandleView?.visibility = GONE
+        customVideoContainer.removeAllViews()
+        (view.parent as? ViewGroup)?.removeView(view)
+        customVideoContainer.addView(
+            view,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        )
+        customVideoContainer.visibility = VISIBLE
+        onInputFocusRequested?.invoke(true)
+        requestFocus()
+        Timber.d("Entered video fullscreen for session $sessionId")
+    }
+
+    fun exitFullscreenVideo(notifyCallback: Boolean = true) {
+        if (customVideoView == null) return
+        customVideoContainer.visibility = GONE
+        customVideoContainer.removeAllViews()
+        customVideoView = null
+        if (notifyCallback) {
+            try {
+                customViewCallback?.onCustomViewHidden()
+            } catch (e: Exception) {
+                Timber.w(e, "Error calling onCustomViewHidden")
+            }
+        }
+        customViewCallback = null
+        headerView.visibility = VISIBLE
+        resizeHandleView?.visibility = VISIBLE
+        onInputFocusRequested?.invoke(false)
+        Timber.d("Exited video fullscreen for session $sessionId")
+    }
+
     private fun handleWebInputFocusChanged(isFocused: Boolean) {
         if (isFocused) {
             if (!isEditMode && preWebInputAvoidanceY == null) {
@@ -737,6 +813,9 @@ class FloatingWindowView(
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        if (isResizing) {
+            return false
+        }
         if (ev.action == MotionEvent.ACTION_DOWN) {
             onBringToFrontRequested?.invoke()
         }
@@ -744,7 +823,7 @@ class FloatingWindowView(
         val x = ev.x
         val y = ev.y
         val edgeSize = dpToPx(16f)
-        val resizeSize = dpToPx(36f)
+        val resizeSize = dpToPx(48f)
 
         // Bottom-right corner reserved for diagonal resizing
         val inResizeCorner = x >= width - resizeSize && y >= height - resizeSize
@@ -835,6 +914,7 @@ class FloatingWindowView(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
                 }
+                exitFullscreenVideo(notifyCallback = true)
                 onDockRequested?.invoke(currentUrl, currentTitle)
                 true
             }
@@ -842,10 +922,12 @@ class FloatingWindowView(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                 }
+                exitFullscreenVideo(notifyCallback = true)
                 onCloseRequested?.invoke()
                 true
             }
             WindowDragAction.COLLAPSE_TO_BUBBLE -> {
+                exitFullscreenVideo(notifyCallback = true)
                 onMinimizeRequested?.invoke()
                 true
             }
@@ -904,6 +986,8 @@ class FloatingWindowView(
     private fun handleResizeTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                isResizing = true
+                parent?.requestDisallowInterceptTouchEvent(true)
                 resizeHandleView?.animate()?.scaleX(1.15f)?.scaleY(1.15f)?.alpha(1.0f)?.setDuration(120)?.start()
                 resizeStartX = event.rawX
                 resizeStartY = event.rawY
@@ -918,8 +1002,8 @@ class FloatingWindowView(
                 val dy = (event.rawY - resizeStartY).toInt()
 
                 val displayMetrics = context.resources.displayMetrics
-                val maxAllowedWidth = displayMetrics.widthPixels
-                val maxAllowedHeight = displayMetrics.heightPixels
+                val maxAllowedWidth = displayMetrics.widthPixels - layoutParams.x
+                val maxAllowedHeight = displayMetrics.heightPixels - layoutParams.y
 
                 val (newWidth, newHeight) = WindowBoundsHelper.clampDimensions(
                     rawWidth = initialWindowWidth + dx,
@@ -930,21 +1014,25 @@ class FloatingWindowView(
                     maxHeight = maxAllowedHeight
                 )
 
-                layoutParams.width = newWidth
-                layoutParams.height = newHeight
-                if (isAttachedToWindow) {
-                    try {
-                        windowManager.updateViewLayout(this, layoutParams)
-                        onBoundsChanged?.invoke(newWidth, newHeight, layoutParams.x, layoutParams.y)
-                    } catch (e: Exception) {
-                        Timber.w(e, "Error updating window layout during resize")
+                if (newWidth != layoutParams.width || newHeight != layoutParams.height) {
+                    layoutParams.width = newWidth
+                    layoutParams.height = newHeight
+                    if (isAttachedToWindow) {
+                        try {
+                            windowManager.updateViewLayout(this, layoutParams)
+                            onBoundsChanged?.invoke(newWidth, newHeight, layoutParams.x, layoutParams.y)
+                        } catch (e: Exception) {
+                            Timber.w(e, "Error updating window layout during resize")
+                        }
                     }
                 }
                 return true
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                resizeHandleView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.45f)?.setDuration(120)?.start()
+                isResizing = false
+                parent?.requestDisallowInterceptTouchEvent(false)
+                resizeHandleView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.5f)?.setDuration(120)?.start()
                 return true
             }
         }
@@ -962,11 +1050,16 @@ class FloatingWindowView(
                     return true
                 }
                 val action = BackNavigationDispatcher.resolveBackAction(
+                    isVideoFullscreen = customVideoView != null,
                     isMenuOpen = false,
                     canPane2GoBack = false,
                     canPane1GoBack = webView.canGoBack()
                 )
                 return when (action) {
+                    BackAction.EXIT_VIDEO_FULLSCREEN -> {
+                        exitFullscreenVideo(notifyCallback = true)
+                        true
+                    }
                     BackAction.CLOSE_MENU -> true
                     BackAction.GO_BACK_PANE2 -> true
                     BackAction.GO_BACK_PANE1 -> {
@@ -981,5 +1074,10 @@ class FloatingWindowView(
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    override fun onDetachedFromWindow() {
+        exitFullscreenVideo(notifyCallback = true)
+        super.onDetachedFromWindow()
     }
 }
