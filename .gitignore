@@ -118,6 +118,7 @@ __pycache__/
 *$py.class
 scratch/
 qa_evidence/
+.agent/
 
 # ------------------------------------------------------------------------------
 # 8. Internal Planning & Design Specs (Private Working Drafts)
