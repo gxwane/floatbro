@@ -45,7 +45,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Run Lint & Syntax Check
-        run: ./gradlew lintDebug --continue || true
+        run: |
+          chmod +x ./gradlew
+          ./gradlew lintDebug --continue || true
 
   build-debug:
     name: Assemble Debug Verification
@@ -84,6 +86,7 @@ jobs:
 
       - name: Assemble Debug APK
         run: |
+          chmod +x ./gradlew
           ./gradlew assembleDebug \
             -Dorg.gradle.parallel=true \
             -Dorg.gradle.caching=true \
