@@ -183,6 +183,7 @@ class LauncherActivity : ComponentActivity() {
     }
 
     private var hasOverlayPermission by mutableStateOf(false)
+    private var showPermissionRationaleDialog by mutableStateOf(false)
     private var openMode by mutableStateOf(OpenMode.TAB)
     private val tabs = mutableStateListOf<BrowserTab>()
     private var activeTabId by mutableStateOf("home")
@@ -199,6 +200,32 @@ class LauncherActivity : ComponentActivity() {
 
         setContent {
             FloatBroTheme {
+                if (showPermissionRationaleDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showPermissionRationaleDialog = false },
+                        title = { Text("开启悬浮窗权限") },
+                        text = {
+                            Text(
+                                "FloatBro 需要悬浮窗权限以在其他应用上方无缝浏览并支持贴边气泡收纳。点击前往开启权限。",
+                                fontSize = 14.sp
+                            )
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                showPermissionRationaleDialog = false
+                                requestOverlayPermission()
+                            }) {
+                                Text("前往授权")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showPermissionRationaleDialog = false }) {
+                                Text("暂不开启")
+                            }
+                        }
+                    )
+                }
+
                 // BackHandler for dedicated Settings secondary page
                 BackHandler(enabled = activeTabId == "settings") {
                     activeTabId = previousTabId
@@ -701,8 +728,7 @@ class LauncherActivity : ComponentActivity() {
         windowId: String? = null
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "请先授予悬浮窗权限", Toast.LENGTH_SHORT).show()
-            requestOverlayPermission()
+            showPermissionRationaleDialog = true
             return
         }
 
@@ -1510,11 +1536,12 @@ fun BrowserHomeView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Overlay Permission Warning Banner (Only visible when permission is missing)
+        // Overlay Permission Banner (Soft tip card adhering to Value-First UX)
         if (!hasPermission) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -1523,14 +1550,33 @@ fun BrowserHomeView(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "⚠️ 悬浮窗权限未开启，无法唤起浮窗",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "提示",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "开启悬浮窗权限",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "解锁全局悬浮与贴边气泡多任务体验",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     Button(onClick = onRequestPermission) {
-                        Text("去授权", fontSize = 12.sp)
+                        Text("开启", fontSize = 12.sp)
                     }
                 }
             }

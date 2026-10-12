@@ -43,6 +43,7 @@ class FloatingBubbleView(
 
     var onBubbleClicked: (() -> Unit)? = null
     var onPositionChanged: ((x: Int, y: Int) -> Unit)? = null
+    var onDismissRequested: (() -> Unit)? = null
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var initialX = 0
@@ -137,8 +138,14 @@ class FloatingBubbleView(
                     // Tap -> expand window
                     onBubbleClicked?.invoke()
                 } else {
-                    // Release -> magnetic snap to nearest screen edge
-                    snapToEdge()
+                    val displayMetrics = context.resources.displayMetrics
+                    val dismissThreshold = displayMetrics.heightPixels - dpToPx(100f)
+                    if (layoutParams.y >= dismissThreshold) {
+                        onDismissRequested?.invoke()
+                    } else {
+                        // Release -> magnetic snap to nearest screen edge
+                        snapToEdge()
+                    }
                 }
                 return true
             }

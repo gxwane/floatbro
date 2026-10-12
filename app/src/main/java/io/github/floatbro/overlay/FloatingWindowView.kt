@@ -11,6 +11,7 @@
 
 package io.github.floatbro.overlay
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
@@ -18,6 +19,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
+import android.view.HapticFeedbackConstants
+import android.view.animation.DecelerateInterpolator
 import io.github.floatbro.ui.theme.FloatingWindowThemeColors
 import android.util.TypedValue
 import android.view.Gravity
@@ -87,6 +91,8 @@ class FloatingWindowView(
         private set
 
     private var isEditMode = false
+    private var preEditY: Int? = null
+    private var resizeHandleView: ImageView? = null
 
     // Drag coordinates
     private var dragStartX = 0f
@@ -372,9 +378,14 @@ class FloatingWindowView(
     }
 
     private fun createResizeHandle(): View {
-        return View(context).apply {
-            val handleSize = dpToPx(36f)
+        val handleSize = dpToPx(48f)
+        return ImageView(context).apply {
+            resizeHandleView = this
             layoutParams = LayoutParams(handleSize, handleSize, Gravity.BOTTOM or Gravity.END)
+            setImageResource(R.drawable.ic_resize_grip)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            alpha = 0.45f
+            contentDescription = "调整窗口大小"
             setOnTouchListener { _, event -> handleResizeTouchEvent(event) }
         }
     }
@@ -406,6 +417,30 @@ class FloatingWindowView(
     private fun enterEditMode() {
         if (isEditMode) return
         isEditMode = true
+        preEditY = layoutParams.y
+
+        // Calculate safe keyboard avoidance Y
+        val displayMetrics = context.resources.displayMetrics
+        val screenHeight = displayMetrics.heightPixels
+        val estimatedImeHeightPx = dpToPx(300f)
+        val safeY = OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
+            currentY = layoutParams.y,
+            windowHeight = layoutParams.height,
+            screenHeight = screenHeight,
+            keyboardHeight = estimatedImeHeightPx,
+            safeMarginPx = dpToPx(16f)
+        )
+        if (safeY != layoutParams.y) {
+            layoutParams.y = safeY
+            if (isAttachedToWindow) {
+                try {
+                    windowManager.updateViewLayout(this, layoutParams)
+                    onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                } catch (e: Exception) {
+                    Timber.w(e, "Error updating layoutParams.y during enterEditMode keyboard avoidance")
+                }
+            }
+        }
 
         // 1. Hide left & right buttons to expand omnibar to full header width
         btnBack.visibility = GONE
@@ -437,6 +472,22 @@ class FloatingWindowView(
     fun exitEditMode() {
         if (!isEditMode) return
         isEditMode = false
+
+        // Restore pre-edit Y if shifted by keyboard avoidance
+        preEditY?.let { originalY ->
+            if (layoutParams.y != originalY) {
+                layoutParams.y = originalY
+                if (isAttachedToWindow) {
+                    try {
+                        windowManager.updateViewLayout(this, layoutParams)
+                        onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                    } catch (e: Exception) {
+                        Timber.w(e, "Error restoring layoutParams.y during exitEditMode")
+                    }
+                }
+            }
+            preEditY = null
+        }
 
         // 1. Restore capsule views
         urlEditText.visibility = GONE
@@ -620,24 +671,49 @@ class FloatingWindowView(
 
         // 3. Magnetic Edge Snapping: Stay as window, clamp smoothly against edges
         val edgeDetectRange = dpToPx(36f)
-
-        if (layoutParams.x < edgeDetectRange) {
-            layoutParams.x = 0
-        } else if (layoutParams.x + winWidth > screenWidth - edgeDetectRange) {
-            layoutParams.x = screenWidth - winWidth
-        }
+        val startX = layoutParams.x
+        val targetX = OverlayPhysicsHelper.calculateSnapTargetX(
+            currentX = startX,
+            windowWidth = winWidth,
+            screenWidth = screenWidth,
+            snapThresholdPx = edgeDetectRange
+        )
 
         // Clamp Y in safe bounds
         val minY = dpToPx(36f)
         val maxY = screenHeight - dpToPx(120f)
         layoutParams.y = layoutParams.y.coerceIn(minY, maxY)
 
-        if (isAttachedToWindow) {
-            try {
-                windowManager.updateViewLayout(this, layoutParams)
-                onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-            } catch (e: Exception) {
-                Timber.w(e, "Error updating window layout after snap")
+        if (startX != targetX) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
+            } else {
+                performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            ValueAnimator.ofInt(startX, targetX).apply {
+                duration = 200L
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { animation ->
+                    layoutParams.x = animation.animatedValue as Int
+                    if (isAttachedToWindow) {
+                        try {
+                            windowManager.updateViewLayout(this@FloatingWindowView, layoutParams)
+                            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                        } catch (e: Exception) {
+                            Timber.w(e, "Error updating window layout during snap animation")
+                        }
+                    }
+                }
+                start()
+            }
+        } else {
+            if (isAttachedToWindow) {
+                try {
+                    windowManager.updateViewLayout(this, layoutParams)
+                    onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+                } catch (e: Exception) {
+                    Timber.w(e, "Error updating window layout after snap")
+                }
             }
         }
         return true
@@ -646,6 +722,7 @@ class FloatingWindowView(
     private fun handleResizeTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                resizeHandleView?.animate()?.scaleX(1.15f)?.scaleY(1.15f)?.alpha(1.0f)?.setDuration(120)?.start()
                 resizeStartX = event.rawX
                 resizeStartY = event.rawY
                 initialWindowWidth = layoutParams.width
@@ -681,6 +758,11 @@ class FloatingWindowView(
                         Timber.w(e, "Error updating window layout during resize")
                     }
                 }
+                return true
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                resizeHandleView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.45f)?.setDuration(120)?.start()
                 return true
             }
         }

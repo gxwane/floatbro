@@ -58,5 +58,15 @@
   - 升级 `InAppWebViewPane` 工具栏高度至 48dp，导航按键统一扩展至 48dp 并应用 8-Point Grid 间距体系；
   - 重绘 `ic_dock_app.xml` 矢量图标路径，纠正倒错的外跳 Popout 图标为正确的“向下沉降停靠至应用内”托盘图标。
 
+- **Phase 7: UI/UX Phase 2 P1 缺陷整洁工艺治理与物理手势动效 (Clean Craftsmanship Tier 2)**
+  - 实施 `OverlayPhysicsHelperTest` 纯 JVM 单元测试覆盖与 `[MUTANT-SNAP-BOUNDARY]` 变异击杀存证；
+  - 纯领域抽离 `OverlayPhysicsHelper`：提供软键盘 IME 避让 Y 轴坐标计算、边缘吸附目标计算与碰撞判定；
+  - 改造主控中心悬浮窗权限提示卡片，消除红色惊叹号刺眼警示，升级为“探索 FloatBro 悬浮核心能力”价值前置引导卡片；
+  - 补全浮窗外跳点击拦截：未授权浮窗权限时弹出上下文 `AlertDialog` 引导直达系统权限设置；
+  - 悬浮窗右下角缩放把手升级为 48dp WCAG 触控热区并绘制 3 槽微倾斜抓握条纹 (`ic_resize_grip.xml`)，按下时提供 1.15x 缩放与不透明度动效；
+  - 悬浮窗拖拽边缘吸附升级为 200ms `DecelerateInterpolator` 减速插值平滑贴边动效与触感震动反馈 (`HapticFeedbackConstants`)；
+  - 悬浮窗 Omnibar 展开编辑时引入输入法智能避让，退回只读态时恢复原位；
+  - 悬浮小气泡引入底部拖拽松手移除判定 (`onDismissRequested`)，支持拖到底部直接关闭悬浮会话。
+
 
 

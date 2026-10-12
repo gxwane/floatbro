@@ -280,7 +280,10 @@ class FloatingWindowManager(private val context: Context) {
                     session.bubbleParams.x = newX
                     session.bubbleParams.y = newY
                 }
+                onDismissRequested = { closeSession(session) }
             }
+        } else {
+            session.bubbleView?.onDismissRequested = { closeSession(session) }
         }
 
         val bubble = session.bubbleView!!
