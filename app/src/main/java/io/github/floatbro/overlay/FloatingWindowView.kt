@@ -42,8 +42,13 @@ import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.graphics.Typeface
+import android.widget.Toast
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ComposeView
 import io.github.floatbro.R
 import io.github.floatbro.core.webview.EBWebView
+import io.github.floatbro.ui.theme.FloatBroTheme
 import timber.log.Timber
 import kotlin.math.hypot
 
@@ -76,13 +81,21 @@ class FloatingWindowView(
     private lateinit var urlEditText: EditText
     private lateinit var clearInputButton: ImageButton
     private lateinit var btnRefresh: ImageButton
+    private lateinit var btnMenu: ImageButton
     private lateinit var btnDock: ImageButton
     private lateinit var btnClose: ImageButton
     private lateinit var btnCancelEdit: TextView
 
+    // In-Window Compose Overlay Menu
+    private lateinit var composeOverlayView: ComposeView
+    private val isMenuOpenState = mutableStateOf(false)
+    val isMenuOpen: Boolean
+        get() = isMenuOpenState.value
+
     var onMinimizeRequested: (() -> Unit)? = null
     var onCloseRequested: (() -> Unit)? = null
     var onDockRequested: ((url: String, title: String) -> Unit)? = null
+    var onToggleSplitRequested: (() -> Unit)? = null
     var onFaviconReceived: ((Bitmap) -> Unit)? = null
     var onInputFocusRequested: ((Boolean) -> Unit)? = null
     var onBringToFrontRequested: (() -> Unit)? = null
@@ -123,6 +136,8 @@ class FloatingWindowView(
         }
         clipToOutline = true
         elevation = dpToPx(12f).toFloat()
+        isFocusable = true
+        isFocusableInTouchMode = true
 
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val windowBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
@@ -195,9 +210,50 @@ class FloatingWindowView(
 
         addView(mainLayout)
 
-        // 4. Invisible 36dp Bottom-Right Resize Handle
+        // 4. Invisible 48dp Bottom-Right Resize Handle
         val resizeHandle = createResizeHandle()
         addView(resizeHandle)
+
+        // 5. In-Window Compose Overlay Menu
+        composeOverlayView = ComposeView(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            visibility = GONE
+            setContent {
+                InWindowOverlayMenu(
+                    isOpen = isMenuOpenState.value,
+                    onClose = { closeMenu() },
+                    onResetSplit = { closeMenu() },
+                    onToggleSplit = {
+                        closeMenu()
+                        onToggleSplitRequested?.invoke()
+                    },
+                    onClearCache = {
+                        closeMenu()
+                        webView.clearCache(true)
+                        Toast.makeText(context, "网页缓存已清除", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        }
+        addView(composeOverlayView)
+    }
+
+    fun openMenu() {
+        if (isMenuOpenState.value) return
+        if (isEditMode) {
+            exitEditMode()
+        }
+        isMenuOpenState.value = true
+        composeOverlayView.visibility = VISIBLE
+        onInputFocusRequested?.invoke(true)
+        requestFocus()
+    }
+
+    fun closeMenu() {
+        if (!isMenuOpenState.value) return
+        isMenuOpenState.value = false
+        composeOverlayView.visibility = GONE
+        onInputFocusRequested?.invoke(false)
     }
 
     private fun dpToPx(dp: Float): Int {
@@ -219,11 +275,11 @@ class FloatingWindowView(
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(6f), dpToPx(3f), dpToPx(6f), dpToPx(3f))
+            setPadding(dpToPx(8f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
             setBackgroundColor(headerBg)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(44f)
+                dpToPx(48f)
             )
         }
 
@@ -244,17 +300,17 @@ class FloatingWindowView(
             (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(4f)
         }
 
-        // 2. Center Omnibar Capsule (Height 34dp, Radius 17dp, Expandable)
+        // 2. Center Omnibar Capsule (Height 36dp, Radius 18dp, Expandable)
         omniCapsule = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(34f), 1f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f).apply {
                 marginEnd = dpToPx(4f)
             }
             setPadding(dpToPx(10f), 0, dpToPx(6f), 0)
             background = GradientDrawable().apply {
                 setColor(capsuleBg)
-                cornerRadius = dpToPx(17f).toFloat()
+                cornerRadius = dpToPx(18f).toFloat()
                 setStroke(dpToPx(1f), capsuleStroke)
             }
 
@@ -279,6 +335,7 @@ class FloatingWindowView(
                 gravity = Gravity.CENTER_VERTICAL
                 includeFontPadding = false
                 setPadding(0, 0, 0, 0)
+                typeface = Typeface.MONOSPACE
                 textSize = 12.5f
                 setTextColor(textColor)
                 setBackgroundColor(Color.TRANSPARENT)
@@ -333,9 +390,13 @@ class FloatingWindowView(
             setOnClickListener { exitEditMode() }
         }
 
-        // 4. Right Action Cluster: Refresh, Dock, Close
+        // 4. Right Action Cluster: Refresh, Menu, Dock, Close
         btnRefresh = createHeaderButton(R.drawable.ic_refresh, "刷新页面") {
             webView.reload()
+        }
+
+        btnMenu = createHeaderButton(R.drawable.ic_more_vert, "更多选项") {
+            openMenu()
         }
 
         btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
@@ -347,7 +408,7 @@ class FloatingWindowView(
         btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗") {
             onCloseRequested?.invoke()
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(4f)
+            (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(2f)
         }
 
         header.addView(btnBack)
@@ -355,6 +416,7 @@ class FloatingWindowView(
         header.addView(omniCapsule)
         header.addView(btnCancelEdit)
         header.addView(btnRefresh)
+        header.addView(btnMenu)
         header.addView(btnDock)
         header.addView(btnClose)
 
@@ -365,7 +427,7 @@ class FloatingWindowView(
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val iconTint = if (isDarkMode) Color.parseColor("#CBD5E1") else Color.parseColor("#475569")
         return ImageButton(context).apply {
-            val btnSize = dpToPx(34f)
+            val btnSize = dpToPx(32f)
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
                 marginStart = dpToPx(2f)
             }
@@ -373,7 +435,7 @@ class FloatingWindowView(
             setImageResource(drawableRes)
             setColorFilter(iconTint)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setPadding(dpToPx(3f), dpToPx(3f), dpToPx(3f), dpToPx(3f))
+            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
             contentDescription = tooltip
             setOnClickListener { onClick() }
         }
@@ -448,6 +510,7 @@ class FloatingWindowView(
         btnBack.visibility = GONE
         btnForward.visibility = GONE
         btnRefresh.visibility = GONE
+        btnMenu.visibility = GONE
         btnDock.visibility = GONE
         btnClose.visibility = GONE
         btnCancelEdit.visibility = VISIBLE
@@ -501,6 +564,7 @@ class FloatingWindowView(
         btnBack.visibility = VISIBLE
         btnForward.visibility = VISIBLE
         btnRefresh.visibility = VISIBLE
+        btnMenu.visibility = VISIBLE
         btnDock.visibility = VISIBLE
         btnClose.visibility = VISIBLE
         updateNavigationState()
@@ -607,6 +671,9 @@ class FloatingWindowView(
         if (event.action == MotionEvent.ACTION_OUTSIDE) {
             if (isEditMode) {
                 exitEditMode()
+            }
+            if (isMenuOpenState.value) {
+                closeMenu()
             }
             return true
         }
@@ -772,17 +839,36 @@ class FloatingWindowView(
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-            if (isEditMode) {
-                exitEditMode()
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+            if (event.action == KeyEvent.ACTION_DOWN) {
                 return true
             }
-            if (webView.canGoBack()) {
-                webView.goBack()
-                return true
+            if (event.action == KeyEvent.ACTION_UP) {
+                if (isEditMode) {
+                    exitEditMode()
+                    return true
+                }
+                val action = BackNavigationDispatcher.resolveBackAction(
+                    isMenuOpen = isMenuOpenState.value,
+                    canPane2GoBack = false,
+                    canPane1GoBack = webView.canGoBack()
+                )
+                return when (action) {
+                    BackAction.CLOSE_MENU -> {
+                        closeMenu()
+                        true
+                    }
+                    BackAction.GO_BACK_PANE2 -> true
+                    BackAction.GO_BACK_PANE1 -> {
+                        webView.goBack()
+                        true
+                    }
+                    BackAction.MINIMIZE_TO_BUBBLE -> {
+                        onMinimizeRequested?.invoke()
+                        true
+                    }
+                }
             }
-            onMinimizeRequested?.invoke()
-            return true
         }
         return super.dispatchKeyEvent(event)
     }

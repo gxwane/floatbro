@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Security
@@ -54,6 +55,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import io.github.floatbro.ui.theme.FloatBroTheme
+
 /**
  * In-window Compose Overlay rendering menus, dialogs, and settings
  * strictly inside the FloatingWindowView hierarchy, completely eliminating
@@ -67,11 +70,12 @@ fun InWindowOverlayMenu(
     onToggleSplit: () -> Unit,
     onClearCache: () -> Unit
 ) {
-    AnimatedVisibility(
-        visible = isOpen,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
+    FloatBroTheme {
+        AnimatedVisibility(
+            visible = isOpen,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
         // Scrim background catching taps
         Box(
             modifier = Modifier
@@ -139,6 +143,16 @@ fun InWindowOverlayMenu(
                     )
 
                     MenuItemRow(
+                        icon = Icons.Default.Delete,
+                        title = "清除网页缓存",
+                        subtitle = "清空 WebView 临时缓存与历史",
+                        onClick = {
+                            onClearCache()
+                            onClose()
+                        }
+                    )
+
+                    MenuItemRow(
                         icon = Icons.Default.Info,
                         title = "关于 FloatBro",
                         subtitle = "基于 EinkBro 衍生 · GPL-3.0 开源",
@@ -147,6 +161,7 @@ fun InWindowOverlayMenu(
                 }
             }
         }
+    }
     }
 }
 

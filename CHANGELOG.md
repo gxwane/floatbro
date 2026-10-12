@@ -85,3 +85,13 @@
     - 在悬浮窗与应用内视口顶栏挂载 2dp `#2563EB` 极细品牌蓝加载进度指示器，支持 1%~99% 平滑驱动与淡出；
     - 复写 `FloatWebViewClient.onReceivedError`，精准拦截主视口网络异常并注入卡片化、带自适应深浅模式与“重新加载”按钮的优雅离线提示页，彻底阻断 Chromium 原生灰白英文报错页。
 
+- **Phase 9: UI/UX Phase 4 P3 缺陷治理、孤立代码挂载与设计规范收敛 (Clean Craftsmanship Tier 3)**
+  - 孤立代码联动集成 (Dead Code Integration)：
+    - 在 `FloatingWindowView` 顶栏增加 48dp 更多选项按钮 (`btnMenu` / `ic_more_vert.xml`)；
+    - 基于 `OverlayLifecycleContext` 为悬浮窗嵌入 `InWindowOverlayMenu` Compose 浮层，支持一键查看去广告引擎状态、对称分屏联动、清除网页缓存与查看关于；
+    - 联动 `BackNavigationDispatcher` 纯领域返回决策器：按返回键时优先分发 `CLOSE_MENU` 丝滑收起浮层菜单，菜单收起后再调度网页历史回退或最小化为边缘气泡；
+  - 8-Point Grid 间距规范与排版字阶收敛：
+    - 悬浮窗顶栏高度收敛为 48dp 标准触控高度，消除奇数 padding (`3dp`, `6dp`)，间距全部归一化为 `4dp`/`8dp`/`16dp`；
+    - Omnibar 地址栏在输入/编辑态采用 Monospace 等宽字体，清晰区分字符、标点与数字；
+    - 更多菜单与浮层视图全面注入 `FloatBroTheme`，自适应深浅主题配色。
+
