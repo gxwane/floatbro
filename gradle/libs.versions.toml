@@ -44,7 +44,7 @@ accompanistDrawablepainter = "0.31.0-alpha"
 
 # --- 测试组件 ---
 junit = "4.13.2"
-mockk = "1.13.12"
+mockk = "1.14.11"
 turbine = "1.0.0"
 archCoreTesting = "2.2.0"
 
