@@ -210,4 +210,3 @@ Phase 4: 焦点调优、稳定性加固与正式 Release 发布
    > **FloatBro** is an open-source floating multi-tasking browser based on and inspired by **[EinkBro](https://github.com/plateaukao/einkbro)** (created by Plateau Kao), enhanced with native system overlay service, gesture-driven snap split-screen, and modern mobile UI.  
    > Licensed under **GPL-3.0**.
    * 保留原作者在各源码文件头部的 Copyright 信息，新增修改部分附注 FloatBro Contributors 版权。
-   * 语源明确说明：FloatBro 取自 Float + Browser，其中 bro 为 Browser 之风格化缩写，绝无“兄弟”之意。

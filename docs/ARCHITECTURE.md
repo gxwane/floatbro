@@ -11,7 +11,7 @@ FloatBro 采用现代 Android 多模块架构，严格遵循**无环依赖原则
 ```mermaid
 graph TD
     App[":app<br>(系统悬浮服务、手势调度、Compose浮层)"]
-    WebView[":core:webview<br>(EBWebView内核、TwoPaneLayout对称分屏)"]
+    WebView[":core:webview<br>(EBWebView内核封装、网页加载与焦点桥接)"]
     AdFilter[":ad-filter<br>(去广告规则解析、元素隐藏、Scriptlets)"]
     Common[":core:common<br>(基础实体、通用工具类)"]
     AdBlockClient[":adblock-client<br>(C++ BloomFilter引擎、JNI、16KB对齐)"]
@@ -40,7 +40,7 @@ graph TD
 | **`:adblock-client`** | C++17, CMake, NDK r27c, JNI | • 高性能 BloomFilter 与 Hash 规则匹配引擎；<br>• 强制执行 Android 15 16KB Page Size 内存对齐；<br>• **严禁依赖任何上层 Java/Kotlin 类**。 |
 | **`:ad-filter`** | Pure Kotlin, OkHttp, Coroutines | • EasyList 规则下载、本地解析、持久化与规则匹配；<br>• 注入 CSS `:has()` 选择器与反反爬 Scriptlets；<br>• **纯 Kotlin 逻辑，零 Android View 强绑定**。 |
 | **`:core:common`** | Kotlin | • 跨模块共享的数据实体、常量、扩展函数与工具类；<br>• 纯净库，不持有任何 UI 或 WebView 逻辑。 |
-| **`:core:webview`** | Kotlin, AndroidX WebKit | • 硬件加速 `EBWebView` 封装与 Chromium 内核调优；<br>• `InputFocusBridge` DOM 表单聚焦监听桥接；<br>• `TwoPaneLayout` 对称双视口真分屏引擎与拖拽中线。 |
+| **`:core:webview`** | Kotlin, AndroidX WebKit | • 硬件加速 `EBWebView` 封装与 Chromium 内核调优；<br>• `InputFocusBridge` DOM 表单聚焦监听桥接；<br>• 基础视口容器与试验性 `TwoPaneLayout`。 |
 | **`:app`** | Kotlin, Jetpack Compose, Material 3 | • `FloatBrowserService` (前台服务挂载 `TYPE_APPLICATION_OVERLAY`)；<br>• `FloatingWindowView` (窗口主容器) 与 `FloatingBubbleView` (52dp 贴边磁吸气泡)；<br>• 软键盘与底层穿透的动态焦点调度。 |
 
 ---
