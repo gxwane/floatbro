@@ -158,6 +158,29 @@ class FloatWebViewClient(
                 view.evaluateJavascript(bingFixJs, null)
             }
 
+            // Scoped novel site decryption fallback (strictly scoped to known novel domains)
+            val isNovelSite = try {
+                val host = android.net.Uri.parse(url).host?.lowercase() ?: ""
+                host.endsWith("piquge.com") || host.endsWith("biquge.com")
+            } catch (_: Exception) {
+                false
+            }
+            if (isNovelSite) {
+                val novelFixJs = """
+                    (function() {
+                        try {
+                            if (typeof c !== 'undefined' && typeof php_decrypt_js === 'function') {
+                                var contentEl = document.getElementById('chaptercontent');
+                                if (contentEl && (!contentEl.innerHTML || contentEl.innerHTML.indexOf('章节内容加载失败') !== -1 || contentEl.innerHTML.length < 50)) {
+                                    contentEl.innerHTML = php_decrypt_js(c);
+                                }
+                            }
+                        } catch (_) {}
+                    })();
+                """.trimIndent()
+                view.evaluateJavascript(novelFixJs, null)
+            }
+
             onPageFinishedCallback?.invoke(url)
             view.title?.let { onTitleUpdated?.invoke(it) }
         }
@@ -173,51 +196,10 @@ class FloatWebViewClient(
         const val STEALTH_POLYFILL_JS = """
             (function() {
                 try {
-                    // 1. Normalize navigator.platform to prevent "Linux armv8l" from triggering PC crawler detection
-                    if (!navigator.platform || /linux/i.test(navigator.platform)) {
-                        Object.defineProperty(navigator, 'platform', { get: function() { return 'Android'; }, configurable: true });
-                    }
-                    // 2. Normalize navigator.userAgent: strip "Linux; " keyword to bypass naive anti-adblock / anti-crawler regexes
-                    if (navigator.userAgent && /linux/i.test(navigator.userAgent)) {
-                        var cleanedUa = navigator.userAgent.replace(/Linux;\s*/gi, '');
-                        Object.defineProperty(navigator, 'userAgent', { get: function() { return cleanedUa; }, configurable: true });
-                    }
-                    // 3. Normalize screen.width in floating window mode so responsive window width doesn't trigger PC DevTools detector
+                    // Normalize screen.width in floating window mode so responsive window width doesn't trigger PC DevTools detector
                     if (window.innerWidth <= 768 && window.screen.width > 1024) {
                         Object.defineProperty(screen, 'width', { get: function() { return window.innerWidth; }, configurable: true });
                         Object.defineProperty(screen, 'availWidth', { get: function() { return window.innerWidth; }, configurable: true });
-                    }
-                    // 4. Pirated novel site instant decrypter (skip artificial 10s countdown if present)
-                    if (typeof c !== 'undefined' && typeof php_decrypt_js === 'function') {
-                        var contentEl = document.getElementById('chaptercontent');
-                        if (contentEl && (!contentEl.innerHTML || contentEl.innerHTML.indexOf('章节内容加载失败') !== -1 || contentEl.innerHTML.length < 50)) {
-                            contentEl.innerHTML = php_decrypt_js(c);
-                        }
-                    }
-                    // 5. Purge rogue ad banners and link containers
-                    var cleanNovelAds = function() {
-                        var moreEl = document.getElementById('morecontent');
-                        if (moreEl) moreEl.remove();
-                        var selectors = [
-                            'a[href*=".top"]', 'a[href*=".vip"]', 'a[href*="fbp9k"]', 'a[href*="/tg"]',
-                            'div[style*="z-index: 2147483647"]', 'div[style*="z-index: 9999"]',
-                            'div[id^="ad_"]', 'div[class*="ad_"]'
-                        ];
-                        for (var s = 0; s < selectors.length; s++) {
-                            var els = document.querySelectorAll(selectors[s]);
-                            for (var i = 0; i < els.length; i++) {
-                                var el = els[i];
-                                var container = el.closest('div') || el;
-                                if (container && container !== document.body && container.id !== 'chaptercontent') {
-                                    container.remove();
-                                }
-                            }
-                        }
-                    };
-                    cleanNovelAds();
-                    if (document.readyState !== 'complete') {
-                        document.addEventListener('DOMContentLoaded', cleanNovelAds);
-                        window.addEventListener('load', cleanNovelAds);
                     }
                 } catch (_) {}
             })();

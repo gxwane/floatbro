@@ -61,14 +61,20 @@ class DefaultRulesTest {
     fun `default_rules contains essential cosmetic and floating overlay hiding rules`() {
         val content = rulesFile.readText()
 
-        // Element hiding rules
-        assertTrue(content.contains("##div[style*=\"z-index: 2147483647\"]"))
-        assertTrue(content.contains("##div[style*=\"position: fixed\"][style*=\"bottom: 0\"]"))
+        // Element hiding rules (scoped classes)
+        assertTrue(content.contains("##.ad"))
+        assertTrue(content.contains("##.ads"))
         assertTrue(content.contains("##.bottom-ad"))
         assertTrue(content.contains("##.pop-ad"))
 
-        // Specific novel site element hiding
-        assertTrue(content.contains("||m.piquge.com##div[style*=\"position: fixed\"]"))
-        assertTrue(content.contains("||m.piquge.com##iframe"))
+        // Overkill substring rules MUST NOT exist globally to protect main sites like Bilibili (.m-head)
+        val ruleLines = content.lines().map { it.trim() }
+        assertFalse(ruleLines.contains("##div[class*=\"ad\"]"))
+        assertFalse(ruleLines.contains("##div[id*=\"ad\"]"))
+        assertFalse(ruleLines.contains("##section[class*=\"ad\"]"))
+
+        // Specific novel site element hiding (ABP standard domain##selector format without ||)
+        assertTrue(content.contains("m.piquge.com##div[style*=\"position: fixed\"]"))
+        assertTrue(content.contains("m.piquge.com##iframe"))
     }
 }

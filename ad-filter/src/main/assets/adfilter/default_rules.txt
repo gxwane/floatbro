@@ -1,6 +1,6 @@
 [Adblock Plus 2.0]
 ! Title: FloatBro Built-in Mobile AdBlock Rules
-! Version: 2026.10.13.1
+! Version: 2026.10.13.2
 ! Expires: 4 days
 ! Description: Curated high-performance offline mobile ad blocking rule pack for FloatBro
 !
@@ -1741,35 +1741,10 @@
 ||buyu*.wang^
 ||*.buyu*.wang^
 ##.ad
-##div[class*="ad"]
-##div[id*="ad"]
-##section[class*="ad"]
-##iframe[class*="ad"]
-##iframe[id*="ad"]
 ##.ads
-##div[class*="ads"]
-##div[id*="ads"]
-##section[class*="ads"]
-##iframe[class*="ads"]
-##iframe[id*="ads"]
 ##.advert
-##div[class*="advert"]
-##div[id*="advert"]
-##section[class*="advert"]
-##iframe[class*="advert"]
-##iframe[id*="advert"]
 ##.advertising
-##div[class*="advertising"]
-##div[id*="advertising"]
-##section[class*="advertising"]
-##iframe[class*="advertising"]
-##iframe[id*="advertising"]
 ##.advertisement
-##div[class*="advertisement"]
-##div[id*="advertisement"]
-##section[class*="advertisement"]
-##iframe[class*="advertisement"]
-##iframe[id*="advertisement"]
 ##.ad-banner
 ##div[class*="ad-banner"]
 ##div[id*="ad-banner"]
@@ -2730,120 +2705,105 @@
 ##section[class*="mobilead"]
 ##iframe[class*="mobilead"]
 ##iframe[id*="mobilead"]
-##div[style*="z-index: 2147483647"]
-##div[style*="z-index:2147483647"]
-##div[style*="z-index: 999999"]
-##div[style*="z-index:999999"]
-##div[style*="z-index: 9999"]
-##div[style*="z-index:9999"]
-##div[style*="position: fixed"][style*="bottom: 0"]
-##div[style*="position: fixed"][style*="bottom:0"]
-##div[style*="position:fixed"][style*="bottom: 0"]
-##div[style*="position:fixed"][style*="bottom:0"]
-##div[style*="position: fixed"][style*="top: 0"]
-##div[style*="position: fixed"][style*="top:0"]
-##div[style*="position:fixed"][style*="top: 0"]
-##div[style*="position:fixed"][style*="top:0"]
-||m.piquge.com##div[style*="position: fixed"]
-||m.piquge.com##div[style*="position:fixed"]
-||m.piquge.com##div[style*="z-index:"]
-||m.piquge.com##iframe
-||m.piquge.com##.bottom_ad
-||m.piquge.com##.top_ad
-||m.piquge.com##.header_ad
-||m.piquge.com##.footer_ad
-||m.piquge.com##[id^="HM_"]
-||m.piquge.com##[class^="HM_"]
-||m.biquge.com##div[style*="position: fixed"]
-||m.biquge.com##div[style*="position:fixed"]
-||m.biquge.com##div[style*="z-index:"]
-||m.biquge.com##iframe
-||m.biquge.com##.bottom_ad
-||m.biquge.com##.top_ad
-||m.biquge.com##.header_ad
-||m.biquge.com##.footer_ad
-||m.biquge.com##[id^="HM_"]
-||m.biquge.com##[class^="HM_"]
-||m.xbiquge.la##div[style*="position: fixed"]
-||m.xbiquge.la##div[style*="position:fixed"]
-||m.xbiquge.la##div[style*="z-index:"]
-||m.xbiquge.la##iframe
-||m.xbiquge.la##.bottom_ad
-||m.xbiquge.la##.top_ad
-||m.xbiquge.la##.header_ad
-||m.xbiquge.la##.footer_ad
-||m.xbiquge.la##[id^="HM_"]
-||m.xbiquge.la##[class^="HM_"]
-||m.biqudu.net##div[style*="position: fixed"]
-||m.biqudu.net##div[style*="position:fixed"]
-||m.biqudu.net##div[style*="z-index:"]
-||m.biqudu.net##iframe
-||m.biqudu.net##.bottom_ad
-||m.biqudu.net##.top_ad
-||m.biqudu.net##.header_ad
-||m.biqudu.net##.footer_ad
-||m.biqudu.net##[id^="HM_"]
-||m.biqudu.net##[class^="HM_"]
-||m.69shu.com##div[style*="position: fixed"]
-||m.69shu.com##div[style*="position:fixed"]
-||m.69shu.com##div[style*="z-index:"]
-||m.69shu.com##iframe
-||m.69shu.com##.bottom_ad
-||m.69shu.com##.top_ad
-||m.69shu.com##.header_ad
-||m.69shu.com##.footer_ad
-||m.69shu.com##[id^="HM_"]
-||m.69shu.com##[class^="HM_"]
-||m.230book.com##div[style*="position: fixed"]
-||m.230book.com##div[style*="position:fixed"]
-||m.230book.com##div[style*="z-index:"]
-||m.230book.com##iframe
-||m.230book.com##.bottom_ad
-||m.230book.com##.top_ad
-||m.230book.com##.header_ad
-||m.230book.com##.footer_ad
-||m.230book.com##[id^="HM_"]
-||m.230book.com##[class^="HM_"]
-||m.kuxiaoshuo.vip##div[style*="position: fixed"]
-||m.kuxiaoshuo.vip##div[style*="position:fixed"]
-||m.kuxiaoshuo.vip##div[style*="z-index:"]
-||m.kuxiaoshuo.vip##iframe
-||m.kuxiaoshuo.vip##.bottom_ad
-||m.kuxiaoshuo.vip##.top_ad
-||m.kuxiaoshuo.vip##.header_ad
-||m.kuxiaoshuo.vip##.footer_ad
-||m.kuxiaoshuo.vip##[id^="HM_"]
-||m.kuxiaoshuo.vip##[class^="HM_"]
-||m.bxwx.org##div[style*="position: fixed"]
-||m.bxwx.org##div[style*="position:fixed"]
-||m.bxwx.org##div[style*="z-index:"]
-||m.bxwx.org##iframe
-||m.bxwx.org##.bottom_ad
-||m.bxwx.org##.top_ad
-||m.bxwx.org##.header_ad
-||m.bxwx.org##.footer_ad
-||m.bxwx.org##[id^="HM_"]
-||m.bxwx.org##[class^="HM_"]
-||m.dawenxue.net##div[style*="position: fixed"]
-||m.dawenxue.net##div[style*="position:fixed"]
-||m.dawenxue.net##div[style*="z-index:"]
-||m.dawenxue.net##iframe
-||m.dawenxue.net##.bottom_ad
-||m.dawenxue.net##.top_ad
-||m.dawenxue.net##.header_ad
-||m.dawenxue.net##.footer_ad
-||m.dawenxue.net##[id^="HM_"]
-||m.dawenxue.net##[class^="HM_"]||gzftbabs.com^
+m.piquge.com##div[style*="position: fixed"]
+m.piquge.com##div[style*="position:fixed"]
+m.piquge.com##div[style*="z-index:"]
+m.piquge.com##iframe
+m.piquge.com##.bottom_ad
+m.piquge.com##.top_ad
+m.piquge.com##.header_ad
+m.piquge.com##.footer_ad
+m.piquge.com##[id^="HM_"]
+m.piquge.com##[class^="HM_"]
+m.biquge.com##div[style*="position: fixed"]
+m.biquge.com##div[style*="position:fixed"]
+m.biquge.com##div[style*="z-index:"]
+m.biquge.com##iframe
+m.biquge.com##.bottom_ad
+m.biquge.com##.top_ad
+m.biquge.com##.header_ad
+m.biquge.com##.footer_ad
+m.biquge.com##[id^="HM_"]
+m.biquge.com##[class^="HM_"]
+m.xbiquge.la##div[style*="position: fixed"]
+m.xbiquge.la##div[style*="position:fixed"]
+m.xbiquge.la##div[style*="z-index:"]
+m.xbiquge.la##iframe
+m.xbiquge.la##.bottom_ad
+m.xbiquge.la##.top_ad
+m.xbiquge.la##.header_ad
+m.xbiquge.la##.footer_ad
+m.xbiquge.la##[id^="HM_"]
+m.xbiquge.la##[class^="HM_"]
+m.biqudu.net##div[style*="position: fixed"]
+m.biqudu.net##div[style*="position:fixed"]
+m.biqudu.net##div[style*="z-index:"]
+m.biqudu.net##iframe
+m.biqudu.net##.bottom_ad
+m.biqudu.net##.top_ad
+m.biqudu.net##.header_ad
+m.biqudu.net##.footer_ad
+m.biqudu.net##[id^="HM_"]
+m.biqudu.net##[class^="HM_"]
+m.69shu.com##div[style*="position: fixed"]
+m.69shu.com##div[style*="position:fixed"]
+m.69shu.com##div[style*="z-index:"]
+m.69shu.com##iframe
+m.69shu.com##.bottom_ad
+m.69shu.com##.top_ad
+m.69shu.com##.header_ad
+m.69shu.com##.footer_ad
+m.69shu.com##[id^="HM_"]
+m.69shu.com##[class^="HM_"]
+m.230book.com##div[style*="position: fixed"]
+m.230book.com##div[style*="position:fixed"]
+m.230book.com##div[style*="z-index:"]
+m.230book.com##iframe
+m.230book.com##.bottom_ad
+m.230book.com##.top_ad
+m.230book.com##.header_ad
+m.230book.com##.footer_ad
+m.230book.com##[id^="HM_"]
+m.230book.com##[class^="HM_"]
+m.kuxiaoshuo.vip##div[style*="position: fixed"]
+m.kuxiaoshuo.vip##div[style*="position:fixed"]
+m.kuxiaoshuo.vip##div[style*="z-index:"]
+m.kuxiaoshuo.vip##iframe
+m.kuxiaoshuo.vip##.bottom_ad
+m.kuxiaoshuo.vip##.top_ad
+m.kuxiaoshuo.vip##.header_ad
+m.kuxiaoshuo.vip##.footer_ad
+m.kuxiaoshuo.vip##[id^="HM_"]
+m.kuxiaoshuo.vip##[class^="HM_"]
+m.bxwx.org##div[style*="position: fixed"]
+m.bxwx.org##div[style*="position:fixed"]
+m.bxwx.org##div[style*="z-index:"]
+m.bxwx.org##iframe
+m.bxwx.org##.bottom_ad
+m.bxwx.org##.top_ad
+m.bxwx.org##.header_ad
+m.bxwx.org##.footer_ad
+m.bxwx.org##[id^="HM_"]
+m.bxwx.org##[class^="HM_"]
+m.dawenxue.net##div[style*="position: fixed"]
+m.dawenxue.net##div[style*="position:fixed"]
+m.dawenxue.net##div[style*="z-index:"]
+m.dawenxue.net##iframe
+m.dawenxue.net##.bottom_ad
+m.dawenxue.net##.top_ad
+m.dawenxue.net##.header_ad
+m.dawenxue.net##.footer_ad
+m.dawenxue.net##[id^="HM_"]
+m.dawenxue.net##[class^="HM_"]
+||gzftbabs.com^
 ||zdpuplgsiljprs.com^
 ||xsead519.vip^
 ||j9fu4.top^
 ||fbp9k.com^
 ||wmcbld.top^
 ||szonjbxgrlnd.com^
-||piquge.com##div[id*="ad"]
-||piquge.com##div[id^="ad_"]
-||m.piquge.com##div[id*="ad"]
-||m.piquge.com##div[id^="ad_"]
-||m.piquge.com##.chapter-page-btn ~ div
-||m.piquge.com##div[style*="z-index: 2147483647"]
-||m.piquge.com##div[style*="position: fixed"]
+piquge.com##div[id^="ad_"]
+m.piquge.com##div[id^="ad_"]
+m.piquge.com##.chapter-page-btn ~ div
+m.piquge.com##div[style*="z-index: 2147483647"]
+m.piquge.com##div[style*="position: fixed"]
