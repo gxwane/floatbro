@@ -88,13 +88,9 @@ object OverlayPhysicsHelper {
         currentX: Int,
         windowWidth: Int,
         screenWidth: Int,
-        topDockThresholdPx: Int,
         isDismissHit: Boolean,
         collapseRatio: Float = 0.40f
     ): WindowDragAction {
-        if (currentY <= topDockThresholdPx) {
-            return WindowDragAction.DOCK_TO_APP
-        }
         if (isDismissHit) {
             return WindowDragAction.DISMISS_TO_TARGET
         }
@@ -111,7 +107,6 @@ object OverlayPhysicsHelper {
  * Resulting action when a floating window drag gesture completes.
  */
 enum class WindowDragAction {
-    DOCK_TO_APP,
     DISMISS_TO_TARGET,
     COLLAPSE_TO_BUBBLE,
     SNAP_EDGE

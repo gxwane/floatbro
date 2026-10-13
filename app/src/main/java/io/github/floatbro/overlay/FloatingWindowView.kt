@@ -20,6 +20,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import io.github.floatbro.core.webview.TabOverlayStateBridge
@@ -114,6 +115,7 @@ class FloatingWindowView(
     private lateinit var customVideoContainer: FrameLayout
     private var customVideoView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var videoFullscreenBar: View? = null
 
     // Drag coordinates
     private var dragStartX = 0f
@@ -370,7 +372,11 @@ class FloatingWindowView(
         }
         addView(customVideoContainer)
 
-        // 4. Invisible 48dp Bottom-Right Resize Handle
+        val fullscreenBar = createVideoFullscreenBar()
+        videoFullscreenBar = fullscreenBar
+        addView(fullscreenBar)
+
+        // 4. 48dp Bottom-Right Resize Handle
         val resizeHandle = createResizeHandle()
         addView(resizeHandle)
     }
@@ -631,6 +637,71 @@ class FloatingWindowView(
         }
     }
 
+    private fun createVideoFullscreenBar(): View {
+        val barHeight = dpToPx(36f)
+        val barContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            elevation = dpToPx(16f).toFloat()
+            val shape = GradientDrawable().apply {
+                setColor(Color.parseColor("#CC0F172A")) // Translucent dark Slate 900 (80% opacity)
+                cornerRadius = dpToPx(18f).toFloat()
+                setStroke(dpToPx(1f), Color.parseColor("#33FFFFFF"))
+            }
+            background = shape
+            setPadding(dpToPx(12f), 0, dpToPx(6f), 0)
+            layoutParams = LayoutParams(
+                LayoutParams.WRAP_CONTENT,
+                barHeight,
+                Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            ).apply {
+                topMargin = dpToPx(8f)
+            }
+            isClickable = true
+            visibility = GONE
+        }
+
+        // 1. Drag pill handle (━━━)
+        val dragHandle = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dpToPx(56f), LinearLayout.LayoutParams.MATCH_PARENT)
+            val pillIndicator = View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(4f))
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#99FFFFFF"))
+                    cornerRadius = dpToPx(2f).toFloat()
+                }
+            }
+            addView(pillIndicator)
+            contentDescription = "拖动全屏窗口"
+            setOnTouchListener { _, event -> handleEdgeDragTouchEvent(event) }
+        }
+        barContainer.addView(dragHandle)
+
+        // 2. Exit fullscreen button (↙)
+        val btnExit = ImageButton(context).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(28f), dpToPx(28f)).apply {
+                marginStart = dpToPx(4f)
+            }
+            setImageResource(R.drawable.ic_fullscreen_exit)
+            setColorFilter(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#26FFFFFF"))
+                shape = GradientDrawable.OVAL
+            }
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+            contentDescription = "退出全屏"
+            setOnClickListener {
+                exitFullscreenVideo(notifyCallback = true)
+            }
+        }
+        barContainer.addView(btnExit)
+
+        return barContainer
+    }
+
     private fun createResizeHandle(): View {
         val handleSize = dpToPx(48f)
         return ImageView(context).apply {
@@ -639,7 +710,8 @@ class FloatingWindowView(
             setImageResource(R.drawable.ic_resize_grip)
             scaleType = ImageView.ScaleType.FIT_END
             setPadding(dpToPx(24f), dpToPx(24f), dpToPx(4f), dpToPx(4f))
-            alpha = 0.5f
+            alpha = 0.6f
+            elevation = dpToPx(16f).toFloat()
             isClickable = true
             contentDescription = "调整窗口大小"
             setOnTouchListener { _, event -> handleResizeTouchEvent(event) }
@@ -784,7 +856,6 @@ class FloatingWindowView(
         customViewCallback = callback
         headerView.visibility = GONE
         progressBar.visibility = GONE
-        resizeHandleView?.visibility = GONE
         customVideoContainer.removeAllViews()
         (view.parent as? ViewGroup)?.removeView(view)
         customVideoContainer.addView(
@@ -796,6 +867,10 @@ class FloatingWindowView(
             )
         )
         customVideoContainer.visibility = VISIBLE
+        videoFullscreenBar?.visibility = VISIBLE
+        videoFullscreenBar?.bringToFront()
+        resizeHandleView?.visibility = VISIBLE
+        resizeHandleView?.bringToFront()
         onInputFocusRequested?.invoke(true)
         requestFocus()
         Timber.d("Entered video fullscreen for session $sessionId")
@@ -803,6 +878,7 @@ class FloatingWindowView(
 
     fun exitFullscreenVideo(notifyCallback: Boolean = true) {
         if (customVideoView == null) return
+        videoFullscreenBar?.visibility = GONE
         customVideoContainer.visibility = GONE
         customVideoContainer.removeAllViews()
         customVideoView = null
@@ -816,6 +892,7 @@ class FloatingWindowView(
         customViewCallback = null
         headerView.visibility = VISIBLE
         resizeHandleView?.visibility = VISIBLE
+        resizeHandleView?.bringToFront()
         onInputFocusRequested?.invoke(false)
         Timber.d("Exited video fullscreen for session $sessionId")
     }
@@ -942,6 +1019,11 @@ class FloatingWindowView(
         }
         if (ev.action == MotionEvent.ACTION_DOWN) {
             onBringToFrontRequested?.invoke()
+            if (customVideoView != null) {
+                // Reclaim input focus for Back key / gesture to reliably exit video fullscreen
+                onInputFocusRequested?.invoke(true)
+                requestFocus()
+            }
         }
 
         val x = ev.x
@@ -955,9 +1037,25 @@ class FloatingWindowView(
             return false
         }
 
-        // Outer borders intercept for dragging (below header, so header buttons are never blocked)
-        val headerHeight = dpToPx(44f)
-        val onOuterEdge = y > headerHeight && (x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize)
+        // Top video control bar reserved for grab handle & exit button
+        val bar = videoFullscreenBar
+        if (bar != null && bar.visibility == VISIBLE) {
+            val barRect = Rect()
+            bar.getHitRect(barRect)
+            if (barRect.contains(x.toInt(), y.toInt())) {
+                return false
+            }
+        }
+
+        // Outer borders intercept for dragging
+        val isVideoFullscreen = customVideoView != null
+        val onOuterEdge = if (isVideoFullscreen) {
+            // In video fullscreen, do not intercept bottom edge to protect player progress bar; only side borders
+            (x <= edgeSize || x >= width - edgeSize)
+        } else {
+            val headerHeight = dpToPx(44f)
+            y > headerHeight && (x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize)
+        }
         if (onOuterEdge) {
             if (ev.action == MotionEvent.ACTION_DOWN) {
                 handleEdgeDragTouchEvent(ev)
@@ -1027,21 +1125,10 @@ class FloatingWindowView(
             currentX = layoutParams.x,
             windowWidth = winWidth,
             screenWidth = screenWidth,
-            topDockThresholdPx = dpToPx(36f),
             isDismissHit = isDismissHit
         )
 
         return when (action) {
-            WindowDragAction.DOCK_TO_APP -> {
-                val currentUrl = webView.url ?: "about:blank"
-                val currentTitle = webView.title ?: "已收回网页"
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
-                }
-                exitFullscreenVideo(notifyCallback = true)
-                onDockRequested?.invoke(currentUrl, currentTitle)
-                true
-            }
             WindowDragAction.DISMISS_TO_TARGET -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     performHapticFeedback(HapticFeedbackConstants.CONFIRM)

@@ -13,6 +13,9 @@ package io.github.floatbro.history
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 import java.util.regex.Pattern
 
@@ -37,6 +40,8 @@ class BrowsingHistoryManager(context: Context? = null) {
     )
 
     private val inMemoryHistory = mutableListOf<HistoryItem>()
+    private val _historyFlow = MutableStateFlow<List<HistoryItem>>(emptyList())
+    val historyFlow: StateFlow<List<HistoryItem>> = _historyFlow.asStateFlow()
 
     init {
         loadFromDisk()
@@ -75,6 +80,7 @@ class BrowsingHistoryManager(context: Context? = null) {
         }
 
         saveToDisk()
+        _historyFlow.value = inMemoryHistory.toList()
     }
 
     @Synchronized
@@ -87,6 +93,7 @@ class BrowsingHistoryManager(context: Context? = null) {
         val removed = inMemoryHistory.removeAll { it.id == id }
         if (removed) {
             saveToDisk()
+            _historyFlow.value = inMemoryHistory.toList()
         }
     }
 
@@ -94,6 +101,12 @@ class BrowsingHistoryManager(context: Context? = null) {
     fun clearHistory() {
         inMemoryHistory.clear()
         saveToDisk()
+        _historyFlow.value = emptyList()
+    }
+
+    @Synchronized
+    fun refreshFromDisk() {
+        loadFromDisk()
     }
 
     fun serializeToJson(items: List<HistoryItem>): String {
@@ -143,10 +156,13 @@ class BrowsingHistoryManager(context: Context? = null) {
     @Synchronized
     private fun loadFromDisk() {
         if (prefs == null) return
-        val json = prefs.getString(KEY_HISTORY_JSON, null) ?: return
-        val list = deserializeFromJson(json)
-        inMemoryHistory.clear()
-        inMemoryHistory.addAll(list)
+        val json = prefs.getString(KEY_HISTORY_JSON, null)
+        if (json != null) {
+            val list = deserializeFromJson(json)
+            inMemoryHistory.clear()
+            inMemoryHistory.addAll(list)
+        }
+        _historyFlow.value = inMemoryHistory.toList()
     }
 
     @Synchronized

@@ -132,17 +132,15 @@ class OverlayPhysicsHelperTest {
     fun testResolveWindowDragAction() {
         val windowWidth = 600
         val screenWidth = 1080
-        val topDockThreshold = 100
 
-        // 1. Upward drag beyond top threshold -> DOCK_TO_APP
+        // 1. Upward drag to top edge -> SNAP_EDGE (dock to app gesture removed, normal edge docking)
         assertEquals(
-            WindowDragAction.DOCK_TO_APP,
+            WindowDragAction.SNAP_EDGE,
             OverlayPhysicsHelper.resolveWindowDragAction(
                 currentY = 50,
                 currentX = 200,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                topDockThresholdPx = topDockThreshold,
                 isDismissHit = false
             )
         )
@@ -155,7 +153,6 @@ class OverlayPhysicsHelperTest {
                 currentX = 240,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                topDockThresholdPx = topDockThreshold,
                 isDismissHit = true
             )
         )
@@ -168,7 +165,6 @@ class OverlayPhysicsHelperTest {
                 currentX = -300,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                topDockThresholdPx = topDockThreshold,
                 isDismissHit = false
             )
         )
@@ -181,7 +177,6 @@ class OverlayPhysicsHelperTest {
                 currentX = 200,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                topDockThresholdPx = topDockThreshold,
                 isDismissHit = false
             )
         )

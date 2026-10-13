@@ -128,6 +128,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -881,6 +883,7 @@ class LauncherActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         checkPermission()
+        BrowsingHistoryManager.getInstance(this).refreshFromDisk()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -2070,15 +2073,10 @@ fun FullHistoryManagementDialog(
 ) {
     val context = LocalContext.current
     val historyManager = remember { BrowsingHistoryManager.getInstance(context) }
-    val fullList = remember { mutableStateListOf<HistoryItem>() }
+    val fullList by historyManager.historyFlow.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
-        fullList.clear()
-        fullList.addAll(historyManager.getHistory())
-    }
-
-    val filteredList = remember(searchQuery, fullList.size) {
+    val filteredList = remember(searchQuery, fullList) {
         if (searchQuery.isBlank()) fullList else fullList.filter {
             it.title.contains(searchQuery, ignoreCase = true) || it.url.contains(searchQuery, ignoreCase = true)
         }
@@ -2108,7 +2106,6 @@ fun FullHistoryManagementDialog(
                             .clip(RoundedCornerShape(4.dp))
                             .clickable {
                                 historyManager.clearHistory()
-                                fullList.clear()
                             }
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
@@ -2212,7 +2209,6 @@ fun FullHistoryManagementDialog(
                                 IconButton(
                                     onClick = {
                                         historyManager.removeHistory(item.id)
-                                        fullList.remove(item)
                                     },
                                     modifier = Modifier.size(24.dp)
                                 ) {
@@ -2594,11 +2590,9 @@ fun BrowserHomeView(
     var searchQuery by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
-    val historyList = remember { mutableStateListOf<HistoryItem>() }
-    LaunchedEffect(Unit) {
-        historyList.clear()
-        historyList.addAll(BrowsingHistoryManager.getInstance(context).getHistory().take(30))
-    }
+    val historyManager = remember { BrowsingHistoryManager.getInstance(context) }
+    val allHistory by historyManager.historyFlow.collectAsState()
+    val historyList by remember { derivedStateOf { allHistory.take(30) } }
 
     // Clipboard URL detection
     var clipboardUrl by remember { mutableStateOf<String?>(null) }
@@ -2867,7 +2861,6 @@ fun BrowserHomeView(
                                 .clip(RoundedCornerShape(4.dp))
                                 .clickable {
                                     BrowsingHistoryManager.getInstance(context).clearHistory()
-                                    historyList.clear()
                                 }
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -2943,7 +2936,6 @@ fun BrowserHomeView(
                             IconButton(
                                 onClick = {
                                     BrowsingHistoryManager.getInstance(context).removeHistory(item.id)
-                                    historyList.remove(item)
                                 },
                                 modifier = Modifier.size(28.dp)
                             ) {
