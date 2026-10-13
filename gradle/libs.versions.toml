@@ -38,7 +38,7 @@ koin = "3.5.6"
 
 # --- 工具与辅助库 ---
 timber = "4.7.1"
-reorderable = "2.3.3"
+reorderable = "3.1.0"
 orgJson = "20240303"
 accompanistDrawablepainter = "0.31.0-alpha"
 
