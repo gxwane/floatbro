@@ -50,7 +50,7 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "androidx.room:*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      - dependency-name: "com.squareup.okhttp3:okhttp"
+      - dependency-name: "com.squareup.okhttp3:*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "io.insert-koin:*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
