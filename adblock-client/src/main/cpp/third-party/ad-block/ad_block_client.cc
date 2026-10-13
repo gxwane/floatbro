@@ -263,12 +263,12 @@ const char *AdBlockClient::getElementHidingSelectors(const char *contextUrl) {
   if (selectors) {
     buffer.append(selectors);
   }
-  if (isGenericElementHidingEnabled) {
-    if (buffer.length() > 0) {
-      buffer.append(", ");
-    }
+  if (isGenericElementHidingEnabled && genericElementHidingSelectors && genericElementHidingSelectors->data) {
     auto genericLen = static_cast<uint32_t>(strlen(genericElementHidingSelectors->data));
     if (genericLen > 0) {
+      if (buffer.length() > 0) {
+        buffer.append(", ");
+      }
       buffer.append(genericElementHidingSelectors->data);
     }
   }

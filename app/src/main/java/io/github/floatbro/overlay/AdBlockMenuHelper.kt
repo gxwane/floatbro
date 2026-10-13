@@ -16,9 +16,9 @@ package io.github.floatbro.overlay
  * 严格区分“全局总开关关闭”与“单站点白名单”，杜绝语义混淆与无效点击循环
  */
 object AdBlockMenuHelper {
-    const val TITLE_GLOBAL_DISABLED = "广告拦截: 全局已关闭 (去设置开启)"
-    const val TITLE_SITE_WHITELISTED = "广告拦截: 已加白名单 (点击恢复拦截)"
-    const val TITLE_SITE_ENABLED = "广告拦截: 已开启 (点击加白名单)"
+    const val TITLE_GLOBAL_DISABLED = "广告拦截: 关"
+    const val TITLE_SITE_WHITELISTED = "广告拦截: 关"
+    const val TITLE_SITE_ENABLED = "广告拦截: 开"
 
     fun resolveMenuTitle(isGlobalEnabled: Boolean, isSiteWhitelisted: Boolean): String {
         return when {

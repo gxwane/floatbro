@@ -114,6 +114,14 @@ class BrowserPreferences(context: Context) {
         return willBeEnabled
     }
 
+    var lastDismissedClipboardUrl: String?
+        get() = prefs.getString(KEY_LAST_DISMISSED_CLIPBOARD_URL, null)
+        set(value) = prefs.edit().putString(KEY_LAST_DISMISSED_CLIPBOARD_URL, value).apply()
+
+    var lastDismissedClipboardTimestamp: Long
+        get() = prefs.getLong(KEY_LAST_DISMISSED_CLIPBOARD_TIMESTAMP, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_DISMISSED_CLIPBOARD_TIMESTAMP, value).apply()
+
     fun resolveUserAgent(defaultSystemUa: String? = null): String? {
         return when (userAgentMode) {
             UserAgentMode.DEFAULT -> defaultSystemUa
@@ -131,6 +139,8 @@ class BrowserPreferences(context: Context) {
         private const val KEY_CUSTOM_SEARCH_URL = "custom_search_url"
         private const val KEY_ADBLOCK_ENABLED = "adblock_enabled"
         private const val KEY_ADBLOCK_WHITELIST = "adblock_whitelist"
+        private const val KEY_LAST_DISMISSED_CLIPBOARD_URL = "last_dismissed_clipboard_url"
+        private const val KEY_LAST_DISMISSED_CLIPBOARD_TIMESTAMP = "last_dismissed_clipboard_timestamp"
 
         @Volatile
         private var instance: BrowserPreferences? = null

@@ -24,9 +24,13 @@ import android.webkit.WebStorage
 import android.webkit.WebView
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import io.github.edsuns.adfilter.AdFilter
+import io.github.floatbro.overlay.AdBlockMenuHelper
+import io.github.floatbro.overlay.ElementZapperManager
 import io.github.floatbro.browser.BrowserPreferences
 import io.github.floatbro.browser.BrowserUrlResolver
 import io.github.floatbro.browser.SearchEngine
@@ -114,6 +118,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Switch
@@ -2624,8 +2630,11 @@ fun BrowserHomeView(
     val allHistory by historyManager.historyFlow.collectAsState()
     val historyList by remember { derivedStateOf { allHistory.take(30) } }
 
+    val prefs = remember { BrowserPreferences.getInstance(context) }
+
     // Clipboard URL detection
     var clipboardUrl by remember { mutableStateOf<String?>(null) }
+    var clipboardTimestamp by remember { mutableStateOf(0L) }
     var isClipboardDismissed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -2634,8 +2643,14 @@ fun BrowserHomeView(
             val clip = clipboard?.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 val text = clip.getItemAt(0)?.text?.toString()?.trim()
+                val timestamp = clip.description?.timestamp ?: 0L
                 if (!text.isNullOrBlank() && (text.startsWith("http://") || text.startsWith("https://"))) {
-                    clipboardUrl = text
+                    val isSuppressed = (text == prefs.lastDismissedClipboardUrl) &&
+                        (timestamp != 0L && timestamp <= prefs.lastDismissedClipboardTimestamp)
+                    if (!isSuppressed) {
+                        clipboardUrl = text
+                        clipboardTimestamp = timestamp
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -2775,7 +2790,13 @@ fun BrowserHomeView(
                             )
                         }
                         IconButton(
-                            onClick = { isClipboardDismissed = true },
+                            onClick = {
+                                clipboardUrl?.let { url ->
+                                    prefs.lastDismissedClipboardUrl = url
+                                    prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
+                                }
+                                isClipboardDismissed = true
+                            },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
@@ -2800,13 +2821,25 @@ fun BrowserHomeView(
                         horizontalArrangement = Arrangement.End
                     ) {
                         TextButton(
-                            onClick = { onPopoutFloating(clipboardUrl!!, "网页") }
+                            onClick = {
+                                val targetUrl = clipboardUrl!!
+                                prefs.lastDismissedClipboardUrl = targetUrl
+                                prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
+                                isClipboardDismissed = true
+                                onPopoutFloating(targetUrl, "网页")
+                            }
                         ) {
                             Text("悬浮打开", fontSize = 12.sp)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
-                            onClick = { onOpenUrl(clipboardUrl!!, "网页") }
+                            onClick = {
+                                val targetUrl = clipboardUrl!!
+                                prefs.lastDismissedClipboardUrl = targetUrl
+                                prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
+                                isClipboardDismissed = true
+                                onOpenUrl(targetUrl, "网页")
+                            }
                         ) {
                             Text("直接打开", fontSize = 12.sp)
                         }
@@ -2988,12 +3021,19 @@ fun InAppWebViewPane(
     var loadingProgress by remember { mutableStateOf(0) }
     var isEditingUrl by remember { mutableStateOf(false) }
     var editingUrlText by remember(tab.url) { mutableStateOf(tab.url) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var zapperManager by remember { mutableStateOf<io.github.floatbro.overlay.ElementZapperManager?>(null) }
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
+
+    // Level 0: Highest priority BackHandler for Element Zapper mode
+    BackHandler(enabled = zapperManager?.isZapperActive == true) {
+        zapperManager?.exitZapperMode()
+    }
 
     // Level 1: Priority BackHandler for URL editing mode
     BackHandler(enabled = isEditingUrl) {
@@ -3140,21 +3180,138 @@ fun InAppWebViewPane(
                 }
             }
 
-            Spacer(modifier = Modifier.width(4.dp))
-            IconButton(
-                onClick = { webView.reload() },
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_refresh),
-                    contentDescription = "刷新",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
+            Spacer(modifier = Modifier.width(2.dp))
+            Box {
+                IconButton(
+                    onClick = { showMoreMenu = true },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_more_vert),
+                        contentDescription = "更多选项",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                val currentWvUrl = webView.url ?: tab.url
+                val host = remember(currentWvUrl) {
+                    try {
+                        Uri.parse(currentWvUrl).host?.lowercase() ?: ""
+                    } catch (_: Exception) { "" }
+                }
+                val prefs = remember { BrowserPreferences.getInstance(context) }
+                val isGlobalEnabled = prefs.isAdBlockEnabled
+                val isSiteWhitelisted = host.isNotEmpty() && prefs.adBlockWhitelist.contains(host)
+                val adBlockTitle = AdBlockMenuHelper.resolveMenuTitle(isGlobalEnabled, isSiteWhitelisted)
+
+                DropdownMenu(
+                    expanded = showMoreMenu,
+                    onDismissRequest = { showMoreMenu = false },
+                    modifier = Modifier
+                        .width(110.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                ) {
+                    // 1. 刷新
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "刷新",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            showMoreMenu = false
+                            webView.reload()
+                        },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(40.dp)
+                    )
+
+                    // 2. 复制网址
+                    if (currentWvUrl.isNotEmpty() && currentWvUrl != "about:blank") {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "复制网址",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMoreMenu = false
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("URL", currentWvUrl))
+                                Toast.makeText(context, "网址已复制", Toast.LENGTH_SHORT).show()
+                            },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(40.dp)
+                        )
+                    }
+
+                    // 3. 标记广告
+                    if (currentWvUrl.startsWith("http")) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "标记广告",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMoreMenu = false
+                                zapperManager?.enterZapperMode()
+                            },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(40.dp)
+                        )
+                    }
+
+                    // 4. 广告拦截: 开 / 关
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = adBlockTitle,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            showMoreMenu = false
+                            if (!isGlobalEnabled) {
+                                prefs.isAdBlockEnabled = true
+                                AdFilter.get(context).setEnabled(true)
+                                Toast.makeText(context, "广告拦截已开启", Toast.LENGTH_SHORT).show()
+                                webView.reload()
+                            } else if (host.isNotEmpty()) {
+                                val enabledNow = prefs.toggleAdBlockForHost(host)
+                                val msg = if (enabledNow) "已恢复拦截" else "已暂停拦截"
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                webView.reload()
+                            } else {
+                                prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
+                                AdFilter.get(context).setEnabled(prefs.isAdBlockEnabled)
+                                val msg = if (prefs.isAdBlockEnabled) "广告拦截已开启" else "广告拦截已暂停"
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                webView.reload()
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(40.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(2.dp))
             IconButton(
-                onClick = onTearOff,
+                onClick = {
+                    zapperManager?.exitZapperMode(quietly = true)
+                    onTearOff()
+                },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
@@ -3188,13 +3345,24 @@ fun InAppWebViewPane(
                 .background(MaterialTheme.colorScheme.surface)
         ) {
             AndroidView(
-                factory = { _ ->
-                    (webView.parent as? ViewGroup)?.removeView(webView)
-                    webView.apply {
+                factory = { ctx ->
+                    val frameLayout = FrameLayout(ctx).apply {
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
+                    }
+                    (webView.parent as? ViewGroup)?.removeView(webView)
+                    webView.layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    frameLayout.addView(webView)
+
+                    val ezm = ElementZapperManager(ctx, webView, frameLayout)
+                    zapperManager = ezm
+
+                    webView.apply {
                         updateThemeBackgroundColor()
                         onProgressChangedListener = { progress ->
                             loadingProgress = progress
@@ -3204,31 +3372,32 @@ fun InAppWebViewPane(
                         onTitleChangedListener = { title -> onTitleReceived(title) }
                         onReceivedIconListener = { icon -> onFaviconReceived(icon) }
                         onPageStartedListener = { startedUrl ->
+                            ezm.exitZapperMode(quietly = true)
                             onUrlChanged(startedUrl)
                             canGoBack = webView.canGoBack()
                             canGoForward = webView.canGoForward()
                         }
                     }
+                    frameLayout
                 },
-                update = { wv ->
-                    wv.onProgressChangedListener = { progress ->
+                update = { _ ->
+                    webView.onProgressChangedListener = { progress ->
                         loadingProgress = progress
-                        canGoBack = wv.canGoBack()
-                        canGoForward = wv.canGoForward()
+                        canGoBack = webView.canGoBack()
+                        canGoForward = webView.canGoForward()
                     }
-                    wv.onTitleChangedListener = { title -> onTitleReceived(title) }
-                    wv.onReceivedIconListener = { icon -> onFaviconReceived(icon) }
-                    wv.onPageStartedListener = { startedUrl ->
+                    webView.onTitleChangedListener = { title -> onTitleReceived(title) }
+                    webView.onReceivedIconListener = { icon -> onFaviconReceived(icon) }
+                    webView.onPageStartedListener = { startedUrl ->
+                        zapperManager?.exitZapperMode(quietly = true)
                         onUrlChanged(startedUrl)
-                        canGoBack = wv.canGoBack()
-                        canGoForward = wv.canGoForward()
+                        canGoBack = webView.canGoBack()
+                        canGoForward = webView.canGoForward()
                     }
                 },
-                onRelease = { wv ->
-                    val parent = wv.parent as? ViewGroup
-                    if (parent != null && parent.javaClass.name.contains("AndroidViewHolder")) {
-                        parent.removeView(wv)
-                    }
+                onRelease = { frameLayout ->
+                    zapperManager?.exitZapperMode(quietly = true)
+                    frameLayout.removeView(webView)
                 },
                 modifier = Modifier.fillMaxSize()
             )

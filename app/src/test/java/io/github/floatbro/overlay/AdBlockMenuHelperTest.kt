@@ -32,13 +32,13 @@ class AdBlockMenuHelperTest {
     fun testGlobalEnabledSiteWhitelisted() {
         val title = AdBlockMenuHelper.resolveMenuTitle(isGlobalEnabled = true, isSiteWhitelisted = true)
         assertEquals(AdBlockMenuHelper.TITLE_SITE_WHITELISTED, title)
-        assertEquals("广告拦截: 已加白名单 (点击恢复拦截)", title)
+        assertEquals("广告拦截: 关", title)
     }
 
     @Test
     fun testGlobalEnabledSiteActive() {
         val title = AdBlockMenuHelper.resolveMenuTitle(isGlobalEnabled = true, isSiteWhitelisted = false)
         assertEquals(AdBlockMenuHelper.TITLE_SITE_ENABLED, title)
-        assertEquals("广告拦截: 已开启 (点击加白名单)", title)
+        assertEquals("广告拦截: 开", title)
     }
 }

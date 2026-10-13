@@ -149,8 +149,8 @@ class FloatingWindowManager(private val context: Context) {
         val isTablet = smallestWidthDp >= 600f
         val isLandscape = screenWidth > screenHeight
 
-        val minWidthPx = dpToPx(280f)
-        val minHeightPx = if (isLandscape && !isTablet) dpToPx(220f) else dpToPx(340f)
+        val minWidthPx = dpToPx(WindowBoundsHelper.MIN_WIDTH_DP)
+        val minHeightPx = if (isLandscape && !isTablet) dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP) else dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
 
         val widthRatio = when {
             isTablet && isLandscape -> 0.52f
@@ -688,8 +688,8 @@ class FloatingWindowManager(private val context: Context) {
         val isTablet = smallestWidthDp >= 600f
         val isLandscape = screenW > screenH
 
-        val minW = dpToPx(280f)
-        val minH = if (isLandscape && !isTablet) dpToPx(220f) else dpToPx(340f)
+        val minW = dpToPx(WindowBoundsHelper.MIN_WIDTH_DP)
+        val minH = if (isLandscape && !isTablet) dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP) else dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
 
         sessions.values.forEach { session ->
             val wp = session.windowParams

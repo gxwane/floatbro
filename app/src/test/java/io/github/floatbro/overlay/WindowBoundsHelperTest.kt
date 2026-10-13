@@ -48,32 +48,9 @@ class WindowBoundsHelperTest {
     }
 
     @Test
-    fun `scenario - ultra narrow aspect ratio is clamped to minRatio 0_45`() {
-        // GIVEN: 300x1000 window (ratio 0.30 < 0.45)
-        val rawWidth = 300
-        val rawHeight = 1000
-
-        // WHEN: Clamping dimensions
-        val (w, h) = WindowBoundsHelper.clampDimensions(
-            rawWidth = rawWidth,
-            rawHeight = rawHeight,
-            minWidth = minWidth,
-            maxWidth = maxWidth,
-            minHeight = minHeight,
-            maxHeight = maxHeight
-        )
-
-        // THEN: Width stays 300, Height adjusted to 300 / 0.45 = 666
-        assertEquals(300, w)
-        assertEquals(666, h)
-        val ratio = w.toFloat() / h.toFloat()
-        assertTrue("Ratio should be approximately 0.45, got $ratio", ratio in 0.44f..0.46f)
-    }
-
-    @Test
-    fun `scenario - ultra wide aspect ratio is clamped to maxRatio 2_20`() {
-        // GIVEN: 1000x400 window (ratio 2.50 > 2.20)
-        val rawWidth = 1000
+    fun `scenario - width at minimum allows height to shrink independently down to minHeight`() {
+        // GIVEN: Raw width is at or below minWidth (300), and raw height is shrinking down to minHeight (400)
+        val rawWidth = 200
         val rawHeight = 400
 
         // WHEN: Clamping dimensions
@@ -86,11 +63,30 @@ class WindowBoundsHelperTest {
             maxHeight = maxHeight
         )
 
-        // THEN: Height stays 400, Width adjusted to 400 * 2.20 = 880
-        assertEquals(880, w)
+        // THEN: Width is clamped to minWidth, AND height is free to clamp to minHeight without being blocked by ratio
+        assertEquals(300, w)
         assertEquals(400, h)
-        val ratio = w.toFloat() / h.toFloat()
-        assertTrue("Ratio should be approximately 2.20, got $ratio", ratio in 2.19f..2.21f)
+    }
+
+    @Test
+    fun `scenario - height at minimum allows width to shrink independently down to minWidth`() {
+        // GIVEN: Raw height is at or below minHeight (400), and raw width is shrinking down to minWidth (300)
+        val rawWidth = 300
+        val rawHeight = 250
+
+        // WHEN: Clamping dimensions
+        val (w, h) = WindowBoundsHelper.clampDimensions(
+            rawWidth = rawWidth,
+            rawHeight = rawHeight,
+            minWidth = minWidth,
+            maxWidth = maxWidth,
+            minHeight = minHeight,
+            maxHeight = maxHeight
+        )
+
+        // THEN: Height is clamped to minHeight, AND width is free to clamp to minWidth
+        assertEquals(300, w)
+        assertEquals(400, h)
     }
 
     @Test
@@ -109,9 +105,9 @@ class WindowBoundsHelperTest {
             maxHeight = maxHeight
         )
 
-        // THEN: Respects minWidth and minHeight
-        assertTrue("Width must be >= minWidth", w >= minWidth)
-        assertTrue("Height must be >= minHeight", h >= minHeight)
+        // THEN: Respects minWidth and minHeight independently
+        assertEquals(minWidth, w)
+        assertEquals(minHeight, h)
     }
 
     @Test

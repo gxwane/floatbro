@@ -71,20 +71,32 @@ internal class ElementHiding constructor(private val detector: Detector) {
         return builder.toString()
     }
 
+    private fun sanitizeSelectors(raw: String): String {
+        if (raw.isBlank()) return ""
+        return raw.split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.contains('{') && !it.contains('}') }
+            .joinToString(", ")
+    }
+
     @JavascriptInterface
     fun getStyleSheet(documentUrl: String): String {
         val result = StringBuilder()
         val selectors = detector.getElementHidingSelectors(documentUrl)
         val customSelectors = detector.getCustomElementHidingSelectors(documentUrl)
         val cssRules = detector.getCssRules(documentUrl).joinString()
-        if (selectors.isNotBlank()) {
-            result.append(selectors).append(HIDING_CSS)
+
+        val cleanSelectors = sanitizeSelectors(selectors)
+        val cleanCustomSelectors = sanitizeSelectors(customSelectors)
+
+        if (cleanSelectors.isNotBlank()) {
+            result.append(cleanSelectors).append(HIDING_CSS).append("\n")
         }
-        if (customSelectors.isNotBlank()) {
-            result.append(customSelectors).append(HIDING_CSS)
+        if (cleanCustomSelectors.isNotBlank()) {
+            result.append(cleanCustomSelectors).append(HIDING_CSS).append("\n")
         }
         if (cssRules.isNotBlank()) {
-            result.append(cssRules)
+            result.append(cssRules).append("\n")
         }
         // stylesheet has a limit of length, split it into smaller pieces by the replacement
         return result.toString().replace(", ", HIDING_CSS, 200)

@@ -12,32 +12,26 @@
 package io.github.floatbro.overlay
 
 object WindowBoundsHelper {
+    const val MIN_WIDTH_DP = 240f
+    const val MIN_HEIGHT_PORTRAIT_DP = 160f
+    const val MIN_HEIGHT_LANDSCAPE_DP = 140f
+
+    /**
+     * Clamps window dimensions strictly within safe min/max boundaries.
+     * Width and height are clamped independently to allow full freeform resizing freedom.
+     */
     fun clampDimensions(
         rawWidth: Int,
         rawHeight: Int,
         minWidth: Int,
         maxWidth: Int,
         minHeight: Int,
-        maxHeight: Int,
-        minRatio: Float = 0.45f,
-        maxRatio: Float = 2.20f
+        maxHeight: Int
     ): Pair<Int, Int> {
         val safeMaxWidth = maxWidth.coerceAtLeast(minWidth)
         val safeMaxHeight = maxHeight.coerceAtLeast(minHeight)
         val clampedWidth = rawWidth.coerceIn(minWidth, safeMaxWidth)
         val clampedHeight = rawHeight.coerceIn(minHeight, safeMaxHeight)
-        val currentRatio = clampedWidth.toFloat() / clampedHeight.toFloat()
-
-        return when {
-            currentRatio < minRatio -> {
-                val adjustedHeight = (clampedWidth / minRatio).toInt().coerceIn(minHeight, safeMaxHeight)
-                clampedWidth to adjustedHeight
-            }
-            currentRatio > maxRatio -> {
-                val adjustedWidth = (clampedHeight * maxRatio).toInt().coerceIn(minWidth, safeMaxWidth)
-                adjustedWidth to clampedHeight
-            }
-            else -> clampedWidth to clampedHeight
-        }
+        return clampedWidth to clampedHeight
     }
 }

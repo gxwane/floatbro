@@ -43,8 +43,9 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.graphics.drawable.ColorDrawable
 import android.widget.LinearLayout
-import android.widget.PopupMenu
+import android.widget.PopupWindow
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.graphics.Typeface
@@ -84,10 +85,11 @@ class FloatingWindowView(
     private lateinit var urlBadgeText: TextView
     private lateinit var urlEditText: EditText
     private lateinit var clearInputButton: ImageButton
-    private lateinit var btnRefresh: ImageButton
+    private lateinit var btnMore: ImageButton
     private lateinit var btnDock: ImageButton
     private lateinit var btnClose: ImageButton
     private lateinit var btnCancelEdit: TextView
+    private var moreMenuPopup: PopupWindow? = null
 
     var onMinimizeRequested: (() -> Unit)? = null
     var onCloseRequested: (() -> Unit)? = null
@@ -116,6 +118,7 @@ class FloatingWindowView(
     private var customVideoView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var videoFullscreenBar: View? = null
+    private lateinit var elementZapperManager: ElementZapperManager
 
     // Drag coordinates
     private var dragStartX = 0f
@@ -131,12 +134,12 @@ class FloatingWindowView(
     private var initialWindowWidth = 0
     private var initialWindowHeight = 0
 
-    private val minWidthPx = dpToPx(280f)
+    private val minWidthPx = dpToPx(WindowBoundsHelper.MIN_WIDTH_DP)
     private val currentMinHeightPx: Int
         get() {
             val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
             val isTablet = (minOf(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels) / resources.displayMetrics.density) >= 600f
-            return if (isLandscape && !isTablet) dpToPx(220f) else dpToPx(340f)
+            return if (isLandscape && !isTablet) dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP) else dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
         }
 
     init {
@@ -199,6 +202,10 @@ class FloatingWindowView(
 
             onPageStartedListener = { url ->
                 exitFullscreenVideo(notifyCallback = true)
+                moreMenuPopup?.dismiss()
+                if (::elementZapperManager.isInitialized) {
+                    elementZapperManager.exitZapperMode(quietly = true)
+                }
                 updateOmniText(url)
                 updateNavigationState()
             }
@@ -253,6 +260,7 @@ class FloatingWindowView(
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
+        elementZapperManager = ElementZapperManager(context, webView, webContainer)
 
         if (existingWebView != null) {
             val initTitle = existingWebView.title?.takeIf { it.isNotBlank() } ?: existingWebView.url ?: "FloatBro 悬浮浏览"
@@ -422,7 +430,7 @@ class FloatingWindowView(
                 webView.goForward()
             }
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(3f)
+            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(2f)
         }
 
         // 2. Center Omnibar Capsule (Height 34dp, Radius 17dp, Expandable)
@@ -430,9 +438,9 @@ class FloatingWindowView(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, dpToPx(34f), 1f).apply {
-                marginEnd = dpToPx(3f)
+                marginEnd = dpToPx(2f)
             }
-            setPadding(dpToPx(10f), 0, dpToPx(6f), 0)
+            setPadding(dpToPx(6f), 0, dpToPx(4f), 0)
             background = GradientDrawable().apply {
                 setColor(capsuleBg)
                 cornerRadius = dpToPx(17f).toFloat()
@@ -445,11 +453,11 @@ class FloatingWindowView(
                 includeFontPadding = false
                 setPadding(0, 0, 0, 0)
                 text = "FloatBro 悬浮浏览"
-                textSize = 12f
+                textSize = 11f
                 setTextColor(textColor)
                 isSingleLine = true
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                paint.isFakeBoldText = true
+                paint.isFakeBoldText = false
                 isClickable = false
                 isFocusable = false
             }
@@ -461,7 +469,7 @@ class FloatingWindowView(
                 includeFontPadding = false
                 setPadding(0, 0, 0, 0)
                 typeface = Typeface.MONOSPACE
-                textSize = 12.5f
+                textSize = 12f
                 setTextColor(textColor)
                 setBackgroundColor(Color.TRANSPARENT)
                 isSingleLine = true
@@ -482,7 +490,7 @@ class FloatingWindowView(
             addView(urlEditText)
 
             clearInputButton = ImageButton(context).apply {
-                val iconSize = dpToPx(22f)
+                val iconSize = dpToPx(20f)
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                     gravity = Gravity.CENTER_VERTICAL
                 }
@@ -515,14 +523,9 @@ class FloatingWindowView(
             setOnClickListener { exitEditMode() }
         }
 
-        // 4. Right Action Cluster: Refresh, Dock, Close
-        btnRefresh = createHeaderButton(R.drawable.ic_refresh, "刷新页面") {
-            webView.reload()
-        }.apply {
-            setOnLongClickListener {
-                showRefreshActionMenu(this)
-                true
-            }
+        // 4. Right Action Cluster: More (Secondary Menu), Dock, Close
+        btnMore = createHeaderButton(R.drawable.ic_more_vert, "更多选项") {
+            showMoreActionMenu(btnMore)
         }
 
         btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
@@ -536,14 +539,14 @@ class FloatingWindowView(
             exitFullscreenVideo(notifyCallback = true)
             onCloseRequested?.invoke()
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(2f)
+            (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(4f)
         }
 
         header.addView(btnBack)
         header.addView(btnForward)
         header.addView(omniCapsule)
         header.addView(btnCancelEdit)
-        header.addView(btnRefresh)
+        header.addView(btnMore)
         header.addView(btnDock)
         header.addView(btnClose)
 
@@ -554,8 +557,8 @@ class FloatingWindowView(
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val iconTint = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
         return ImageButton(context).apply {
-            val btnSize = dpToPx(36f)
-            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
+            val btnWidth = dpToPx(28f)
+            layoutParams = LinearLayout.LayoutParams(btnWidth, LinearLayout.LayoutParams.MATCH_PARENT).apply {
                 marginStart = dpToPx(1f)
             }
             val typedValue = TypedValue()
@@ -567,15 +570,80 @@ class FloatingWindowView(
             setImageResource(drawableRes)
             setColorFilter(iconTint)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            setPadding(dpToPx(4f), dpToPx(11f), dpToPx(4f), dpToPx(11f))
             contentDescription = tooltip
             setOnClickListener { onClick() }
         }
     }
 
-    private fun showRefreshActionMenu(anchor: View) {
-        val themedContext = android.view.ContextThemeWrapper(context, android.R.style.Theme_DeviceDefault_Light)
-        val popup = PopupMenu(themedContext, anchor)
+    private fun showMoreActionMenu(anchor: View) {
+        moreMenuPopup?.dismiss()
+
+        val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val bgColor = if (isDarkMode) Color.parseColor("#1E293B") else Color.parseColor("#FFFFFF")
+        val borderColor = if (isDarkMode) Color.parseColor("#475569") else Color.parseColor("#CBD5E1")
+        val textColor = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
+        val dividerColor = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#E2E8F0")
+
+        val density = context.resources.displayMetrics.density
+        fun dp(v: Float): Int = (v * density + 0.5f).toInt()
+
+        val cardLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(bgColor)
+                cornerRadius = dp(10f).toFloat()
+                setStroke(dp(1f), borderColor)
+            }
+            elevation = dp(8f).toFloat()
+            setPadding(0, dp(4f), 0, dp(4f))
+        }
+
+        val popup = PopupWindow(
+            cardLayout,
+            dp(110f),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            elevation = dp(8f).toFloat()
+        }
+        moreMenuPopup = popup
+
+        fun createMenuItem(text: String, onClick: () -> Unit): TextView {
+            return TextView(context).apply {
+                this.text = text
+                textSize = 13f
+                setTextColor(textColor)
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(14f), 0, dp(14f), 0)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(40f)
+                )
+                val typedValue = TypedValue()
+                if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)) {
+                    setBackgroundResource(typedValue.resourceId)
+                }
+                setOnClickListener {
+                    popup.dismiss()
+                    onClick()
+                }
+            }
+        }
+
+        fun createDivider(): View {
+            return View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(0.5f)).apply {
+                    setMargins(dp(8f), 0, dp(8f), 0)
+                }
+                setBackgroundColor(dividerColor)
+            }
+        }
+
         val currentUrl = webView.url ?: ""
         val host = try {
             android.net.Uri.parse(currentUrl).host?.lowercase() ?: ""
@@ -584,60 +652,60 @@ class FloatingWindowView(
         val prefs = BrowserPreferences.getInstance(context)
         val isGlobalEnabled = prefs.isAdBlockEnabled
         val isSiteWhitelisted = host.isNotEmpty() && prefs.adBlockWhitelist.contains(host)
-
         val adBlockTitle = AdBlockMenuHelper.resolveMenuTitle(isGlobalEnabled, isSiteWhitelisted)
 
-        popup.menu.add(0, 1, 0, adBlockTitle)
-        popup.menu.add(0, 2, 1, "强制刷新 (清除缓存)")
+        // 1. 刷新
+        cardLayout.addView(createMenuItem("刷新") {
+            webView.reload()
+        })
+
+        cardLayout.addView(createDivider())
+
+        // 2. 复制网址
         if (currentUrl.isNotEmpty() && currentUrl != "about:blank") {
-            popup.menu.add(0, 3, 2, "复制当前网址")
+            cardLayout.addView(createMenuItem("复制网址") {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("URL", currentUrl))
+                android.widget.Toast.makeText(context, "网址已复制", android.widget.Toast.LENGTH_SHORT).show()
+            })
+            cardLayout.addView(createDivider())
         }
 
-        popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                1 -> {
-                    if (!isGlobalEnabled) {
-                        android.widget.Toast.makeText(
-                            context,
-                            "全局广告拦截已在设置中关闭，请前往设置开启",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    } else if (host.isNotEmpty()) {
-                        val enabledNow = prefs.toggleAdBlockForHost(host)
-                        val msg = if (enabledNow) {
-                            "已为 $host 恢复广告拦截"
-                        } else {
-                            "已将 $host 加入白名单 (临时关闭拦截)"
-                        }
-                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
-                        webView.reload()
-                    } else {
-                        prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
-                        io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(prefs.isAdBlockEnabled)
-                        val msg = if (prefs.isAdBlockEnabled) "全局广告拦截已开启" else "全局广告拦截已关闭"
-                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
-                        webView.reload()
-                    }
-                    true
+        // 3. 标记广告
+        if (currentUrl.startsWith("http")) {
+            cardLayout.addView(createMenuItem("标记广告") {
+                if (::elementZapperManager.isInitialized) {
+                    elementZapperManager.enterZapperMode()
                 }
-                2 -> {
-                    webView.clearCache(true)
-                    webView.reload()
-                    true
-                }
-                3 -> {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("URL", currentUrl))
-                    android.widget.Toast.makeText(context, "网址已复制", android.widget.Toast.LENGTH_SHORT).show()
-                    true
-                }
-                else -> false
-            }
+            })
+            cardLayout.addView(createDivider())
         }
+
+        // 4. 广告拦截: 开 / 关
+        cardLayout.addView(createMenuItem(adBlockTitle) {
+            if (!isGlobalEnabled) {
+                prefs.isAdBlockEnabled = true
+                io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(true)
+                android.widget.Toast.makeText(context, "广告拦截已开启", android.widget.Toast.LENGTH_SHORT).show()
+                webView.reload()
+            } else if (host.isNotEmpty()) {
+                val enabledNow = prefs.toggleAdBlockForHost(host)
+                val msg = if (enabledNow) "已恢复拦截" else "已暂停拦截"
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                webView.reload()
+            } else {
+                prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
+                io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(prefs.isAdBlockEnabled)
+                val msg = if (prefs.isAdBlockEnabled) "广告拦截已开启" else "广告拦截已暂停"
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                webView.reload()
+            }
+        })
+
         try {
-            popup.show()
+            popup.showAsDropDown(anchor, dp(-74f), dp(4f))
         } catch (e: Exception) {
-            Timber.w(e, "Failed to show popup menu from anchor")
+            Timber.w(e, "Failed to show more menu popup")
         }
     }
 
@@ -707,14 +775,14 @@ class FloatingWindowView(
     }
 
     private fun createResizeHandle(): View {
-        val handleSize = dpToPx(48f)
+        val handleSize = dpToPx(36f)
         return ImageView(context).apply {
             resizeHandleView = this
             layoutParams = LayoutParams(handleSize, handleSize, Gravity.BOTTOM or Gravity.END)
             setImageResource(R.drawable.ic_resize_grip)
             scaleType = ImageView.ScaleType.FIT_END
-            setPadding(dpToPx(24f), dpToPx(24f), dpToPx(4f), dpToPx(4f))
-            alpha = 0.6f
+            setPadding(dpToPx(16f), dpToPx(16f), dpToPx(4f), dpToPx(4f))
+            alpha = 0.35f
             elevation = dpToPx(16f).toFloat()
             isClickable = true
             contentDescription = "调整窗口大小"
@@ -781,7 +849,7 @@ class FloatingWindowView(
         // 1. Hide left & right buttons to expand omnibar to full header width
         btnBack.visibility = GONE
         btnForward.visibility = GONE
-        btnRefresh.visibility = GONE
+        btnMore.visibility = GONE
         btnDock.visibility = GONE
         btnClose.visibility = GONE
         btnCancelEdit.visibility = VISIBLE
@@ -837,7 +905,7 @@ class FloatingWindowView(
         btnCancelEdit.visibility = GONE
         btnBack.visibility = VISIBLE
         btnForward.visibility = VISIBLE
-        btnRefresh.visibility = VISIBLE
+        btnMore.visibility = VISIBLE
         btnDock.visibility = VISIBLE
         btnClose.visibility = VISIBLE
         updateNavigationState()
@@ -1260,6 +1328,10 @@ class FloatingWindowView(
                 return true
             }
             if (event.action == KeyEvent.ACTION_UP) {
+                if (::elementZapperManager.isInitialized && elementZapperManager.isZapperActive) {
+                    elementZapperManager.exitZapperMode(quietly = false)
+                    return true
+                }
                 if (isEditMode) {
                     exitEditMode()
                     return true
@@ -1292,6 +1364,11 @@ class FloatingWindowView(
     }
 
     override fun onDetachedFromWindow() {
+        moreMenuPopup?.dismiss()
+        moreMenuPopup = null
+        if (::elementZapperManager.isInitialized) {
+            elementZapperManager.exitZapperMode(quietly = true)
+        }
         exitFullscreenVideo(notifyCallback = true)
         super.onDetachedFromWindow()
     }

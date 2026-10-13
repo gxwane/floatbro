@@ -115,24 +115,35 @@ class FloatWebViewClient(
         return true
     }
 
+    private fun injectAdFilterScriptIfEnabled(view: WebView, url: String?) {
+        if (!url.isNullOrEmpty()) {
+            val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+            val prefs = BrowserPreferences.getInstance(view.context)
+            if (prefs.isAdBlockEnabled && (host.isEmpty() || prefs.isAdBlockEnabledForHost(host))) {
+                try {
+                    // Inject AdFilter CSS :has() element hiding rules & scriptlets
+                    AdFilter.get().performScript(view, url)
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to perform AdFilter script for %s", url)
+                }
+            }
+        }
+    }
+
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         // 1. Inject Stealth polyfill for mobile anti-anti-adblock & anti-crawler protection
         injectStealthPolyfill(view)
 
+        injectAdFilterScriptIfEnabled(view, url)
         if (!url.isNullOrEmpty()) {
-            val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
-            val prefs = BrowserPreferences.getInstance(view.context)
-            if (prefs.isAdBlockEnabled && (host.isEmpty() || prefs.isAdBlockEnabledForHost(host))) {
-                // Inject AdFilter CSS :has() element hiding rules & scriptlets
-                AdFilter.get().performScript(view, url)
-            }
             onPageStartedCallback?.invoke(url)
         }
     }
 
     override fun onPageFinished(view: WebView, url: String?) {
         super.onPageFinished(view, url)
+        injectAdFilterScriptIfEnabled(view, url)
         if (!url.isNullOrEmpty()) {
             // Inject input focus detection bridge
             InputFocusBridge.inject(view)
@@ -209,6 +220,7 @@ class FloatWebViewClient(
     override fun onPageCommitVisible(view: WebView, url: String) {
         super.onPageCommitVisible(view, url)
         Timber.d("onPageCommitVisible: %s", url)
+        injectAdFilterScriptIfEnabled(view, url)
         InputFocusBridge.inject(view)
         onPageCommitVisibleCallback?.invoke(url)
     }
