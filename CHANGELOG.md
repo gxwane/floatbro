@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+## [0.1.3-beta] - 2026-10-14
+
+### Added
+- **悬浮视频全屏纯净沉浸**：彻底移除全屏视频上方常驻的半透明胶囊顶条（`videoFullscreenBar`），呈现 100% 满屏无遮挡的纯净视区；
+- **全屏边框拖拽移动手势**：全屏视频模式下支持通过顶边及左右侧边（16dp）拖拽移动悬浮窗，底部边缘不拦截以保护播放器进度条操控；
+- **多层级退出全屏与尺寸自由缩放**：保留右下角 36dp 缩放手柄，支持依靠播放器原生退出按钮及系统返回键（最高优先级分发）安全平滑退出。
+
+### Fixed
+- **在线检查更新 404 升级查不到**：修复 `AppUpdateManager` 中 GitHub 仓库所有者指向 `gxwane/floatbro`，彻底解决检查更新请求 404 的问题；
+- **设置页关于版本显示同步**：设置页「关于」卡片动态绑定 `BuildConfig.VERSION_NAME`，与应用实际构建版本保持 100% 严格一致。
+
 ## [0.1.2-beta] - 2026-10-14
 
 ### Added
@@ -53,7 +64,8 @@
 - **多级返回键调度**：`BackNavigationDispatcher` 纯领域决策器，实现“视频退出全屏 -> 网页历史后退 -> 智能最小化气泡”多级返回分发；
 - **生产级构建工程化**：建立 R8 混淆规则、16KB 内存对齐校验流水线与全自动化 GitHub Actions 发布体系。
 
-[Unreleased]: https://github.com/gxwane/floatbro/compare/v0.1.2-beta...HEAD
+[Unreleased]: https://github.com/gxwane/floatbro/compare/v0.1.3-beta...HEAD
+[0.1.3-beta]: https://github.com/gxwane/floatbro/compare/v0.1.2-beta...v0.1.3-beta
 [0.1.2-beta]: https://github.com/gxwane/floatbro/compare/v0.1.1-beta...v0.1.2-beta
 [0.1.1-beta]: https://github.com/gxwane/floatbro/compare/v0.1.0-beta...v0.1.1-beta
 [0.1.0-beta]: https://github.com/gxwane/floatbro/releases/tag/v0.1.0-beta
