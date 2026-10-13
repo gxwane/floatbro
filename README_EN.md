@@ -27,7 +27,7 @@
 * **Fluid Resize Handle**: Drag the bottom-right corner handle to smoothly adjust window dimensions and aspect ratio.
 * **Edge Snap, Collapse & Quick Dismiss**: Push a window against the screen edge to collapse it into a floating bubble, and tap to instantly restore. Drag down to the bottom target to quickly dismiss.
 * **Fullscreen Video Controls**: Floating controls and resize handle remain accessible when playing HTML5 videos in fullscreen, allowing repositioning and resizing anytime.
-* **Native C++ Ad Blocking**: Built-in C++ matching engine supporting EasyList filter rules and CSS element hiding for fast, clean browsing.
+* **Built-in Ad Blocking**: Fast filter rule matching and CSS element hiding for a clean, distraction-free browsing experience.
 * **Modern Material 3 Design**: Complete tab management, reactive history sync, dynamic dark/light themes, and full compatibility with Android 15 16KB memory page size.
 
 ---
