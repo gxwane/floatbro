@@ -2,6 +2,8 @@
 
 > **下一代 Android 网页级原生全局悬浮、Windows Snap 式联动真分屏、Brave 级强力去广告的高效多任务浏览器**
 
+[![Latest Release](https://img.shields.io/github/v/release/gxwane/floatbro?include_prereleases&color=orange&label=Latest%20Release)](https://github.com/gxwane/floatbro/releases)
+[![Build Status](https://github.com/gxwane/floatbro/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/gxwane/floatbro/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Android MinSdk](https://img.shields.io/badge/minSdk-26-green.svg)](https://developer.android.com/about/versions/oreo)
 [![TargetSdk](https://img.shields.io/badge/targetSdk-36-brightgreen.svg)](https://developer.android.com)
@@ -24,6 +26,16 @@
 我们向原作者 **Plateau Kao** 以及 EinkBro 社区的所有贡献者致以最崇高的敬意与感谢！
 
 > **免责声明**：FloatBro 是一个独立的衍生项目，由 FloatBro 社区独立维护与演进，未经原作者官方背书，亦不代表 EinkBro 官方立场。
+
+---
+
+## 📥 下载体验 (Download)
+
+最新版本安装包可在 GitHub Releases 页面直接下载体验：
+
+* 🚀 **[前往 GitHub Releases 下载最新安装包](https://github.com/gxwane/floatbro/releases)**
+* 📦 **包体积**：约 2.6 MB（C++ 原生优化，极致轻量）
+* 🛡️ **安全保证**：全构架支持 Android 8.0 ~ Android 16，具备官方正式密钥签名，严格通过 Android 15 16KB Page Size 内存对齐检验。
 
 ---
 
