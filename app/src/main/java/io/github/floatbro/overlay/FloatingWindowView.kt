@@ -582,13 +582,10 @@ class FloatingWindowView(
         } catch (_: Exception) { "" }
 
         val prefs = BrowserPreferences.getInstance(context)
-        val isAdBlockOnForSite = if (host.isNotEmpty()) prefs.isAdBlockEnabledForHost(host) else prefs.isAdBlockEnabled
+        val isGlobalEnabled = prefs.isAdBlockEnabled
+        val isSiteWhitelisted = host.isNotEmpty() && prefs.adBlockWhitelist.contains(host)
 
-        val adBlockTitle = if (isAdBlockOnForSite) {
-            "广告拦截: 已开启 (点击切换)"
-        } else {
-            "广告拦截: 已关闭 (已加白名单，点击开启)"
-        }
+        val adBlockTitle = AdBlockMenuHelper.resolveMenuTitle(isGlobalEnabled, isSiteWhitelisted)
 
         popup.menu.add(0, 1, 0, adBlockTitle)
         popup.menu.add(0, 2, 1, "强制刷新 (清除缓存)")
@@ -599,10 +596,16 @@ class FloatingWindowView(
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 1 -> {
-                    if (host.isNotEmpty()) {
+                    if (!isGlobalEnabled) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "全局广告拦截已在设置中关闭，请前往设置开启",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    } else if (host.isNotEmpty()) {
                         val enabledNow = prefs.toggleAdBlockForHost(host)
                         val msg = if (enabledNow) {
-                            "已为 $host 开启广告拦截"
+                            "已为 $host 恢复广告拦截"
                         } else {
                             "已将 $host 加入白名单 (临时关闭拦截)"
                         }
@@ -610,6 +613,7 @@ class FloatingWindowView(
                         webView.reload()
                     } else {
                         prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
+                        io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(prefs.isAdBlockEnabled)
                         val msg = if (prefs.isAdBlockEnabled) "全局广告拦截已开启" else "全局广告拦截已关闭"
                         android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                         webView.reload()

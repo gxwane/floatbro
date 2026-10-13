@@ -1509,8 +1509,8 @@ fun SettingsScreen(
     var clearHistorySelected by remember { mutableStateOf(true) }
     var clearCookiesSelected by remember { mutableStateOf(false) }
 
-    var isAdBlockEnabled by remember { mutableStateOf(true) }
-    var isCosmeticFilterEnabled by remember { mutableStateOf(true) }
+    var isAdBlockEnabled by remember { mutableStateOf(browserPrefs.isAdBlockEnabled) }
+    var showAdBlockRulesDialog by remember { mutableStateOf(false) }
 
     if (showGesturesDialog) {
         AlertDialog(
@@ -1655,6 +1655,10 @@ fun SettingsScreen(
             containerColor = Color.White,
             shape = RoundedCornerShape(16.dp)
         )
+    }
+
+    if (showAdBlockRulesDialog) {
+        AdBlockRulesDialog(onDismiss = { showAdBlockRulesDialog = false })
     }
 
     Box(
@@ -1869,9 +1873,9 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Group 2: 纯净浏览与安全
+            // Group 2: 广告拦截
             Text(
-                text = "纯净浏览与安全",
+                text = "广告拦截",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = BrandBlue,
@@ -1883,26 +1887,58 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Slate200)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "广告与网络追踪拦截",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.5.sp,
-                        color = Slate900
-                    )
-                    Switch(
-                        checked = isAdBlockEnabled,
-                        onCheckedChange = {
-                            isAdBlockEnabled = it
-                            isCosmeticFilterEnabled = it
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "广告拦截",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900
+                        )
+                        Switch(
+                            checked = isAdBlockEnabled,
+                            onCheckedChange = {
+                                isAdBlockEnabled = it
+                                browserPrefs.isAdBlockEnabled = it
+                                io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(it)
+                            }
+                        )
+                    }
+
+                    if (isAdBlockEnabled) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Slate100
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showAdBlockRulesDialog = true }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "规则管理",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Slate900
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "规则管理",
+                                tint = Slate400,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                    )
+                    }
                 }
             }
 

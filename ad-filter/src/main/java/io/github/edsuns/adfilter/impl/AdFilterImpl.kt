@@ -69,6 +69,25 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
         viewModel.updateEnabledFilterCount()
     }
 
+    override fun isRulePackEnabled(id: String): Boolean {
+        return defaultRulesInstaller.isPackEnabled(id)
+    }
+
+    override fun setRulePackEnabled(id: String, enabled: Boolean) {
+        defaultRulesInstaller.setPackEnabled(id, enabled)
+        if (enabled) {
+            defaultRulesInstaller.ensureInstalled(id)
+            filterDataLoader.load(id)
+        } else {
+            filterDataLoader.unload(id)
+        }
+        viewModel.updateEnabledFilterCount()
+    }
+
+    override fun getRulePackCount(id: String): Int {
+        return defaultRulesInstaller.getRuleCount(id)
+    }
+
     override fun getMainFrameUrl(webView: WebView): String? = mainFrameUrls[webView]
 
     override fun setMainFrameUrl(webView: WebView, url: String) {

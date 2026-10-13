@@ -28,6 +28,22 @@ interface AdFilter {
     val customFilter: CustomFilter
 
     fun setEnabled(enable: Boolean)
+
+    /**
+     * Check if a built-in rule pack is enabled.
+     */
+    fun isRulePackEnabled(id: String): Boolean = true
+
+    /**
+     * Enable or disable a built-in rule pack.
+     */
+    fun setRulePackEnabled(id: String, enabled: Boolean) {}
+
+    /**
+     * Get the count of rules in a built-in rule pack.
+     */
+    fun getRulePackCount(id: String): Int = 0
+
     /**
      * Call this function when [WebViewClient.shouldInterceptRequest],
      * and use [FilterResult.resourceResponse] as return value.
@@ -66,6 +82,10 @@ interface AdFilter {
     fun setMainFrameUrl(webView: WebView, url: String) {}
 
     companion object {
+        const val PACK_EASYLIST = "builtin_easylist"
+        const val PACK_CHINA = "builtin_china"
+        const val PACK_PRIVACY = "builtin_privacy"
+
         @Volatile
         private var instance: AdFilter? = null
 

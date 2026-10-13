@@ -13,13 +13,14 @@ package io.github.edsuns.adfilter.impl
 
 import android.content.Context
 import io.github.edsuns.adblockclient.AdBlockClient
+import io.github.edsuns.adfilter.AdFilter
 import timber.log.Timber
 import java.io.InputStream
 import java.util.zip.CRC32
 
 /**
  * Manages extraction, C++ BloomFilter compilation, and automatic invalidation
- * of built-in offline default mobile ad-blocking rules from assets.
+ * of modular built-in offline mobile ad-blocking rule packs from assets.
  */
 internal class DefaultRulesInstaller(
     private val context: Context,
@@ -27,38 +28,86 @@ internal class DefaultRulesInstaller(
     private val filterDataLoader: FilterDataLoader
 ) {
 
+    data class PackInfo(
+        val id: String,
+        val assetPath: String,
+        val prefKey: String
+    )
+
+    val packs = listOf(
+        PackInfo(AdFilter.PACK_EASYLIST, "adfilter/rules_easylist.txt", "pref_pack_easylist"),
+        PackInfo(AdFilter.PACK_CHINA, "adfilter/rules_easylist_china.txt", "pref_pack_china"),
+        PackInfo(AdFilter.PACK_PRIVACY, "adfilter/rules_easyprivacy.txt", "pref_pack_privacy")
+    )
+
     fun ensureInstalledAndLoaded() {
-        try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val cachedCrc = prefs.getLong(KEY_RULES_CRC, -1L)
-            val currentCrc = calculateAssetCrc()
-            val hasBinary = binaryDataStore.hasData(ID_BUILTIN)
-
-            if (!hasBinary || cachedCrc != currentCrc) {
-                Timber.i("Installing/updating built-in default adblock rules (CRC: %d)...", currentCrc)
-                val client = AdBlockClient(ID_BUILTIN)
-                val rawBytes = openAsset().use { it.readBytes() }
-                client.loadBasicData(rawBytes, true)
-                val processedData = client.getProcessedData()
-                binaryDataStore.saveData(ID_BUILTIN, processedData)
-                prefs.edit().putLong(KEY_RULES_CRC, currentCrc).apply()
-                Timber.i("Successfully compiled built-in rules: %d rules loaded", client.getFiltersCount())
+        for (pack in packs) {
+            ensureInstalled(pack.id)
+            if (isPackEnabled(pack.id)) {
+                filterDataLoader.load(pack.id)
+                Timber.i("Loaded rule pack: %s", pack.id)
+            } else {
+                filterDataLoader.unload(pack.id)
             }
-
-            filterDataLoader.load(ID_BUILTIN)
-            Timber.i("Built-in adblock rules loaded into detector")
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to install/load built-in default rules")
         }
     }
 
-    private fun openAsset(): InputStream {
-        return context.assets.open(ASSET_PATH)
+    fun ensureInstalled(packId: String) {
+        val pack = packs.find { it.id == packId } ?: return
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val crcKey = "crc_${pack.id}"
+            val countKey = "count_${pack.id}"
+            val cachedCrc = prefs.getLong(crcKey, -1L)
+            val currentCrc = calculateAssetCrc(pack.assetPath)
+            val hasBinary = binaryDataStore.hasData(pack.id)
+
+            if (!hasBinary || cachedCrc != currentCrc) {
+                Timber.i("Compiling built-in adblock pack %s (CRC: %d)...", pack.id, currentCrc)
+                val client = AdBlockClient(pack.id)
+                val rawBytes = openAsset(pack.assetPath).use { it.readBytes() }
+                client.loadBasicData(rawBytes, true)
+                val processedData = client.getProcessedData()
+                val count = client.getFiltersCount()
+                binaryDataStore.saveData(pack.id, processedData)
+                prefs.edit()
+                    .putLong(crcKey, currentCrc)
+                    .putInt(countKey, count)
+                    .apply()
+                Timber.i("Successfully compiled %s: %d rules loaded", pack.id, count)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to compile/install rule pack %s", packId)
+        }
     }
 
-    private fun calculateAssetCrc(): Long {
+    fun isPackEnabled(packId: String): Boolean {
+        val pack = packs.find { it.id == packId } ?: return false
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(pack.prefKey, true)
+    }
+
+    fun setPackEnabled(packId: String, enabled: Boolean) {
+        val pack = packs.find { it.id == packId } ?: return
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(pack.prefKey, enabled).apply()
+    }
+
+    fun getRuleCount(packId: String): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val count = prefs.getInt("count_${packId}", 0)
+        if (count > 0) return count
+        ensureInstalled(packId)
+        return prefs.getInt("count_${packId}", 0)
+    }
+
+    private fun openAsset(assetPath: String): InputStream {
+        return context.assets.open(assetPath)
+    }
+
+    private fun calculateAssetCrc(assetPath: String): Long {
         val crc = CRC32()
-        openAsset().use { input ->
+        openAsset(assetPath).use { input ->
             val buffer = ByteArray(8192)
             var bytesRead: Int
             while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -69,9 +118,6 @@ internal class DefaultRulesInstaller(
     }
 
     companion object {
-        const val ID_BUILTIN = "builtin_default"
-        const val ASSET_PATH = "adfilter/default_rules.txt"
         private const val PREFS_NAME = "adfilter_builtin_prefs"
-        private const val KEY_RULES_CRC = "builtin_rules_crc"
     }
 }

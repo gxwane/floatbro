@@ -16,6 +16,9 @@ internal class CustomFilterImpl constructor(
         if (blacklistStr.isNotBlank()) {
             val rawData = blacklistStr.toByteArray()
             filterDataLoader.loadCustomFilter(rawData)
+        } else {
+            filterDataLoader.remove(FilterDataLoader.ID_CUSTOM)
+            filterDataLoader.unloadCustomFilter()
         }
     }
 }
