@@ -29,6 +29,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import io.github.edsuns.adfilter.AdFilter
+import io.github.floatbro.BuildConfig
 import io.github.floatbro.overlay.AdBlockMenuHelper
 import io.github.floatbro.overlay.ElementZapperManager
 import io.github.floatbro.browser.BrowserPreferences
@@ -2049,7 +2050,7 @@ fun SettingsScreen(
                                 color = Slate900
                             )
                             Text(
-                                text = "版本 1.0.0 · GPL-3.0 开源许可",
+                                text = "版本 ${BuildConfig.VERSION_NAME} · GPL-3.0 开源许可",
                                 fontSize = 12.sp,
                                 color = Slate500,
                                 modifier = Modifier.padding(top = 2.dp)

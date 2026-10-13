@@ -53,4 +53,17 @@ class AppUpdateSemVerTest {
         assertTrue(AppUpdateManager.isNewerVersion("v1.1.0-beta.1", "1.0.0"))
         assertFalse(AppUpdateManager.isNewerVersion("v1.0.0-beta.1", "1.0.0"))
     }
+
+    @Test
+    fun testDefaultRepositoryConfiguration() {
+        assertEquals("gxwane", AppUpdateManager.DEFAULT_REPO_OWNER)
+        assertEquals("floatbro", AppUpdateManager.DEFAULT_REPO_NAME)
+    }
+
+    @Test
+    fun testIsNewerVersionBetaProgression() {
+        assertTrue(AppUpdateManager.isNewerVersion("v0.1.2-beta", "0.1.1-beta"))
+        assertFalse(AppUpdateManager.isNewerVersion("v0.1.1-beta", "0.1.2-beta"))
+        assertFalse(AppUpdateManager.isNewerVersion("v0.1.2-beta", "0.1.2-beta"))
+    }
 }

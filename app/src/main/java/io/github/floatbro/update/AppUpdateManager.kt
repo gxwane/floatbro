@@ -66,8 +66,8 @@ class AppUpdateManager(private val context: Context) {
         }
 
     fun fetchReleasesAsync(
-        repoOwner: String = "floatbro",
-        repoName: String = "floatbro",
+        repoOwner: String = DEFAULT_REPO_OWNER,
+        repoName: String = DEFAULT_REPO_NAME,
         onSuccess: (UpdateCandidates) -> Unit,
         onError: (String) -> Unit
     ) {
@@ -85,7 +85,10 @@ class AppUpdateManager(private val context: Context) {
         }
     }
 
-    fun fetchReleasesSync(repoOwner: String = "floatbro", repoName: String = "floatbro"): UpdateCandidates {
+    fun fetchReleasesSync(
+        repoOwner: String = DEFAULT_REPO_OWNER,
+        repoName: String = DEFAULT_REPO_NAME
+    ): UpdateCandidates {
         val apiUrl = "https://api.github.com/repos/$repoOwner/$repoName/releases?per_page=15"
         var stableRelease: ReleaseInfo? = null
         var prereleaseRelease: ReleaseInfo? = null
@@ -261,6 +264,9 @@ class AppUpdateManager(private val context: Context) {
     }
 
     companion object {
+        const val DEFAULT_REPO_OWNER = "gxwane"
+        const val DEFAULT_REPO_NAME = "floatbro"
+
         fun isNewerVersion(remoteTag: String, currentVersion: String): Boolean {
             return compareSemVer(remoteTag, currentVersion) > 0
         }
