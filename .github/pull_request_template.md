@@ -19,7 +19,7 @@
 ---
 
 ## 📱 交互验证与效果展示 (Verification & Media)
-<!-- 悬浮窗、分屏及手势类 PR 必须附带截图或动态演示 (GIF/MP4) -->
+<!-- 悬浮窗、分屏及手势类 PR 建议附带截图或动态演示 (GIF/MP4) -->
 
 | 改动前 (Before) | 改动后 (After) |
 | :---: | :---: |
@@ -28,8 +28,9 @@
 ---
 
 ## 📋 提交前自查清单 (Checklist)
-- [ ] PR 标题严格遵循 Conventional Commits (如 `feat(split): support horizontal split mode`)。
-- [ ] 本地通过构建与验证：`./gradlew assembleDebug` 与测试。
+- [ ] PR 标题遵循 Conventional Commits (如 `feat(split): support horizontal split mode`)。
+- [ ] 本地通过构建与单元测试：`./gradlew assembleDebug` 与 `./gradlew testDebugUnitTest`。
 - [ ] 新建源码文件已添加 GPL-3.0 SPDX 版权头；修改的文件保留了原作者版权。
-- [ ] 无冗余代码、敏感信息、硬编码绝对路径及临时测试 Log。
-- [ ] 适配 Android 12 ~ 16（已确认悬浮窗权限、软键盘呼起及 16KB 内存分页兼容）。
+- [ ] 若涉及功能增改或缺陷修复，已按规范同步更新 `CHANGELOG.md`。
+- [ ] 无冗余代码、敏感凭据、硬编码绝对路径及临时测试 Log。
+- [ ] 适配 Android 8.0 ~ 16 (API 26 ~ 36)（已确认悬浮窗权限、软键盘焦点及 16KB 内存分页兼容）。

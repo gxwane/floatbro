@@ -1,6 +1,6 @@
-# FloatBro 系统架构契约与元架构准则 (Architecture Specification)
+# FloatBro 系统架构契约与设计规约 (Architecture Specification)
 
-本文档为 FloatBro (浮窗兄弟) 项目的核心系统架构契约。所有开发人员与代码特工 (AI Agents) 必须严格遵循本文档所界定的模块拓扑、依赖流向与防腐边界。
+本文档为 FloatBro 项目的核心系统架构契约。所有开发人员与项目贡献者 (Contributors) 必须严格遵循本文档所界定的模块拓扑、依赖流向与防腐边界。
 
 ---
 
@@ -37,11 +37,11 @@ graph TD
 
 | 模块名称 | 语言与技术栈 | 职责范围与边界红线 |
 | :--- | :--- | :--- |
-| **`:adblock-client`** | C++17, CMake, NDK r27c, JNI | • Brave 级 BloomFilter 与 Hash 规则匹配引擎；<br>• 强制执行 Android 15 16KB Page Size 内存对齐；<br>• **严禁依赖任何上层 Java/Kotlin 类**。 |
+| **`:adblock-client`** | C++17, CMake, NDK r27c, JNI | • 高性能 BloomFilter 与 Hash 规则匹配引擎；<br>• 强制执行 Android 15 16KB Page Size 内存对齐；<br>• **严禁依赖任何上层 Java/Kotlin 类**。 |
 | **`:ad-filter`** | Pure Kotlin, OkHttp, Coroutines | • EasyList 规则下载、本地解析、持久化与规则匹配；<br>• 注入 CSS `:has()` 选择器与反反爬 Scriptlets；<br>• **纯 Kotlin 逻辑，零 Android View 强绑定**。 |
 | **`:core:common`** | Kotlin | • 跨模块共享的数据实体、常量、扩展函数与工具类；<br>• 纯净库，不持有任何 UI 或 WebView 逻辑。 |
 | **`:core:webview`** | Kotlin, AndroidX WebKit | • 硬件加速 `EBWebView` 封装与 Chromium 内核调优；<br>• `InputFocusBridge` DOM 表单聚焦监听桥接；<br>• `TwoPaneLayout` 对称双视口真分屏引擎与拖拽中线。 |
-| **`:app`** | Kotlin, Jetpack Compose, Material 3 | • `FloatBrowserService` (前台服务挂载 `TYPE_APPLICATION_OVERLAY`)；<br>• `FloatingWindowView` (窗口主容器) 与 `FloatingBubbleView` (48dp 贴边磁吸气泡)；<br>• 软键盘与底层穿透的动态焦点调度。 |
+| **`:app`** | Kotlin, Jetpack Compose, Material 3 | • `FloatBrowserService` (前台服务挂载 `TYPE_APPLICATION_OVERLAY`)；<br>• `FloatingWindowView` (窗口主容器) 与 `FloatingBubbleView` (52dp 贴边磁吸气泡)；<br>• 软键盘与底层穿透的动态焦点调度。 |
 
 ---
 
@@ -63,8 +63,8 @@ graph TD
 
 ---
 
-## 三、 测试与整洁工艺契约 (Clean Craftsmanship Invariants)
+## 三、 测试与质量验证契约 (Testing & Quality Assurance Invariants)
 
-- **纯 JVM 极速单测**：业务计算（如分屏比例边界夹紧、规则解析迭代）必须抽取为纯 Kotlin 类，单测在 JVM 毫秒级执行，严禁为业务逻辑测试引入笨重的 Robolectric。
-- **PAMP 防偷懒变异协议**：针对关键状态机与安全决策分支，单测必须包含否定性断言或通过对抗变异算子（`[OP-BOUND]`, `[OP-BYPASS]`, `[OP-VOID]`, `[OP-SWALLOW]`）证伪，严禁无断言的虚假绿灯。
-- **质量手套一键门禁**：本地提交前必须通过 `scripts/verify_gauntlet.ps1` (Windows) 或 `scripts/verify_gauntlet.sh` (Linux/CI) 自动化全检。
+- **纯 JVM 极速单元测试**：核心领域与计算逻辑（如分屏比例边界计算、手势碰撞判定、返回键分发决策等）必须抽取为无 Android 视图依赖的纯 Kotlin 领域类，保证单元测试在纯 JVM 环境下毫秒级执行，严禁为业务逻辑单测引入笨重的模拟框架。
+- **变异测试与完备断言 (Mutation Testing & Boundary Coverage)**：针对关键状态机与安全决策分支，单测必须包含边界条件、否定性断言与防御性异常分支覆盖，杜绝无断言的虚假通过。
+- **本地质量门禁 (Local Verification Suite)**：本地代码提交前推荐执行 `./gradlew testDebugUnitTest` 验证全量单元测试通过。

@@ -6,115 +6,37 @@
 ## [Unreleased]
 
 ### Added
-- **Phase 1: 现代多模块骨架与 Brave 级去广告引擎移植**
-  - 初始化 FloatBro 独立多模块工程骨架（`:app`, `:core:webview`, `:core:common`, `:ad-filter`, `:adblock-client`）；
-  - 落地 Version Catalog 依赖统一管理（Kotlin 2.1.20, AGP 8.13.2, Compose 1.7.8, CompileSdk 36, TargetSdk 36, JDK 17, NDK r27c）；
-  - 移植 C++ BloomFilter 引擎与 JNI 桥接，强制 `-Wl,-z,max-page-size=16384` 16KB Page Size 内存对齐；
-  - 移植 EasyList 规则解析、CSS `:has()` 元素隐藏及 Scriptlets；
-  - 引入 GPL-3.0 许可证与 NOTICE 溯源致敬声明；
-  - 建立 GitHub Actions 自动化流水线 (`pr-checks.yml`, `release.yml`, `dependabot.yml`)。
+- 支持平板与大屏设备自适应多视口展开态布局。
 
-- **Phase 2: 对称双视口分屏引擎 (Symmetric Dual-Pane Engine)**
-  - 升级 `TwoPaneLayout`，副屏升级为支持自主输入 URL、独立历史栈的对等视口；
-  - 实现 Windows Snap 式拖拽中线 (`dragHandle`)，支持 15%~85% 动态比例、双击 50:50 重置；
-  - 封装硬件加速 `EBWebView`，挂载 `FloatWebViewClient` 与 `FloatWebChromeClient` 去广告拦截；
-  - 落地跨视口联动调度与 `DualPaneDemoActivity` 全屏分屏验证。
+---
 
-- **Phase 3: 系统级悬浮窗驱动与手势交互 (Floating Overlay & Gestures)**
-  - 挂载 `FloatBrowserService` 前台服务与 `TYPE_APPLICATION_OVERLAY` 顶层系统窗口；
-  - 实现 `FloatingWindowView`：顶栏拖拽把手、分屏切换控制、右下角 `ResizeHandle` 无级缩放；
-  - 实现 `FloatingBubbleView`：48dp/56dp 圆形小气泡，支持触控拖拽与边缘磁吸回弹动画 (Spring Physics)；
-  - 实现 `InputFocusBridge`：网页表单输入时动态移除 `FLAG_NOT_FOCUSABLE` 唤起输入法，失焦恢复底层穿透；
-  - 挂载 `ComposeOverlayHost`：在悬浮窗内嵌层渲染菜单与设置，彻底根除 `BadTokenException`。
+## [0.1.1-beta] - 2026-10-13
 
-- **Phase 4: 多级返回键分发、内存修剪与生产级 Release 终验**
-  - 落地 `BackNavigationDispatcher` 纯领域返回决策器：四级优先级分发（浮层菜单关闭 -> 副屏网页后退 -> 主屏网页后退 -> 智能最小化为边缘气泡）；
-  - 覆盖 `OverlayBackNavigationTest` 纯 JVM 毫秒级断言套件与反向保护；
-  - 挂载 `onTrimMemory` 监听与临界内存缓存修剪 (`TRIM_MEMORY_RUNNING_CRITICAL`)；
-  - 建立生产级 `app/proguard-rules.pro` 混淆规则，完成 R8 代码混淆与资源缩减（Release APK 瘦身至 2.23MB）；
-  - 全架构（arm64-v8a, armeabi-v7a, x86, x86_64）完成 Android 15 16KB Page Size (`0x4000`) ELF 内存对齐终审；
-  - 完成 Android 10 真机 ADB 悬浮窗启动、渲染与交互全流程实测验证。
+### Fixed
+- **去广告规则净化**：移除过度泛化的子串选择器与未限定域名的全局样式隐藏规则，彻底解除对哔哩哔哩 (m.bilibili.com) 等主流站点顶层容器的误杀，恢复正常首屏渲染；
+- **手势防误触优化**：移除将悬浮窗向上拖动直接收回为标签页的误触手势，改为标准的平滑贴顶停靠；标签页收回操作统一由工具栏“收回”按钮触发；
+- **HTML5 视频全屏多任务控制**：网页视频进入全屏播放时，顶部浮现半透明居中悬浮控制条（支持拖动窗口与一键退出全屏），同时保持右下角缩放手柄常驻顶层，实现全屏视频小窗下自由拖拽与缩放。
 
-- **Craftsmanship Infrastructure: 整洁工艺门禁建设**
-  - 固化 `docs/ARCHITECTURE.md` 元架构契约与单向无环依赖图；
-  - 搭建跨平台 L1 质量手套执行门禁 (`scripts/verify_gauntlet.ps1` & `scripts/verify_gauntlet.sh`)；
-  - 建立领域层纯 JVM 毫秒级 TDD 单元测试套件与 PAMP 防偷懒变异存证。
+### Changed
+- **浏览历史响应式流同步**：引入 `StateFlow` 响应式数据流，浮窗关闭或网页跳转后，主控中心浏览历史记录卡片实现秒级自动刷新。
 
-- **Phase 5: 交互原型 100% 视觉还原与整洁工艺终验 (Clean Craftsmanship Tier 3)**
-  - 彻底根除单字母方块 (`title.take(1)`) 与 emoji 调试按钮等非正式演示代码，重构为生产级探索主页；
-  - 引入 Android (`#3DDC84`)、Wikipedia (`#2563EB`)、Bilibili (`#00AEEC`)、GitHub 官方品牌矢量资产与 SSL 盾牌安全指示；
-  - 建立 Slate/Blue 设计令牌系统 (`Theme.kt`)，全量对齐 `interactive_prototype.html` 交互原型；
-  - 彻底解决 86dp 双层顶栏堆叠缺陷：悬浮窗统一为单个 44dp 整合胶囊 Omni-bar，单视口模式自动抑制 `pane1` 内部冗余 Toolbar；
-  - 实现全边沿拦截拖拽分发与无感右下角对角线缩放 (`WindowBoundsHelper` 0.45~2.20 纵横比边界保护)；
-  - 悬浮球重构为 52dp 纯白正圆球体、2dp 品牌蓝描边，完整呈现双环品牌标识 (`#2563EB` 与 `#10B981`)；
-  - 覆盖 `WindowBoundsHelperTest` 纯 JVM 单元测试，杀灭 `[OP-BOUND]` 与 `[OP-VOID]` 变异体；
-  - 通过独立 PR Reviewer 审查全量通过 (PASS)，Gauntlet 质量流水线 100% 绿灯。
+### Security
+- **正式 Release 签名**：全面启用专有 Release 签名私钥，配置 GitHub Secrets 自动化流水线签名与 16KB Page Size 内存对齐检验，告别 Debug 证书；
+- **分支安全保护**：GitHub 远端仓库启用 `main` 主分支保护策略，禁止强制推送与意外删除。
 
-- **Phase 6: UI/UX 深度审计与 Phase 1 P0 缺陷整洁工艺治理 (Clean Craftsmanship Tier 2)**
-  - 实施 `ThemeTokensTest` 纯 JVM 单元测试覆盖与 `[OP-BOUND]` 变异击杀存证；
-  - 补全 Material 3 `FloatBroDarkColorScheme` 与 `FloatBroTypography` 排版令牌，支持深浅双模动态切换；
-  - 适配 `FloatingWindowView` 窗体与胶囊顶栏深色主题感知，消除夜间模式刺眼大白块；
-  - 彻底重构 `AppTabStrip` 标签关闭按钮，外层包裹无形触控热区并满足 WCAG 2.2 48dp 最小触控规范，添加无障碍语义 `Role.Button` 与动态标签名播报；
-  - 升级 `InAppWebViewPane` 工具栏高度至 48dp，导航按键统一扩展至 48dp 并应用 8-Point Grid 间距体系；
-  - 重绘 `ic_dock_app.xml` 矢量图标路径，纠正倒错的外跳 Popout 图标为正确的“向下沉降停靠至应用内”托盘图标。
+---
 
-- **Phase 7: UI/UX Phase 2 P1 缺陷整洁工艺治理与物理手势动效 (Clean Craftsmanship Tier 2)**
-  - 实施 `OverlayPhysicsHelperTest` 纯 JVM 单元测试覆盖与 `[MUTANT-SNAP-BOUNDARY]` 变异击杀存证；
-  - 纯领域抽离 `OverlayPhysicsHelper`：提供软键盘 IME 避让 Y 轴坐标计算、边缘吸附目标计算与碰撞判定；
-  - 改造主控中心悬浮窗权限提示卡片，消除红色惊叹号刺眼警示，升级为“探索 FloatBro 悬浮核心能力”价值前置引导卡片；
-  - 补全浮窗外跳点击拦截：未授权浮窗权限时弹出上下文 `AlertDialog` 引导直达系统权限设置；
-  - 悬浮窗右下角缩放把手升级为 48dp WCAG 触控热区并绘制 3 槽微倾斜抓握条纹 (`ic_resize_grip.xml`)，按下时提供 1.15x 缩放与不透明度动效；
-  - 悬浮窗拖拽边缘吸附升级为 200ms `DecelerateInterpolator` 减速插值平滑贴边动效与触感震动反馈 (`HapticFeedbackConstants`)；
-  - 悬浮窗 Omnibar 展开编辑时引入输入法智能避让，退回只读态时恢复原位；
-  - 打造高保真悬浮气泡拖拽丢弃区（Visual Bubble Dismiss Target）：
-    - 引入 `ic_trash_bin.xml` 24dp 矢量垃圾桶资产；
-    - 新增 `BubbleDismissTargetView` 64dp 半透明警示红圆形悬浮靶心，支持拖拽淡入/淡出；
-    - 结合 `OverlayPhysicsHelper.isDropTargetHit` 实现 72dp 命中磁吸反馈：靶心 1.25x 放大、高饱和深红 `#DC2626` 变色与触感震动，气泡 0.82x 吸入暗示；
-    - 命中释放安全销毁会话与 WebView，未命中释放执行 240ms 减速边缘磁吸贴靠。
+## [0.1.0-beta] - 2026-10-13
 
-- **Phase 8: UI/UX Phase 3 P2 缺陷整洁工艺治理与人机体验增强 (Clean Craftsmanship Tier 2)**
-  - 主控中心 `BrowserHomeView` 黄金拇指区与下半屏空间重构：
-    - 消除下半屏 65% 白板荒漠，搜索胶囊与高频快捷图标沉降至单手操作舒适区；
-    - 引入智能剪贴板链接探测胶囊，检测到系统剪贴板 URL 弹出卡片，支持一键打开与弹射浮窗；
-    - 引入“最近关闭的网页”卡片流，支持快速复原关闭会话与优质多任务站点推荐；
-    - 引入“FloatBro 纯净守护盾”科技感数据看板，量化展示已拦截广告数、阻断追踪器与节省流量预估；
-  - 双屏分屏工具栏矢量资产标准化：
-    - 在 `:core:webview` 建立第一方 Material 3 矢量资源库 (`ic_pane_back.xml`, `ic_pane_forward.xml`, `ic_pane_dispatch.xml`, `ic_pane_close.xml`)；
-    - 彻底替换 `PaneContainer.kt` 中 Android 2.3 时代遗留的媒体快进/快退/拟物红叉低清位图；
-  - 网页加载进度条与优雅离线/异常态占位体系：
-    - 在悬浮窗与应用内视口顶栏挂载 2dp `#2563EB` 极细品牌蓝加载进度指示器，支持 1%~99% 平滑驱动与淡出；
-    - 复写 `FloatWebViewClient.onReceivedError`，精准拦截主视口网络异常并注入卡片化、带自适应深浅模式与“重新加载”按钮的优雅离线提示页，彻底阻断 Chromium 原生灰白英文报错页。
+### Added
+- **系统级独立悬浮窗体系**：基于 `SYSTEM_ALERT_WINDOW` 与前台服务构建独立悬浮窗宿主，摆脱主应用全屏外壳限制；
+- **对等双视口真分屏**：`TwoPaneLayout` 全面升级，支持双独立历史栈与前进/后退控制器，内置可拖拽中线分割条，支持 15%~85% 比例动态调整与双击 50:50 复位；
+- **空间物理手势与交互动效**：实现右下角 48dp 专属缩放抓手、贴边 200ms 减速吸附、52dp 贴边磁吸小气泡折叠与秒级复原，以及屏幕底部高保真圆形拖拽销毁靶心；
+- **原生 C++ 去广告内核**：集成 BloomFilter C++ 规则匹配引擎，支持 EasyList 与 Chromium CSS `:has()` 伪类元素隐藏，全架构强制执行 Android 15 16KB Page Size 内存对齐；
+- **现代 Material 3 体验**：全套深浅双模主题，重构极简搜索主控中心，内嵌 Compose 浮层彻底消除后台悬浮环境下的 `BadTokenException` 崩溃；
+- **多级返回键调度**：`BackNavigationDispatcher` 纯领域决策器，实现“菜单收起 -> 副屏后退 -> 主屏后退 -> 智能最小化气泡”四级返回分发；
+- **生产级构建工程化**：建立 R8 混淆规则、16KB 内存对齐校验流水线与全自动化 GitHub Actions 发布体系。
 
-- **Phase 9: UI/UX Phase 4 P3 缺陷治理、孤立代码挂载与设计规范收敛 (Clean Craftsmanship Tier 3)**
-  - 孤立代码联动集成 (Dead Code Integration)：
-    - 在 `FloatingWindowView` 顶栏增加 48dp 更多选项按钮 (`btnMenu` / `ic_more_vert.xml`)；
-    - 基于 `OverlayLifecycleContext` 为悬浮窗嵌入 `InWindowOverlayMenu` Compose 浮层，支持一键查看去广告引擎状态、对称分屏联动、清除网页缓存与查看关于；
-    - 联动 `BackNavigationDispatcher` 纯领域返回决策器：按返回键时优先分发 `CLOSE_MENU` 丝滑收起浮层菜单，菜单收起后再调度网页历史回退或最小化为边缘气泡；
-  - 8-Point Grid 间距规范与排版字阶收敛：
-    - 悬浮窗顶栏高度收敛为 48dp 标准触控高度，消除奇数 padding (`3dp`, `6dp`)，间距全部归一化为 `4dp`/`8dp`/`16dp`；
-    - Omnibar 地址栏在输入/编辑态采用 Monospace 等宽字体，清晰区分字符、标点与数字；
-    - 更多菜单与浮层视图全面注入 `FloatBroTheme`，自适应深浅主题配色。
-
-- **Phase 10: 用户体验与交互全面重构 (Comprehensive UX & Interaction Overhaul)**
-  - **主页去商业化与纯净聚焦 (Home Header & Dial Cleansing)**:
-    - 彻底去除主页大标题及冗余副标题“全局悬浮 · 联动分屏 · 纯净去广告”，主页以精致居中 Logo 为核心，视觉焦点彻底留给搜索与内容导航；
-    - 剔除主页虚假守护盾统计看板（假数据“1,280+”、“340+”、“18.5 MB”），将真实广告与元素拦截开关整合迁移至设置二级菜单；
-    - 快捷导航替换为真实高频站点：必应（Bing）、哔哩哔哩（Bilibili）、知乎（Zhihu）、百度（Baidu），配备官方高清矢量图标；
-    - 最近关闭网页卡片流去除硬编码假数据推荐与冗余的“打开/复原”胶囊，整行支持平滑点击复原。
-  - **空间四向手势与悬浮窗拖拽销毁 (4-Way Spatial Gestures & Drag-to-Dismiss)**:
-    - 彻底废除反直觉的下拉收回标签，重构为符合物理直觉的四向手势：
-      - ⬆️ **上推顶边收回**：将悬浮窗推至屏幕顶部（`y <= 36dp`）直接无缝吸附收回至应用内标签页；
-      - ⬇️ **下拉底边销毁**：将悬浮窗向屏幕底部拖动触发底部 `DismissTargetView`（红色圆形垃圾桶靶心），释放即彻底销毁浮窗与会话；
-      - ⬅️ ➡️ **左右外推超 40%**：自动收拢折叠为贴边气泡；
-      - ↔️ **屏内释放**：平滑吸附贴靠屏幕左/右边缘。
-    - 在 `OverlayPhysicsHelper` 抽离纯领域决策方法 `resolveWindowDragAction` 与 `WindowDragAction` 枚举，覆盖 100% 通过的 JVM 单元测试。
-  - **全局静音与零干扰交互 (Zero Disruptive Noise)**:
-    - 彻底删除所有在标签页撕裂出浮窗、吸附收回、弹射时的 `Toast.makeText` 强提示，打造沉浸式静默操作。
-  - **悬浮窗顶栏降噪与角标极限贴合 (Floating Window Polish)**:
-    - 悬浮窗顶栏移除重复的“更多三点菜单”，保持后退、前进、地址栏、刷新、收回、关闭的极简纯粹结构；
-    - 修复右下角缩放把手视觉与边框存在 14dp 浮空位移问题：保持 48dp 触摸靶心，配置 `FIT_END` 与 `setPadding(24dp, 24dp, 4dp, 4dp)`，使缩放抓握纹理紧密咬合右下圆角。
-  - **设置页 Material 3 Inset Grouped 重构与细粒度数据清理 (Modern Settings & Granular Data Clearing)**:
-    - 设置页全面重构为现代 Material 3 Grouped Inset Cards 风格；
-    - 移除对用户无关的技术自嗨文案（“贴边吸附与手势交互”技术说明卡片与关于页“遵循 Tier 3 规范”内部术语）；
-    - “清除浏览数据”由一刀切升级为专业多选对话框：[x] 缓存文件与临时存储、[x] 浏览历史记录、[ ] Cookies 与网站数据。
-
+[Unreleased]: https://github.com/gxwane/floatbro/compare/v0.1.1-beta...HEAD
+[0.1.1-beta]: https://github.com/gxwane/floatbro/compare/v0.1.0-beta...v0.1.1-beta
+[0.1.0-beta]: https://github.com/gxwane/floatbro/releases/tag/v0.1.0-beta
