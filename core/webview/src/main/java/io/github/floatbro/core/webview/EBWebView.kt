@@ -28,6 +28,8 @@ import io.github.floatbro.browser.UserAgentMode
 import io.github.floatbro.core.webview.bridge.InputFocusBridge
 import io.github.floatbro.core.webview.client.FloatWebChromeClient
 import io.github.floatbro.core.webview.client.FloatWebViewClient
+import io.github.floatbro.core.webview.security.NavigationBlockEvent
+import io.github.floatbro.core.webview.security.NavigationSecurityGuard
 import timber.log.Timber
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -46,6 +48,15 @@ open class EBWebView @JvmOverloads constructor(
     var onPageCommitVisibleListener: ((String) -> Unit)? = null
     var onShowCustomViewListener: ((View, android.webkit.WebChromeClient.CustomViewCallback) -> Unit)? = null
     var onHideCustomViewListener: (() -> Unit)? = null
+    var onNavigationBlockedListener: ((NavigationBlockEvent) -> Unit)? = null
+
+    private class NavigationBridge {
+        @android.webkit.JavascriptInterface
+        fun notifyPaginationClicked() {
+            NavigationSecurityGuard.notifyPaginationClicked()
+        }
+    }
+    private val navigationBridge = NavigationBridge()
 
     private val inputFocusBridge = InputFocusBridge { isFocused ->
         post {
@@ -138,6 +149,9 @@ open class EBWebView @JvmOverloads constructor(
 
         // Inject JS bridge for soft keyboard focus detection
         addJavascriptInterface(inputFocusBridge, InputFocusBridge.INTERFACE_NAME)
+
+        // Inject JS bridge for pagination click tracking and hijack defense
+        addJavascriptInterface(navigationBridge, "FloatBroNavBridge")
     }
 
     private fun setupClients() {
@@ -145,7 +159,8 @@ open class EBWebView @JvmOverloads constructor(
             onPageStartedCallback = { url -> onPageStartedListener?.invoke(url) },
             onPageFinishedCallback = { url -> onPageFinishedListener?.invoke(url) },
             onTitleUpdated = { title -> onTitleChangedListener?.invoke(title) },
-            onPageCommitVisibleCallback = { url -> onPageCommitVisibleListener?.invoke(url) }
+            onPageCommitVisibleCallback = { url -> onPageCommitVisibleListener?.invoke(url) },
+            onNavigationBlockedCallback = { event -> onNavigationBlockedListener?.invoke(event) }
         )
 
         webChromeClient = FloatWebChromeClient(

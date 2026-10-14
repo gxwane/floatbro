@@ -24,6 +24,8 @@ import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import io.github.floatbro.core.webview.TabOverlayStateBridge
+import io.github.floatbro.core.webview.security.NavigationBlockEvent
+import io.github.floatbro.core.webview.security.NavigationSecurityGuard
 import android.view.HapticFeedbackConstants
 import android.view.animation.DecelerateInterpolator
 import io.github.floatbro.ui.theme.FloatingWindowThemeColors
@@ -85,6 +87,11 @@ class FloatingWindowView(
     private lateinit var urlBadgeText: TextView
     private lateinit var urlEditText: EditText
     private lateinit var clearInputButton: ImageButton
+    private lateinit var btnCapsuleRetry: TextView
+    private lateinit var btnCapsuleAllow: TextView
+    private lateinit var webContainer: FrameLayout
+    private var capsuleRestoreRunnable: Runnable? = null
+    private var inWindowActionCard: View? = null
     private lateinit var btnMore: ImageButton
     private lateinit var btnDock: ImageButton
     private lateinit var btnClose: ImageButton
@@ -200,6 +207,7 @@ class FloatingWindowView(
             )
 
             onPageStartedListener = { url ->
+                restoreHeaderNormalState()
                 exitFullscreenVideo(notifyCallback = true)
                 moreMenuPopup?.dismiss()
                 if (::elementZapperManager.isInitialized) {
@@ -207,6 +215,10 @@ class FloatingWindowView(
                 }
                 updateOmniText(url)
                 updateNavigationState()
+            }
+
+            onNavigationBlockedListener = { event ->
+                handleNavigationBlocked(event)
             }
 
             onPageFinishedListener = { url ->
@@ -244,7 +256,7 @@ class FloatingWindowView(
                 exitFullscreenVideo(notifyCallback = false)
             }
         }
-        val webContainer = FrameLayout(context).apply {
+        webContainer = FrameLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -498,6 +510,32 @@ class FloatingWindowView(
             }
             addView(clearInputButton)
 
+            btnCapsuleRetry = TextView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+                    marginStart = dpToPx(2f)
+                }
+                gravity = Gravity.CENTER_VERTICAL
+                text = "↻"
+                textSize = 14f
+                paint.isFakeBoldText = true
+                setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+                visibility = GONE
+            }
+            addView(btnCapsuleRetry)
+
+            btnCapsuleAllow = TextView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+                    marginStart = dpToPx(2f)
+                }
+                gravity = Gravity.CENTER_VERTICAL
+                text = "放行 ↗"
+                textSize = 11f
+                paint.isFakeBoldText = true
+                setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+                visibility = GONE
+            }
+            addView(btnCapsuleAllow)
+
             setOnTouchListener { _, event -> handleOmnibarTouchEvent(event) }
         }
 
@@ -745,6 +783,205 @@ class FloatingWindowView(
         }
     }
 
+    private fun handleNavigationBlocked(event: NavigationBlockEvent) {
+        post {
+            if (isEditMode) return@post
+
+            // Cancel any pending restoration
+            capsuleRestoreRunnable?.let { removeCallbacks(it) }
+
+            val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+            if (event.isAutoForwarded) {
+                // Case A: Auto-unwrapped destination
+                val forwardBg = if (isDarkMode) Color.parseColor("#064E3B") else Color.parseColor("#F0FDF4")
+                val forwardStroke = if (isDarkMode) Color.parseColor("#047857") else Color.parseColor("#BBF7D0")
+                val forwardText = if (isDarkMode) Color.parseColor("#6EE7B7") else Color.parseColor("#15803D")
+
+                (omniCapsule.background as? GradientDrawable)?.apply {
+                    setColor(forwardBg)
+                    setStroke(dpToPx(1f), forwardStroke)
+                }
+                urlBadgeText.text = "🛡️ 已跳过广告直达下一页"
+                urlBadgeText.setTextColor(forwardText)
+
+                val runnable = Runnable { restoreHeaderNormalState() }
+                capsuleRestoreRunnable = runnable
+                postDelayed(runnable, 2500L)
+            } else {
+                // Case B: Pure rogue ad blocked
+                try {
+                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                } catch (_: Exception) {}
+
+                val blockedBg = if (isDarkMode) Color.parseColor("#451A03") else Color.parseColor("#FEF3C7")
+                val blockedStroke = if (isDarkMode) Color.parseColor("#D97706") else Color.parseColor("#FCD34D")
+                val blockedText = if (isDarkMode) Color.parseColor("#FDE68A") else Color.parseColor("#B45309")
+
+                (omniCapsule.background as? GradientDrawable)?.apply {
+                    setColor(blockedBg)
+                    setStroke(dpToPx(1f), blockedStroke)
+                }
+
+                val currentWidth = layoutParams?.width ?: width
+                val isUltraCompact = currentWidth in 1 until dpToPx(300f)
+
+                if (isUltraCompact) {
+                    btnMore.visibility = GONE
+                    btnDock.visibility = GONE
+                    urlBadgeText.text = "🛡️ 拦截广告"
+                } else {
+                    urlBadgeText.text = "🛡️ 已拦截伪装广告"
+                }
+                urlBadgeText.setTextColor(blockedText)
+
+                btnCapsuleRetry.visibility = VISIBLE
+                btnCapsuleRetry.setTextColor(blockedText)
+                btnCapsuleRetry.setOnClickListener {
+                    restoreHeaderNormalState()
+                    val selfHealJs = """
+                        (function() {
+                            var el = document.querySelector('[data-floatbro-fallback-next]');
+                            if (el && el.getAttribute('data-floatbro-fallback-next')) {
+                                window.location.href = el.getAttribute('data-floatbro-fallback-next');
+                            } else {
+                                window.history.forward();
+                            }
+                        })();
+                    """.trimIndent()
+                    webView.evaluateJavascript(selfHealJs, null)
+                }
+
+                btnCapsuleAllow.visibility = VISIBLE
+                btnCapsuleAllow.setTextColor(blockedText)
+                btnCapsuleAllow.setOnClickListener {
+                    showInWindowAllowCard(event)
+                }
+
+                val runnable = Runnable { restoreHeaderNormalState() }
+                capsuleRestoreRunnable = runnable
+                postDelayed(runnable, 4000L)
+            }
+        }
+    }
+
+    private fun showInWindowAllowCard(event: NavigationBlockEvent) {
+        dismissInWindowAllowCard()
+        val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+        val card = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(14f), dpToPx(10f), dpToPx(14f), dpToPx(10f))
+            val cardBg = if (isDarkMode) Color.parseColor("#1E293B") else Color.parseColor("#FFFFFF")
+            val cardStroke = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#E2E8F0")
+            background = GradientDrawable().apply {
+                setColor(cardBg)
+                cornerRadius = dpToPx(12f).toFloat()
+                setStroke(dpToPx(1f), cardStroke)
+            }
+            elevation = dpToPx(8f).toFloat()
+
+            val titleView = TextView(context).apply {
+                text = "允许访问外部目标？\n${event.targetHost}"
+                textSize = 12f
+                isSingleLine = false
+                maxLines = 2
+                gravity = Gravity.CENTER
+                setTextColor(if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A"))
+            }
+            addView(titleView)
+
+            val btnBar = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = dpToPx(8f)
+                }
+
+                val btnCancel = TextView(context).apply {
+                    text = "取消"
+                    textSize = 12f
+                    setPadding(dpToPx(12f), dpToPx(4f), dpToPx(12f), dpToPx(4f))
+                    setTextColor(if (isDarkMode) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
+                    setOnClickListener {
+                        dismissInWindowAllowCard()
+                        restoreHeaderNormalState()
+                    }
+                }
+                addView(btnCancel)
+
+                val btnConfirm = TextView(context).apply {
+                    text = "确认访问"
+                    textSize = 12f
+                    paint.isFakeBoldText = true
+                    setPadding(dpToPx(12f), dpToPx(4f), dpToPx(12f), dpToPx(4f))
+                    setTextColor(Color.parseColor("#2563EB"))
+                    setOnClickListener {
+                        dismissInWindowAllowCard()
+                        restoreHeaderNormalState()
+                        val currentHost = webView.url?.let { NavigationSecurityGuard.extractHost(it) } ?: ""
+                        NavigationSecurityGuard.issueBypassToken(currentHost, event.targetHost)
+                        webView.loadUrl(event.originalUrl)
+                    }
+                }
+                addView(btnConfirm)
+            }
+            addView(btnBar)
+        }
+
+        val cardLp = FrameLayout.LayoutParams(
+            LayoutParams.WRAP_CONTENT,
+            LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        ).apply {
+            topMargin = dpToPx(16f)
+            leftMargin = dpToPx(16f)
+            rightMargin = dpToPx(16f)
+        }
+
+        inWindowActionCard = card
+        webContainer.addView(card, cardLp)
+    }
+
+    private fun dismissInWindowAllowCard() {
+        inWindowActionCard?.let {
+            webContainer.removeView(it)
+            inWindowActionCard = null
+        }
+    }
+
+    private fun restoreHeaderNormalState() {
+        capsuleRestoreRunnable?.let { removeCallbacks(it) }
+        capsuleRestoreRunnable = null
+
+        dismissInWindowAllowCard()
+
+        if (::omniCapsule.isInitialized) {
+            val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val capsuleBg = if (isDarkMode) Color.parseColor("#1E293B") else Color.parseColor("#F1F5F9")
+            val capsuleStroke = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#E2E8F0")
+            val textColor = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
+
+            (omniCapsule.background as? GradientDrawable)?.apply {
+                setColor(capsuleBg)
+                setStroke(dpToPx(1f), capsuleStroke)
+            }
+
+            if (::btnCapsuleRetry.isInitialized) btnCapsuleRetry.visibility = GONE
+            if (::btnCapsuleAllow.isInitialized) btnCapsuleAllow.visibility = GONE
+
+            if (::btnMore.isInitialized) btnMore.visibility = VISIBLE
+            if (::btnDock.isInitialized) btnDock.visibility = VISIBLE
+
+            if (!isEditMode && ::urlBadgeText.isInitialized) {
+                val resolvedTitle = webView.title?.takeIf { it.isNotBlank() } ?: webView.url ?: "FloatBro 悬浮浏览"
+                updateOmniText(resolvedTitle)
+                urlBadgeText.setTextColor(textColor)
+            }
+        }
+    }
+
     private fun formatDisplayUrl(raw: String): String {
         return raw.replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
     }
@@ -757,6 +994,7 @@ class FloatingWindowView(
 
     private fun enterEditMode() {
         if (isEditMode) return
+        restoreHeaderNormalState()
         isEditMode = true
         preEditY = layoutParams.y
 
@@ -1293,6 +1531,7 @@ class FloatingWindowView(
         if (::elementZapperManager.isInitialized) {
             elementZapperManager.exitZapperMode(quietly = true)
         }
+        restoreHeaderNormalState()
         exitFullscreenVideo(notifyCallback = true)
         super.onDetachedFromWindow()
     }

@@ -3390,6 +3390,14 @@ fun InAppWebViewPane(
                             canGoBack = webView.canGoBack()
                             canGoForward = webView.canGoForward()
                         }
+                        onNavigationBlockedListener = { event ->
+                            val msg = if (event.isAutoForwarded) {
+                                "已自动直达真实目标页"
+                            } else {
+                                "已拦截伪装跳转外链"
+                            }
+                            Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+                        }
                     }
                     frameLayout
                 },
@@ -3407,9 +3415,18 @@ fun InAppWebViewPane(
                         canGoBack = webView.canGoBack()
                         canGoForward = webView.canGoForward()
                     }
+                    webView.onNavigationBlockedListener = { event ->
+                        val msg = if (event.isAutoForwarded) {
+                            "已自动直达真实目标页"
+                        } else {
+                            "已拦截伪装跳转外链"
+                        }
+                        Toast.makeText(webView.context, msg, Toast.LENGTH_SHORT).show()
+                    }
                 },
                 onRelease = { frameLayout ->
                     zapperManager?.exitZapperMode(quietly = true)
+                    webView.onNavigationBlockedListener = null
                     frameLayout.removeView(webView)
                 },
                 modifier = Modifier.fillMaxSize()

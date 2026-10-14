@@ -23,13 +23,17 @@ import io.github.edsuns.adfilter.AdFilter
 import io.github.floatbro.browser.BrowserPreferences
 import io.github.floatbro.browser.UserAgentMode
 import io.github.floatbro.core.webview.bridge.InputFocusBridge
+import io.github.floatbro.core.webview.security.NavigationBlockEvent
+import io.github.floatbro.core.webview.security.NavigationSecurityGuard
+import io.github.floatbro.core.webview.security.UrlTargetUnwrapper
 import timber.log.Timber
 
 class FloatWebViewClient(
     private val onPageStartedCallback: ((url: String) -> Unit)? = null,
     private val onPageFinishedCallback: ((url: String) -> Unit)? = null,
     private val onTitleUpdated: ((title: String) -> Unit)? = null,
-    private val onPageCommitVisibleCallback: ((url: String) -> Unit)? = null
+    private val onPageCommitVisibleCallback: ((url: String) -> Unit)? = null,
+    private val onNavigationBlockedCallback: ((NavigationBlockEvent) -> Unit)? = null
 ) : WebViewClient() {
 
     /**
@@ -87,15 +91,15 @@ class FloatWebViewClient(
     }
 
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-        return handleUrlOverride(view, request.url.toString())
+        return handleUrlOverride(view, request, request.url.toString())
     }
 
     @Deprecated("Deprecated in Java")
     override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-        return handleUrlOverride(view, url)
+        return handleUrlOverride(view, null, url)
     }
 
-    private fun handleUrlOverride(view: WebView, url: String): Boolean {
+    private fun handleUrlOverride(view: WebView, request: WebResourceRequest?, url: String): Boolean {
         if (isNavigationFrozen) {
             Timber.w("Navigation Freeze active: Blocked navigation attempt to %s", url)
             return true
@@ -113,17 +117,72 @@ class FloatWebViewClient(
         // 1. Intercept pseudo-host app hijacks (e.g. https://baiduboxapp//utils?...)
         if (host != null && (host == "baiduboxapp" || host.contains("baiduboxapp"))) {
             Timber.i("Blocked rogue baiduboxapp navigation: %s", url)
+            onNavigationBlockedCallback?.invoke(
+                NavigationBlockEvent(
+                    originalUrl = url,
+                    cleanRedirectUrl = null,
+                    targetHost = host,
+                    isAutoForwarded = false
+                )
+            )
             return true
         }
 
-        // 2. Allow standard web navigation
-        if (scheme == "http" || scheme == "https") {
-            return false
+        // 2. Prevent unhandled app schemes (baiduboxapp://, intent://, etc.) from breaking WebView
+        if (scheme != "http" && scheme != "https") {
+            Timber.i("Intercepted external app scheme: %s", url)
+            return true
         }
 
-        // 3. Prevent unhandled app schemes (baiduboxapp://, intent://, etc.) from breaking WebView
-        Timber.i("Intercepted external app scheme: %s", url)
-        return true
+        // 3. Main frame navigation security audit & parameter unwrapping
+        val isMainFrame = request?.isForMainFrame ?: true
+        val isRedirect = request?.isRedirect ?: false
+        if (isMainFrame) {
+            val currentDocUrl = view.url ?: AdFilter.get().getMainFrameUrl(view) ?: ""
+            if (NavigationSecurityGuard.shouldAuditNavigation(currentDocUrl, url, isRedirect)) {
+                // A. Try extracting target destination from URL query parameters (L1 fastpath)
+                val unwrapped = UrlTargetUnwrapper.extractTargetUrl(url)
+                if (unwrapped != null && unwrapped != url) {
+                    Timber.i("Unwrapped rogue next-page navigation: %s -> %s", url, unwrapped)
+                    val safeReferer = UrlTargetUnwrapper.buildSafeReferer(currentDocUrl, unwrapped)
+                    val headers = mutableMapOf<String, String>()
+                    if (safeReferer != null) {
+                        headers["Referer"] = safeReferer
+                    }
+                    val targetHost = NavigationSecurityGuard.extractHost(unwrapped) ?: ""
+                    onNavigationBlockedCallback?.invoke(
+                        NavigationBlockEvent(
+                            originalUrl = url,
+                            cleanRedirectUrl = unwrapped,
+                            targetHost = targetHost,
+                            isAutoForwarded = true
+                        )
+                    )
+                    // REDLINE-5: Return true immediately to prevent rogue URL from entering the history stack (BackForwardList)!
+                    view.post {
+                        view.loadUrl(unwrapped, headers)
+                    }
+                    return true
+                }
+
+                // B. Pure rogue ad landing page without real target parameters (L2/L3 blocked)
+                Timber.w("Blocked rogue ad navigation without target: %s", url)
+                val targetHost = NavigationSecurityGuard.extractHost(url) ?: ""
+                onNavigationBlockedCallback?.invoke(
+                    NavigationBlockEvent(
+                        originalUrl = url,
+                        cleanRedirectUrl = null,
+                        targetHost = targetHost,
+                        isAutoForwarded = false
+                    )
+                )
+                // Return true to block ad landing page from committing
+                return true
+            }
+        }
+
+        // Allow standard web navigation
+        return false
     }
 
     private fun injectAdFilterScriptIfEnabled(view: WebView, url: String?) {
@@ -205,6 +264,7 @@ class FloatWebViewClient(
 
             onPageFinishedCallback?.invoke(url)
             view.title?.let { onTitleUpdated?.invoke(it) }
+            injectPaginationSanitizer(view)
         }
     }
 
@@ -213,6 +273,22 @@ class FloatWebViewClient(
             val desc = description ?: ""
             return desc.contains("ERR_ABORTED", ignoreCase = true) ||
                    (errorCode == WebViewClient.ERROR_UNKNOWN && desc.contains("ABORTED", ignoreCase = true))
+        }
+
+        @Volatile
+        private var cachedSanitizerJs: String? = null
+
+        fun injectPaginationSanitizer(view: WebView) {
+            val js = cachedSanitizerJs ?: try {
+                view.context.assets.open("adfilter/pagination_sanitizer.js").bufferedReader().use { it.readText() }
+                    .also { cachedSanitizerJs = it }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to load pagination_sanitizer.js")
+                null
+            }
+            if (!js.isNullOrBlank()) {
+                view.evaluateJavascript(js, null)
+            }
         }
 
         const val STEALTH_POLYFILL_JS = """
@@ -233,6 +309,7 @@ class FloatWebViewClient(
         Timber.d("onPageCommitVisible: %s", url)
         injectAdFilterScriptIfEnabled(view, url)
         InputFocusBridge.inject(view)
+        injectPaginationSanitizer(view)
         onPageCommitVisibleCallback?.invoke(url)
     }
 
