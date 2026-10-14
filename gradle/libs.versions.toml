@@ -18,7 +18,7 @@ navigation = "2.8.9"
 coreKtx = "1.16.0"
 fragment = "1.9.1"
 constraintlayout = "2.1.4"
-swiperefreshlayout = "1.1.0"
+swiperefreshlayout = "1.2.0"
 documentfile = "1.1.0"
 
 # --- 悬浮窗 Service 核心：Lifecycle 与 DataStore ---
