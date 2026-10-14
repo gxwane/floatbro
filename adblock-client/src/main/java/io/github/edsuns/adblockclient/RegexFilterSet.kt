@@ -31,7 +31,6 @@ class RegexFilterSet private constructor(
     private val blockRules: List<RegexRule>,
     private val exceptionRules: List<RegexRule>,
 ) {
-
     val size: Int get() = blockRules.size + exceptionRules.size
 
     fun isEmpty(): Boolean = blockRules.isEmpty() && exceptionRules.isEmpty()
@@ -58,7 +57,10 @@ class RegexFilterSet private constructor(
         return MatchResult(true, block.ruleText, null)
     }
 
-    private fun firstMatch(rules: List<RegexRule>, context: MatchContext): RegexRule? {
+    private fun firstMatch(
+        rules: List<RegexRule>,
+        context: MatchContext,
+    ): RegexRule? {
         for (rule in rules) {
             if (rule.matches(context)) return rule
         }
@@ -101,7 +103,10 @@ class RegexFilterSet private constructor(
          * [FilterDataLoader]'s single-blob storage keeps working. Blobs written
          * before this format existed have no trailer and load as "no regex rules".
          */
-        fun pack(nativeData: ByteArray, regexSet: RegexFilterSet): ByteArray {
+        fun pack(
+            nativeData: ByteArray,
+            regexSet: RegexFilterSet,
+        ): ByteArray {
             if (regexSet.isEmpty()) return nativeData
             val section = regexSet.serialize()
             val out = ByteArrayOutputStream(nativeData.size + section.size + TRAILER_SIZE)
@@ -122,23 +127,29 @@ class RegexFilterSet private constructor(
                 if (data[magicStart + i] != MAGIC[i]) return Unpacked(data.size, EMPTY)
             }
             val lenStart = magicStart - 4
-            val sectionLen = ((data[lenStart].toInt() and 0xff) shl 24) or
-                ((data[lenStart + 1].toInt() and 0xff) shl 16) or
-                ((data[lenStart + 2].toInt() and 0xff) shl 8) or
-                (data[lenStart + 3].toInt() and 0xff)
+            val sectionLen =
+                ((data[lenStart].toInt() and 0xff) shl 24) or
+                    ((data[lenStart + 1].toInt() and 0xff) shl 16) or
+                    ((data[lenStart + 2].toInt() and 0xff) shl 8) or
+                    (data[lenStart + 3].toInt() and 0xff)
             val nativeLen = lenStart - sectionLen
             if (sectionLen < 8 || nativeLen < 0) return Unpacked(data.size, EMPTY)
-            val set = try {
-                deserialize(data, nativeLen, sectionLen)
-            } catch (e: Exception) {
-                // A corrupt trailer most likely means this is a plain native blob
-                // that happens to end with the magic; treat it as such.
-                return Unpacked(data.size, EMPTY)
-            }
+            val set =
+                try {
+                    deserialize(data, nativeLen, sectionLen)
+                } catch (e: Exception) {
+                    // A corrupt trailer most likely means this is a plain native blob
+                    // that happens to end with the magic; treat it as such.
+                    return Unpacked(data.size, EMPTY)
+                }
             return Unpacked(nativeLen, set)
         }
 
-        private fun deserialize(data: ByteArray, offset: Int, length: Int): RegexFilterSet {
+        private fun deserialize(
+            data: ByteArray,
+            offset: Int,
+            length: Int,
+        ): RegexFilterSet {
             val input = DataInputStream(data.inputStream(offset, length))
             val version = input.readInt()
             require(version == FORMAT_VERSION) { "Unknown regex section version $version" }
@@ -162,7 +173,10 @@ class RegexFilterSet private constructor(
         }
     }
 
-    class Unpacked(val nativeLength: Int, val regexSet: RegexFilterSet)
+    class Unpacked(
+        val nativeLength: Int,
+        val regexSet: RegexFilterSet,
+    )
 }
 
 /** Per-request context, computed once and shared by every rule check. */
@@ -196,10 +210,12 @@ internal class MatchContext(
     companion object {
         private const val BIGRAM_BITS = 4096
 
-        internal fun bigramHash(a: Char, b: Char): Int = (a.code * 31 + b.code) and (BIGRAM_BITS - 1)
+        internal fun bigramHash(
+            a: Char,
+            b: Char,
+        ): Int = (a.code * 31 + b.code) and (BIGRAM_BITS - 1)
 
-        internal fun bigramHashes(literal: String): IntArray =
-            IntArray(maxOf(0, literal.length - 1)) { bigramHash(literal[it], literal[it + 1]) }
+        internal fun bigramHashes(literal: String): IntArray = IntArray(maxOf(0, literal.length - 1)) { bigramHash(literal[it], literal[it + 1]) }
 
         /** Mirrors `getUrlHost` in `ad_block_client.cc`. */
         internal fun urlHost(url: String): String {
@@ -212,11 +228,13 @@ internal class MatchContext(
         }
 
         /** Mirrors `isSeparatorChar` in `ad_block_client.cc`. */
-        private fun isSeparatorChar(c: Char): Boolean =
-            c == '$' || c == '/' || c == ':' || c == '=' || c == '?' || c == '^'
+        private fun isSeparatorChar(c: Char): Boolean = c == '$' || c == '/' || c == ':' || c == '=' || c == '?' || c == '^'
 
         /** Mirrors `isThirdPartyHost` in `filter.cc`. */
-        internal fun isThirdPartyHost(baseContextHost: String, testHost: String): Boolean {
+        internal fun isThirdPartyHost(
+            baseContextHost: String,
+            testHost: String,
+        ): Boolean {
             if (!testHost.endsWith(baseContextHost)) return true
             if (testHost.length == baseContextHost.length) return false
             return testHost[testHost.length - baseContextHost.length - 1] != '.'
@@ -239,9 +257,10 @@ internal class RegexRule private constructor(
     private val antiDomains: List<String>,
 ) {
     /** Substrings every matching URL must contain (longest first); empty when none can be proven. */
-    private val literals: Array<String> = requiredLiterals(pattern)
-        .map { if (matchCase) it else it.lowercase() }
-        .toTypedArray()
+    private val literals: Array<String> =
+        requiredLiterals(pattern)
+            .map { if (matchCase) it else it.lowercase() }
+            .toTypedArray()
 
     /** Bigrams of each case-folded literal, probed against [MatchContext.bigrams] first. */
     private val literalBigrams: Array<IntArray> = Array(literals.size) { MatchContext.bigramHashes(literals[it].lowercase()) }
@@ -306,7 +325,11 @@ internal class RegexRule private constructor(
     }
 
     /** Allocation-free: does [entry] match the suffix of [host] starting at [start]? */
-    private fun domainEntryMatches(entry: String, host: String, start: Int): Boolean {
+    private fun domainEntryMatches(
+        entry: String,
+        host: String,
+        start: Int,
+    ): Boolean {
         val suffixLen = host.length - start
         if (entry.endsWith(".*")) {
             // "site.*" matches "site." followed by any TLD, e.g. site.com or site.co.uk
@@ -375,8 +398,12 @@ internal class RegexRule private constructor(
                         else -> {
                             val bit = FilterOption.resourceBit(option)
                             when {
-                                bit != 0 -> if (negated) antiTypeOptions = antiTypeOptions or bit
-                                else typeOptions = typeOptions or bit
+                                bit != 0 ->
+                                    if (negated) {
+                                        antiTypeOptions = antiTypeOptions or bit
+                                    } else {
+                                        typeOptions = typeOptions or bit
+                                    }
                                 option in FilterOption.IGNORED -> Unit
                                 else -> return null // unsupported option: engine skips the rule
                             }
@@ -399,8 +426,7 @@ internal class RegexRule private constructor(
         }
 
         /** Longest of [requiredLiterals], or null when none is provable. */
-        internal fun requiredLiteral(pattern: String): String? =
-            requiredLiterals(pattern).firstOrNull()
+        internal fun requiredLiteral(pattern: String): String? = requiredLiterals(pattern).firstOrNull()
 
         /**
          * Runs of literal characters that every match of [pattern] must
@@ -411,6 +437,7 @@ internal class RegexRule private constructor(
         internal fun requiredLiterals(pattern: String): List<String> {
             val runs = ArrayList<String>()
             val current = StringBuilder()
+
             fun flush(dropLast: Boolean) {
                 if (dropLast && current.isNotEmpty()) current.setLength(current.length - 1)
                 if (current.length >= MIN_LITERAL) runs.add(current.toString())
@@ -422,20 +449,36 @@ internal class RegexRule private constructor(
             while (i < pattern.length) {
                 val c = pattern[i]
                 when {
-                    inClass -> when (c) {
-                        '\\' -> i++
-                        ']' -> inClass = false
-                    }
+                    inClass ->
+                        when (c) {
+                            '\\' -> i++
+                            ']' -> inClass = false
+                        }
                     c == '\\' -> {
                         val next = pattern.getOrNull(i + 1) ?: break
-                        if (next.isLetterOrDigit()) flush(false) // \d \w \s \b \1 \x..: not a literal
-                        else if (depth == 0) current.append(next)
+                        if (next.isLetterOrDigit()) {
+                            flush(false) // \d \w \s \b \1 \x..: not a literal
+                        } else if (depth == 0) {
+                            current.append(next)
+                        }
                         i++
                     }
-                    c == '[' -> { flush(false); inClass = true }
-                    c == '(' -> { flush(false); depth++ }
-                    c == ')' -> { flush(false); depth-- }
-                    c == '|' -> { if (depth == 0) return emptyList(); flush(false) }
+                    c == '[' -> {
+                        flush(false)
+                        inClass = true
+                    }
+                    c == '(' -> {
+                        flush(false)
+                        depth++
+                    }
+                    c == ')' -> {
+                        flush(false)
+                        depth--
+                    }
+                    c == '|' -> {
+                        if (depth == 0) return emptyList()
+                        flush(false)
+                    }
                     c == '?' || c == '*' -> flush(true)
                     c == '{' -> {
                         flush(true)
@@ -456,8 +499,7 @@ internal class RegexRule private constructor(
 
         private val OPTION_TOKEN = Regex("~?[A-Za-z0-9_-]+(=.*)?")
 
-        private fun looksLikeOptions(tail: String): Boolean =
-            tail.isNotEmpty() && tail.split(',').all { OPTION_TOKEN.matches(it.trim()) }
+        private fun looksLikeOptions(tail: String): Boolean = tail.isNotEmpty() && tail.split(',').all { OPTION_TOKEN.matches(it.trim()) }
     }
 }
 
@@ -483,22 +525,23 @@ internal object FilterOption {
     /** Options the engine parses but that never affect matching here. */
     val IGNORED = setOf("collapse", "donottrack", "important", "explicitcancel")
 
-    fun resourceBit(option: String): Int = when (option) {
-        "script" -> SCRIPT
-        "image" -> IMAGE
-        "stylesheet" -> STYLESHEET
-        "object" -> OBJECT
-        "xmlhttprequest" -> XMLHTTPREQUEST
-        "object-subrequest" -> OBJECT_SUBREQUEST
-        "subdocument" -> SUBDOCUMENT
-        "document" -> DOCUMENT
-        "other" -> OTHER
-        "xbl" -> XBL
-        "ping" -> PING
-        "font" -> FONT
-        "media" -> MEDIA
-        "webrtc" -> WEBRTC
-        "websocket" -> WEBSOCKET
-        else -> 0
-    }
+    fun resourceBit(option: String): Int =
+        when (option) {
+            "script" -> SCRIPT
+            "image" -> IMAGE
+            "stylesheet" -> STYLESHEET
+            "object" -> OBJECT
+            "xmlhttprequest" -> XMLHTTPREQUEST
+            "object-subrequest" -> OBJECT_SUBREQUEST
+            "subdocument" -> SUBDOCUMENT
+            "document" -> DOCUMENT
+            "other" -> OTHER
+            "xbl" -> XBL
+            "ping" -> PING
+            "font" -> FONT
+            "media" -> MEDIA
+            "webrtc" -> WEBRTC
+            "websocket" -> WEBSOCKET
+            else -> 0
+        }
 }

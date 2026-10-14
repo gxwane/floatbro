@@ -19,7 +19,6 @@ import androidx.activity.ComponentActivity
  * on behalf of FloatBrowserService without breaking overlay architecture.
  */
 class TrampolineActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Proxy logic will be invoked on demand

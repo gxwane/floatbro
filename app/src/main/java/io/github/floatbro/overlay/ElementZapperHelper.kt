@@ -15,11 +15,31 @@ package io.github.floatbro.overlay
  * Pure helper for Element Zapper rule construction, ceiling validation, and JSON decoding.
  */
 object ElementZapperHelper {
-
-    private val DESTRUCTIVE_BARE_TAGS = setOf(
-        "div", "span", "p", "a", "img", "ul", "ol", "li", "table", "tr", "td", "th",
-        "header", "footer", "main", "nav", "section", "article", "aside", "form", "body", "html"
-    )
+    private val DESTRUCTIVE_BARE_TAGS =
+        setOf(
+            "div",
+            "span",
+            "p",
+            "a",
+            "img",
+            "ul",
+            "ol",
+            "li",
+            "table",
+            "tr",
+            "td",
+            "th",
+            "header",
+            "footer",
+            "main",
+            "nav",
+            "section",
+            "article",
+            "aside",
+            "form",
+            "body",
+            "html",
+        )
 
     /**
      * Normalize host to handle common web subdomains (e.g. www.* or cn.bing.com)
@@ -40,7 +60,10 @@ object ElementZapperHelper {
      * Build standard ABP rule binding to target hostname: hostname##selector
      * Enforces security guards against newlines, CSS injection braces, and destructive bare tags.
      */
-    fun buildRule(host: String, selector: String): String? {
+    fun buildRule(
+        host: String,
+        selector: String,
+    ): String? {
         val cleanHost = normalizeHost(host)
         val cleanSelector = selector.trim()
         if (cleanHost.isBlank() || cleanSelector.isBlank()) return null
@@ -49,7 +72,8 @@ object ElementZapperHelper {
         }
         // Prevent newline injection or CSS brace escape attacks
         if (cleanSelector.contains('\r') || cleanSelector.contains('\n') ||
-            cleanSelector.contains('{') || cleanSelector.contains('}')) {
+            cleanSelector.contains('{') || cleanSelector.contains('}')
+        ) {
             return null
         }
         // Prevent bare destructive tags from destroying full page layout
@@ -62,7 +86,10 @@ object ElementZapperHelper {
     /**
      * Validate whether an element can safely expand to its parent without hitting ceilings.
      */
-    fun canExpandParent(parentTag: String?, parentId: String?): Boolean {
+    fun canExpandParent(
+        parentTag: String?,
+        parentId: String?,
+    ): Boolean {
         if (parentTag.isNullOrBlank()) return false
         val pTag = parentTag.trim().uppercase()
         if (pTag == "BODY" || pTag == "HTML" || pTag == "HEAD") return false
@@ -78,9 +105,11 @@ object ElementZapperHelper {
         if (raw.isNullOrBlank()) return "{}"
         var s = raw.trim()
         if (s.startsWith("\"") && s.endsWith("\"") && s.length >= 2) {
-            s = s.substring(1, s.length - 1)
-                .replace("\\\"", "\"")
-                .replace("\\\\", "\\")
+            s =
+                s
+                    .substring(1, s.length - 1)
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
         }
         return if (s.isBlank()) "{}" else s
     }

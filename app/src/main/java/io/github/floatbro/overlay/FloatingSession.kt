@@ -20,10 +20,8 @@ import android.view.WindowManager
 enum class SessionLifecycleState {
     ATTACHED,
     DETACHING,
-    DETACHED
+    DETACHED,
 }
-
-
 
 /**
  * Encapsulates a distinct floating browser session.
@@ -41,7 +39,7 @@ data class FloatingSession(
     val bubbleParams: WindowManager.LayoutParams,
     var mode: OverlayMode = OverlayMode.WINDOW,
     var state: SessionLifecycleState = SessionLifecycleState.ATTACHED,
-    var lastInteractedTimestamp: Long = System.currentTimeMillis()
+    var lastInteractedTimestamp: Long = System.currentTimeMillis(),
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

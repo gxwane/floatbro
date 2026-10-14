@@ -13,7 +13,7 @@ package io.github.floatbro.core.webview.twopane
 
 enum class SplitOrientation {
     HORIZONTAL,
-    VERTICAL
+    VERTICAL,
 }
 
 /**
@@ -24,7 +24,7 @@ enum class SplitOrientation {
 class TwoPaneState(
     initialRatio: Float = 0.5f,
     val minRatio: Float = 0.15f,
-    val maxRatio: Float = 0.85f
+    val maxRatio: Float = 0.85f,
 ) {
     init {
         require(minRatio < maxRatio) { "minRatio ($minRatio) must be strictly less than maxRatio ($maxRatio)" }
@@ -47,11 +47,12 @@ class TwoPaneState(
     }
 
     fun toggleOrientation(): SplitOrientation {
-        orientation = if (orientation == SplitOrientation.HORIZONTAL) {
-            SplitOrientation.VERTICAL
-        } else {
-            SplitOrientation.HORIZONTAL
-        }
+        orientation =
+            if (orientation == SplitOrientation.HORIZONTAL) {
+                SplitOrientation.VERTICAL
+            } else {
+                SplitOrientation.HORIZONTAL
+            }
         return orientation
     }
 

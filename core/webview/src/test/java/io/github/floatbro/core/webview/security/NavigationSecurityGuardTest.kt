@@ -17,7 +17,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NavigationSecurityGuardTest {
-
     @Test
     fun `extractEtldPlusOne handles multi-level compound TLDs accurately`() {
         assertEquals("biquge.com.cn", NavigationSecurityGuard.extractEtldPlusOne("m.biquge.com.cn"))

@@ -25,7 +25,6 @@ import java.io.File
  * - rules_easyprivacy.txt (EasyPrivacy Lite)
  */
 class DefaultRulesTest {
-
     private fun getAssetFile(fileName: String): File {
         val candidate = File("src/main/assets/adfilter/$fileName")
         return if (candidate.exists()) candidate else File("ad-filter/src/main/assets/adfilter/$fileName")

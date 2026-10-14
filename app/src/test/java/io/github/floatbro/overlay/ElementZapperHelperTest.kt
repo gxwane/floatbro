@@ -18,7 +18,6 @@ import org.junit.Test
  * Pure JVM Unit Tests for ElementZapperHelper logic and boundary guards.
  */
 class ElementZapperHelperTest {
-
     @Test
     fun `buildRule formats standard ABP domain scoped rules correctly`() {
         val rule1 = ElementZapperHelper.buildRule("m.biquge.com", ".ad-box")

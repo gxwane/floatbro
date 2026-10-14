@@ -19,13 +19,15 @@ import android.webkit.WebView
 class FloatWebChromeClient(
     private val onProgressChangedCallback: ((progress: Int) -> Unit)? = null,
     private val onTitleReceivedCallback: ((title: String) -> Unit)? = null,
-    private val onIconReceivedCallback: ((icon: Bitmap) -> Unit)? = null
+    private val onIconReceivedCallback: ((icon: Bitmap) -> Unit)? = null,
 ) : WebChromeClient() {
-
     var onShowCustomViewCallback: ((View, CustomViewCallback) -> Unit)? = null
     var onHideCustomViewCallback: (() -> Unit)? = null
 
-    override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+    override fun onShowCustomView(
+        view: View?,
+        callback: CustomViewCallback?,
+    ) {
         super.onShowCustomView(view, callback)
         if (view != null && callback != null) {
             timber.log.Timber.d("onShowCustomView triggered for HTML5 video")
@@ -39,17 +41,26 @@ class FloatWebChromeClient(
         onHideCustomViewCallback?.invoke()
     }
 
-    override fun onProgressChanged(view: WebView?, newProgress: Int) {
+    override fun onProgressChanged(
+        view: WebView?,
+        newProgress: Int,
+    ) {
         super.onProgressChanged(view, newProgress)
         onProgressChangedCallback?.invoke(newProgress)
     }
 
-    override fun onReceivedTitle(view: WebView?, title: String?) {
+    override fun onReceivedTitle(
+        view: WebView?,
+        title: String?,
+    ) {
         super.onReceivedTitle(view, title)
         title?.let { onTitleReceivedCallback?.invoke(it) }
     }
 
-    override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
+    override fun onReceivedIcon(
+        view: WebView?,
+        icon: Bitmap?,
+    ) {
         super.onReceivedIcon(view, icon)
         icon?.let { onIconReceivedCallback?.invoke(it) }
     }
@@ -61,13 +72,23 @@ class FloatWebChromeClient(
         return super.onConsoleMessage(consoleMessage)
     }
 
-    override fun onJsAlert(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
+    override fun onJsAlert(
+        view: WebView?,
+        url: String?,
+        message: String?,
+        result: android.webkit.JsResult?,
+    ): Boolean {
         timber.log.Timber.i("JsAlert intercepted safely: $message")
         result?.confirm()
         return true
     }
 
-    override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
+    override fun onJsConfirm(
+        view: WebView?,
+        url: String?,
+        message: String?,
+        result: android.webkit.JsResult?,
+    ): Boolean {
         timber.log.Timber.i("JsConfirm intercepted safely: $message")
         result?.confirm()
         return true
@@ -78,7 +99,7 @@ class FloatWebChromeClient(
         url: String?,
         message: String?,
         defaultValue: String?,
-        result: android.webkit.JsPromptResult?
+        result: android.webkit.JsPromptResult?,
     ): Boolean {
         timber.log.Timber.i("JsPrompt intercepted safely: $message")
         result?.confirm(defaultValue ?: "")

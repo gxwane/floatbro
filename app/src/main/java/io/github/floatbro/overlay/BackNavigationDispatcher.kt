@@ -38,7 +38,7 @@ enum class BackAction {
     /**
      * Collapse the window into an edge-docking bubble.
      */
-    MINIMIZE_TO_BUBBLE
+    MINIMIZE_TO_BUBBLE,
 }
 
 /**
@@ -51,36 +51,31 @@ enum class BackAction {
  * 5. Smooth Minimize to Bubble (Bottom Priority)
  */
 object BackNavigationDispatcher {
-
     fun resolveBackAction(
         isVideoFullscreen: Boolean,
         isMenuOpen: Boolean,
         canPane2GoBack: Boolean,
-        canPane1GoBack: Boolean
-    ): BackAction {
-        return when {
+        canPane1GoBack: Boolean,
+    ): BackAction =
+        when {
             isVideoFullscreen -> BackAction.EXIT_VIDEO_FULLSCREEN
             isMenuOpen -> BackAction.CLOSE_MENU
             canPane2GoBack -> BackAction.GO_BACK_PANE2
             canPane1GoBack -> BackAction.GO_BACK_PANE1
             else -> BackAction.MINIMIZE_TO_BUBBLE
         }
-    }
 
     fun resolveBackAction(
         isMenuOpen: Boolean,
         canPane2GoBack: Boolean,
-        canPane1GoBack: Boolean
-    ): BackAction {
-        return resolveBackAction(
+        canPane1GoBack: Boolean,
+    ): BackAction =
+        resolveBackAction(
             isVideoFullscreen = false,
             isMenuOpen = isMenuOpen,
             canPane2GoBack = canPane2GoBack,
-            canPane1GoBack = canPane1GoBack
+            canPane1GoBack = canPane1GoBack,
         )
-    }
 
-    fun resolveBackAction(canGoBack: Boolean): BackAction {
-        return if (canGoBack) BackAction.GO_BACK_PANE1 else BackAction.MINIMIZE_TO_BUBBLE
-    }
+    fun resolveBackAction(canGoBack: Boolean): BackAction = if (canGoBack) BackAction.GO_BACK_PANE1 else BackAction.MINIMIZE_TO_BUBBLE
 }

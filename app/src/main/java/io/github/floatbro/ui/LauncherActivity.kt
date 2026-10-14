@@ -11,63 +11,33 @@
 
 package io.github.floatbro.ui
 
+import android.app.Activity
+import android.app.DownloadManager
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
+import android.view.ContextThemeWrapper
+import android.view.HapticFeedbackConstants
+import android.view.PixelCopy
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
-import android.view.HapticFeedbackConstants
-import android.widget.Toast
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import io.github.edsuns.adfilter.AdFilter
-import io.github.floatbro.BuildConfig
-import io.github.floatbro.overlay.AdBlockMenuHelper
-import io.github.floatbro.overlay.ElementZapperManager
-import io.github.floatbro.browser.BrowserPreferences
-import io.github.floatbro.browser.BrowserUrlResolver
-import io.github.floatbro.browser.SearchEngine
-import io.github.floatbro.browser.UserAgentMode
-import io.github.floatbro.update.AppUpdateManager
-import io.github.floatbro.update.ReleaseInfo
-import io.github.floatbro.update.UpdateCandidates
-import io.github.floatbro.update.DownloadProgress
-import io.github.floatbro.ui.components.MarkdownContent
-import android.app.Activity
-import android.app.DownloadManager
-import android.content.res.Configuration
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material.icons.filled.SystemUpdate
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import androidx.lifecycle.lifecycleScope
-import kotlin.coroutines.resume
-import android.view.PixelCopy
-import android.graphics.Rect
-import android.os.Handler
-import android.os.Looper
-import io.github.floatbro.core.webview.TabOverlayStateBridge
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
@@ -75,31 +45,33 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.semantics.Role
-import io.github.floatbro.ui.theme.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -115,29 +87,32 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -157,24 +132,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
-import timber.log.Timber
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -186,19 +160,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import android.view.ContextThemeWrapper
-import android.view.ViewGroup
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.shape.CircleShape
-import io.github.floatbro.history.BrowsingHistoryManager
-import io.github.floatbro.history.HistoryItem
+import androidx.lifecycle.lifecycleScope
+import io.github.edsuns.adfilter.AdFilter
+import io.github.floatbro.BuildConfig
 import io.github.floatbro.R
+import io.github.floatbro.browser.BrowserPreferences
+import io.github.floatbro.browser.BrowserUrlResolver
+import io.github.floatbro.browser.SearchEngine
+import io.github.floatbro.browser.UserAgentMode
 import io.github.floatbro.core.webview.EBWebView
+import io.github.floatbro.core.webview.TabOverlayStateBridge
+import io.github.floatbro.history.BrowsingHistoryManager
+import io.github.floatbro.overlay.AdBlockMenuHelper
+import io.github.floatbro.overlay.ElementZapperManager
 import io.github.floatbro.service.FloatBrowserService
+import io.github.floatbro.ui.components.MarkdownContent
+import io.github.floatbro.ui.theme.*
 import io.github.floatbro.ui.theme.BrandBlue
 import io.github.floatbro.ui.theme.BrandEmerald
 import io.github.floatbro.ui.theme.FloatBroTheme
@@ -206,34 +183,45 @@ import io.github.floatbro.ui.theme.Slate200
 import io.github.floatbro.ui.theme.Slate50
 import io.github.floatbro.ui.theme.Slate600
 import io.github.floatbro.ui.theme.Slate900
+import io.github.floatbro.update.AppUpdateManager
+import io.github.floatbro.update.DownloadProgress
+import io.github.floatbro.update.ReleaseInfo
+import io.github.floatbro.update.UpdateCandidates
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import timber.log.Timber
 import java.util.UUID
+import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
 enum class OpenMode {
     FLOATING, // 默认直接弹射为独立悬浮窗
-    TAB       // 默认在主应用内并列标签打开
+    TAB, // 默认在主应用内并列标签打开
 }
 
 data class BrowserTab(
     val id: String = UUID.randomUUID().toString(),
     var title: String,
     val url: String,
-    var favicon: Bitmap? = null
+    var favicon: Bitmap? = null,
 )
 
 class LauncherActivity : ComponentActivity() {
-
     companion object {
         const val ACTION_DOCK_TAB = "io.github.floatbro.action.DOCK_TAB"
         const val EXTRA_TAB_URL = "extra_tab_url"
         const val EXTRA_TAB_TITLE = "extra_tab_title"
         const val EXTRA_SESSION_ID = "extra_session_id"
 
-        fun resolveBrowserUrl(input: String): String {
-            return BrowserUrlResolver.resolve(input)
-        }
+        fun resolveBrowserUrl(input: String): String = BrowserUrlResolver.resolve(input)
 
-        fun resolveBrowserUrl(context: Context, input: String): String {
+        fun resolveBrowserUrl(
+            context: Context,
+            input: String,
+        ): String {
             val prefs = BrowserPreferences.getInstance(context)
             return BrowserUrlResolver.resolve(input, prefs.searchEngine, prefs.customSearchUrl)
         }
@@ -257,7 +245,8 @@ class LauncherActivity : ComponentActivity() {
                 wv.clearHistory()
                 wv.removeAllViews()
                 wv.destroy()
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         activeWebViews.clear()
     }
@@ -265,7 +254,7 @@ class LauncherActivity : ComponentActivity() {
     private fun captureWebViewHardwareBitmap(
         view: android.view.View,
         scale: Float = 0.5f,
-        onCaptured: (Bitmap?) -> Unit
+        onCaptured: (Bitmap?) -> Unit,
     ) {
         if (!view.isAttachedToWindow || view.width <= 0 || view.height <= 0) {
             onCaptured(null)
@@ -309,7 +298,7 @@ class LauncherActivity : ComponentActivity() {
                         onCaptured(null)
                     }
                 },
-                Handler(Looper.getMainLooper())
+                Handler(Looper.getMainLooper()),
             )
         } catch (e: Throwable) {
             Timber.w(e, "PixelCopy request failed")
@@ -342,7 +331,7 @@ class LauncherActivity : ComponentActivity() {
                         text = {
                             Text(
                                 OverlayPermissionStrings.RATIONALE_MESSAGE,
-                                fontSize = 14.sp
+                                fontSize = 14.sp,
                             )
                         },
                         confirmButton = {
@@ -357,7 +346,7 @@ class LauncherActivity : ComponentActivity() {
                             TextButton(onClick = { showPermissionRationaleDialog = false }) {
                                 Text(OverlayPermissionStrings.ACTION_DISMISS)
                             }
-                        }
+                        },
                     )
                 }
 
@@ -401,15 +390,18 @@ class LauncherActivity : ComponentActivity() {
                 val cardAlphaAnim = remember { Animatable(1.0f) }
 
                 Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding(), // Safe inset padding avoiding status bar and camera hole
-                    color = MaterialTheme.colorScheme.background
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding(),
+                    // Safe inset padding avoiding status bar and camera hole
+                    color = MaterialTheme.colorScheme.background,
                 ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .onGloballyPositioned { rootLayoutCoordinates = it }
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .onGloballyPositioned { rootLayoutCoordinates = it },
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             // 1. Tab Strip (Sole Top Bar when browsing)
@@ -449,9 +441,11 @@ class LauncherActivity : ComponentActivity() {
                                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                                     try {
                                                         wv.destroy()
-                                                    } catch (_: Exception) {}
+                                                    } catch (_: Exception) {
+                                                    }
                                                 }
-                                            } catch (_: Exception) {}
+                                            } catch (_: Exception) {
+                                            }
                                         }
                                     },
                                     onNewTab = {
@@ -463,7 +457,7 @@ class LauncherActivity : ComponentActivity() {
                                         previousTabId = activeTabId
                                         activeTabId = "settings"
                                     },
-                                     onTabDragStart = { tab, origin, size ->
+                                    onTabDragStart = { tab, origin, size ->
                                         if (!isCommittingOrCancelling) {
                                             snapshotBitmap = null
                                             isCapturingSnapshot = false
@@ -627,7 +621,7 @@ class LauncherActivity : ComponentActivity() {
                                                         committingTab.url,
                                                         dropX,
                                                         dropY,
-                                                        committingTab.id
+                                                        committingTab.id,
                                                     )
 
                                                     // Wait for target floating window's first visible frame commit with 450ms safety timeout
@@ -666,9 +660,9 @@ class LauncherActivity : ComponentActivity() {
                                                         cardWidthAnim.animateTo(
                                                             originSize.width.toFloat(),
                                                             spring(
-                                                                 dampingRatio = Spring.DampingRatioLowBouncy,
-                                                                stiffness = Spring.StiffnessMediumLow
-                                                            )
+                                                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                                                stiffness = Spring.StiffnessMediumLow,
+                                                            ),
                                                         )
                                                     }
                                                     launch {
@@ -676,8 +670,8 @@ class LauncherActivity : ComponentActivity() {
                                                             originSize.height.toFloat(),
                                                             spring(
                                                                 dampingRatio = Spring.DampingRatioLowBouncy,
-                                                                stiffness = Spring.StiffnessMediumLow
-                                                            )
+                                                                stiffness = Spring.StiffnessMediumLow,
+                                                            ),
                                                         )
                                                     }
                                                     launch {
@@ -685,8 +679,8 @@ class LauncherActivity : ComponentActivity() {
                                                             originOffset,
                                                             spring(
                                                                 dampingRatio = Spring.DampingRatioLowBouncy,
-                                                                stiffness = Spring.StiffnessMediumLow
-                                                            )
+                                                                stiffness = Spring.StiffnessMediumLow,
+                                                            ),
                                                         )
                                                     }.join()
 
@@ -719,8 +713,8 @@ class LauncherActivity : ComponentActivity() {
                                                         originSize.width.toFloat(),
                                                         spring(
                                                             dampingRatio = Spring.DampingRatioLowBouncy,
-                                                            stiffness = Spring.StiffnessMediumLow
-                                                        )
+                                                            stiffness = Spring.StiffnessMediumLow,
+                                                        ),
                                                     )
                                                 }
                                                 launch {
@@ -728,8 +722,8 @@ class LauncherActivity : ComponentActivity() {
                                                         originSize.height.toFloat(),
                                                         spring(
                                                             dampingRatio = Spring.DampingRatioLowBouncy,
-                                                            stiffness = Spring.StiffnessMediumLow
-                                                        )
+                                                            stiffness = Spring.StiffnessMediumLow,
+                                                        ),
                                                     )
                                                 }
                                                 launch {
@@ -737,8 +731,8 @@ class LauncherActivity : ComponentActivity() {
                                                         originOffset,
                                                         spring(
                                                             dampingRatio = Spring.DampingRatioLowBouncy,
-                                                            stiffness = Spring.StiffnessMediumLow
-                                                        )
+                                                            stiffness = Spring.StiffnessMediumLow,
+                                                        ),
                                                     )
                                                 }.join()
 
@@ -749,7 +743,7 @@ class LauncherActivity : ComponentActivity() {
                                                 isCommittingOrCancelling = false
                                             }
                                         }
-                                    }
+                                    },
                                 )
                             }
 
@@ -768,7 +762,7 @@ class LauncherActivity : ComponentActivity() {
                                             onClearData = { cache, hist, cookies -> clearBrowsingData(cache, hist, cookies) },
                                             onBack = { activeTabId = previousTabId },
                                             onOpenUrl = { url, title -> handleOpenUrl(url, title) },
-                                            activeWebViews = activeWebViews
+                                            activeWebViews = activeWebViews,
                                         )
                                     }
                                     "home" -> {
@@ -778,7 +772,7 @@ class LauncherActivity : ComponentActivity() {
                                             },
                                             onPopoutFloating = { url, _ ->
                                                 startOverlayService(FloatBrowserService.ACTION_SHOW, url)
-                                            }
+                                            },
                                         )
                                     }
                                     else -> {
@@ -795,30 +789,32 @@ class LauncherActivity : ComponentActivity() {
                                                     },
                                                     onPopoutFloating = { url, _ ->
                                                         startOverlayService(FloatBrowserService.ACTION_SHOW, url)
-                                                    }
+                                                    },
                                                 )
                                             } else {
                                                 key(currentTab.id) {
-                                                    val webView = activeWebViews.getOrPut(currentTab.id) {
-                                                        val wrapper = android.content.MutableContextWrapper(this@LauncherActivity)
-                                                        EBWebView(wrapper).apply {
-                                                            layoutParams = ViewGroup.LayoutParams(
-                                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                                                ViewGroup.LayoutParams.MATCH_PARENT
-                                                            )
-                                                            val bp = BrowserPreferences.getInstance(this@LauncherActivity)
-                                                            bp.resolveUserAgent(settings.userAgentString)?.let { ua ->
-                                                                settings.userAgentString = ua
-                                                            }
-                                                            val restored = TabOverlayStateBridge.takeState(currentTab.id)
-                                                            if (restored != null) {
-                                                                Timber.d("Restoring state from TabOverlayStateBridge for tab ${currentTab.id}")
-                                                                restoreState(restored)
-                                                            } else {
-                                                                loadUrlSafely(currentTab.url)
+                                                    val webView =
+                                                        activeWebViews.getOrPut(currentTab.id) {
+                                                            val wrapper = android.content.MutableContextWrapper(this@LauncherActivity)
+                                                            EBWebView(wrapper).apply {
+                                                                layoutParams =
+                                                                    ViewGroup.LayoutParams(
+                                                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                                                    )
+                                                                val bp = BrowserPreferences.getInstance(this@LauncherActivity)
+                                                                bp.resolveUserAgent(settings.userAgentString)?.let { ua ->
+                                                                    settings.userAgentString = ua
+                                                                }
+                                                                val restored = TabOverlayStateBridge.takeState(currentTab.id)
+                                                                if (restored != null) {
+                                                                    Timber.d("Restoring state from TabOverlayStateBridge for tab ${currentTab.id}")
+                                                                    restoreState(restored)
+                                                                } else {
+                                                                    loadUrlSafely(currentTab.url)
+                                                                }
                                                             }
                                                         }
-                                                    }
                                                     InAppWebViewPane(
                                                         tab = currentTab,
                                                         webView = webView,
@@ -864,7 +860,7 @@ class LauncherActivity : ComponentActivity() {
                                                             if (idx >= 0) {
                                                                 tabs[idx] = tabs[idx].copy(favicon = icon)
                                                             }
-                                                        }
+                                                        },
                                                     )
                                                 }
                                             }
@@ -887,7 +883,7 @@ class LauncherActivity : ComponentActivity() {
                                 alpha = cardAlphaAnim.value,
                                 cornerRadius = cardCornerRadiusAnim.value.dp,
                                 isDetached = isDetached,
-                                snapshotBitmap = snapshotBitmap
+                                snapshotBitmap = snapshotBitmap,
                             )
                         }
                     }
@@ -932,11 +928,12 @@ class LauncherActivity : ComponentActivity() {
             val url = intent.getStringExtra(EXTRA_TAB_URL) ?: return
             val title = intent.getStringExtra(EXTRA_TAB_TITLE) ?: "已收回网页"
             val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
-            val newTab = if (sessionId != null) {
-                BrowserTab(id = sessionId, title = title, url = url)
-            } else {
-                BrowserTab(title = title, url = url)
-            }
+            val newTab =
+                if (sessionId != null) {
+                    BrowserTab(id = sessionId, title = title, url = url)
+                } else {
+                    BrowserTab(title = title, url = url)
+                }
 
             if (sessionId != null) {
                 val existingWv = TabOverlayStateBridge.takeWebView(sessionId)
@@ -955,7 +952,10 @@ class LauncherActivity : ComponentActivity() {
         }
     }
 
-    private fun handleOpenUrl(url: String, title: String) {
+    private fun handleOpenUrl(
+        url: String,
+        title: String,
+    ) {
         val resolvedUrl = resolveBrowserUrl(this, url)
 
         if (openMode == OpenMode.FLOATING) {
@@ -970,7 +970,7 @@ class LauncherActivity : ComponentActivity() {
     private fun clearBrowsingData(
         clearCache: Boolean = true,
         clearHistory: Boolean = true,
-        clearCookies: Boolean = false
+        clearCookies: Boolean = false,
     ) {
         try {
             if (clearCache) {
@@ -998,11 +998,12 @@ class LauncherActivity : ComponentActivity() {
     private fun loadPreferences() {
         val sp = getSharedPreferences("floatbro_prefs", Context.MODE_PRIVATE)
         val modeStr = sp.getString("pref_open_mode", OpenMode.TAB.name)
-        openMode = try {
-            OpenMode.valueOf(modeStr ?: OpenMode.TAB.name)
-        } catch (_: Exception) {
-            OpenMode.TAB
-        }
+        openMode =
+            try {
+                OpenMode.valueOf(modeStr ?: OpenMode.TAB.name)
+            } catch (_: Exception) {
+                OpenMode.TAB
+            }
     }
 
     private fun savePreferences() {
@@ -1011,19 +1012,21 @@ class LauncherActivity : ComponentActivity() {
     }
 
     private fun checkPermission() {
-        hasOverlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(this)
-        } else {
-            true
-        }
+        hasOverlayPermission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Settings.canDrawOverlays(this)
+            } else {
+                true
+            }
     }
 
     private fun requestOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
+            val intent =
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                )
             startActivity(intent)
         } else {
             Toast.makeText(this, "悬浮窗权限已授予", Toast.LENGTH_SHORT).show()
@@ -1035,28 +1038,29 @@ class LauncherActivity : ComponentActivity() {
         url: String? = null,
         initialX: Int? = null,
         initialY: Int? = null,
-        windowId: String? = null
+        windowId: String? = null,
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             showPermissionRationaleDialog = true
             return
         }
 
-        val intent = Intent(this, FloatBrowserService::class.java).apply {
-            this.action = action
-            if (url != null) {
-                putExtra(FloatBrowserService.EXTRA_URL, url)
+        val intent =
+            Intent(this, FloatBrowserService::class.java).apply {
+                this.action = action
+                if (url != null) {
+                    putExtra(FloatBrowserService.EXTRA_URL, url)
+                }
+                if (initialX != null) {
+                    putExtra(FloatBrowserService.EXTRA_INITIAL_X, initialX)
+                }
+                if (initialY != null) {
+                    putExtra(FloatBrowserService.EXTRA_INITIAL_Y, initialY)
+                }
+                if (windowId != null) {
+                    putExtra(FloatBrowserService.EXTRA_WINDOW_ID, windowId)
+                }
             }
-            if (initialX != null) {
-                putExtra(FloatBrowserService.EXTRA_INITIAL_X, initialX)
-            }
-            if (initialY != null) {
-                putExtra(FloatBrowserService.EXTRA_INITIAL_Y, initialY)
-            }
-            if (windowId != null) {
-                putExtra(FloatBrowserService.EXTRA_WINDOW_ID, windowId)
-            }
-        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {
@@ -1078,7 +1082,7 @@ fun AppTabStrip(
     onTabDragStart: (BrowserTab, Offset, IntSize) -> Unit = { _, _, _ -> },
     onTabDrag: (Offset) -> Unit = {},
     onTabDragEnd: () -> Unit = {},
-    onTabDragCancel: () -> Unit = {}
+    onTabDragCancel: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
 
@@ -1099,47 +1103,50 @@ fun AppTabStrip(
     }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(FloatBroUiTokens.ToolbarButtonTouchTarget)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.Bottom
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(FloatBroUiTokens.ToolbarButtonTouchTarget)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.Bottom,
     ) {
         // Horizontally scrolling tabs container
         Row(
-            modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(scrollState),
-            verticalAlignment = Alignment.Bottom
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .horizontalScroll(scrollState),
+            verticalAlignment = Alignment.Bottom,
         ) {
             // Home Tab
             val isHomeActive = activeTabId == "home"
             Surface(
                 shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
                 color = if (isHomeActive) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHighest,
-                modifier = Modifier
-                    .height(36.dp)
-                    .padding(end = 4.dp)
-                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-                    .clickable { onSelectTab("home") }
+                modifier =
+                    Modifier
+                        .height(36.dp)
+                        .padding(end = 4.dp)
+                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                        .clickable { onSelectTab("home") },
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "主页",
                         modifier = Modifier.size(15.dp),
-                        tint = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "主页",
                         fontSize = 12.sp,
                         fontWeight = if (isHomeActive) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isHomeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -1152,94 +1159,101 @@ fun AppTabStrip(
 
                 Surface(
                     shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
-                    color = when {
-                        isBeingDragged -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
-                        isActive -> MaterialTheme.colorScheme.surface
-                        else -> MaterialTheme.colorScheme.surfaceContainerHighest
-                    },
-                    border = if (isBeingDragged) {
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-                    } else null,
-                    modifier = Modifier
-                        .height(36.dp)
-                        .padding(end = 4.dp)
-                        .onGloballyPositioned { tabCoordinates = it }
-                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-                        .pointerInput(tab.id) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                var isDragging = false
-                                var totalDx = 0f
-                                var totalDy = 0f
-                                val touchSlop = viewConfiguration.touchSlop
+                    color =
+                        when {
+                            isBeingDragged -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
+                            isActive -> MaterialTheme.colorScheme.surface
+                            else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                        },
+                    border =
+                        if (isBeingDragged) {
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                        } else {
+                            null
+                        },
+                    modifier =
+                        Modifier
+                            .height(36.dp)
+                            .padding(end = 4.dp)
+                            .onGloballyPositioned { tabCoordinates = it }
+                            .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                            .pointerInput(tab.id) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    var isDragging = false
+                                    var totalDx = 0f
+                                    var totalDy = 0f
+                                    val touchSlop = viewConfiguration.touchSlop
 
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                    if (!change.pressed) {
-                                        if (isDragging) {
-                                            currentOnTabDragEnd()
-                                        }
-                                        break
-                                    }
-
-                                    val dragAmount = change.positionChange()
-                                    if (!isDragging) {
-                                        totalDx += dragAmount.x
-                                        totalDy += dragAmount.y
-                                        val dist = kotlin.math.sqrt(totalDx * totalDx + totalDy * totalDy)
-                                        if (dist > touchSlop) {
-                                            // Check if downward tear-off gesture
-                                            if (totalDy > 0 && totalDy > 1.3f * kotlin.math.abs(totalDx)) {
-                                                isDragging = true
-                                                change.consume()
-                                                val myCoords = tabCoordinates
-                                                if (myCoords != null) {
-                                                    val rootCoords = currentRootCoords
-                                                    val origin = if (rootCoords != null && rootCoords.isAttached && myCoords.isAttached) {
-                                                        rootCoords.localPositionOf(myCoords, Offset.Zero)
-                                                    } else {
-                                                        myCoords.positionInRoot()
-                                                    }
-                                                    Timber.d("AppTabStrip onDragStart tab=${tab.title}, origin=$origin, size=${myCoords.size}")
-                                                    currentOnTabDragStart(tab, origin, myCoords.size)
-                                                    currentOnTabDrag(Offset(totalDx, totalDy))
-                                                }
-                                            } else {
-                                                // Dominant horizontal movement or upward - pass to parent horizontalScroll!
-                                                break
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) {
+                                            if (isDragging) {
+                                                currentOnTabDragEnd()
                                             }
+                                            break
                                         }
-                                    } else {
-                                        change.consume()
-                                        currentOnTabDrag(dragAmount)
+
+                                        val dragAmount = change.positionChange()
+                                        if (!isDragging) {
+                                            totalDx += dragAmount.x
+                                            totalDy += dragAmount.y
+                                            val dist = kotlin.math.sqrt(totalDx * totalDx + totalDy * totalDy)
+                                            if (dist > touchSlop) {
+                                                // Check if downward tear-off gesture
+                                                if (totalDy > 0 && totalDy > 1.3f * kotlin.math.abs(totalDx)) {
+                                                    isDragging = true
+                                                    change.consume()
+                                                    val myCoords = tabCoordinates
+                                                    if (myCoords != null) {
+                                                        val rootCoords = currentRootCoords
+                                                        val origin =
+                                                            if (rootCoords != null && rootCoords.isAttached && myCoords.isAttached) {
+                                                                rootCoords.localPositionOf(myCoords, Offset.Zero)
+                                                            } else {
+                                                                myCoords.positionInRoot()
+                                                            }
+                                                        Timber.d("AppTabStrip onDragStart tab=${tab.title}, origin=$origin, size=${myCoords.size}")
+                                                        currentOnTabDragStart(tab, origin, myCoords.size)
+                                                        currentOnTabDrag(Offset(totalDx, totalDy))
+                                                    }
+                                                } else {
+                                                    // Dominant horizontal movement or upward - pass to parent horizontalScroll!
+                                                    break
+                                                }
+                                            }
+                                        } else {
+                                            change.consume()
+                                            currentOnTabDrag(dragAmount)
+                                        }
                                     }
                                 }
-                            }
-                        }
-                        .clickable { onSelectTab(tab.id) }
+                            }.clickable { onSelectTab(tab.id) },
                 ) {
                     Row(
-                        modifier = Modifier
-                            .padding(horizontal = 10.dp)
-                            .then(if (isBeingDragged) Modifier.alpha(0.35f) else Modifier),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 10.dp)
+                                .then(if (isBeingDragged) Modifier.alpha(0.35f) else Modifier),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // Favicon or Web Globe Icon
                         if (tab.favicon != null) {
                             Image(
                                 bitmap = tab.favicon!!.asImageBitmap(),
                                 contentDescription = null,
-                                modifier = Modifier
-                                .size(14.dp)
-                                .clip(RoundedCornerShape(2.dp))
+                                modifier =
+                                    Modifier
+                                        .size(14.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.Language,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Spacer(modifier = Modifier.width(6.dp))
@@ -1251,31 +1265,33 @@ fun AppTabStrip(
                             overflow = TextOverflow.Ellipsis,
                             fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.widthIn(min = 60.dp, max = 110.dp)
+                            modifier = Modifier.widthIn(min = 60.dp, max = 110.dp),
                         )
                         Spacer(modifier = Modifier.width(FloatBroUiTokens.GridSpacingStandard))
                         Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .clickable(
-                                    role = Role.Button,
-                                    onClick = { onCloseTab(tab.id) }
-                                ),
-                            contentAlignment = Alignment.Center
+                            modifier =
+                                Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .clickable(
+                                        role = Role.Button,
+                                        onClick = { onCloseTab(tab.id) },
+                                    ),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Box(
-                                modifier = Modifier
-                                    .size(FloatBroUiTokens.TabCloseCapsuleSize)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-                                contentAlignment = Alignment.Center
+                                modifier =
+                                    Modifier
+                                        .size(FloatBroUiTokens.TabCloseCapsuleSize)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "关闭 ${tab.title} 标签页",
                                     modifier = Modifier.size(FloatBroUiTokens.TabCloseIconSize),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -1285,20 +1301,21 @@ fun AppTabStrip(
 
             // New Tab Button aligned to 36dp baseline
             Box(
-                modifier = Modifier
-                    .height(36.dp)
-                    .width(36.dp),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .height(36.dp)
+                        .width(36.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 IconButton(
                     onClick = onNewTab,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "新建标签页",
                         modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -1306,20 +1323,21 @@ fun AppTabStrip(
 
         // Settings Button pinned at top-right aligned to 36dp baseline
         Box(
-            modifier = Modifier
-                .height(36.dp)
-                .width(36.dp),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .height(36.dp)
+                    .width(36.dp),
+            contentAlignment = Alignment.Center,
         ) {
             IconButton(
                 onClick = onOpenSettings,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "设置",
                     modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -1340,52 +1358,57 @@ fun DraggedTabOverlay(
     alpha: Float,
     cornerRadius: Dp,
     isDetached: Boolean,
-    snapshotBitmap: Bitmap? = null
+    snapshotBitmap: Bitmap? = null,
 ) {
     Surface(
-        modifier = Modifier
-            .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-            .size(width = width, height = height)
-            .scale(scale)
-            .rotate(tilt)
-            .alpha(alpha)
-            .shadow(
-                elevation = if (isDetached) 16.dp else 8.dp,
-                shape = RoundedCornerShape(cornerRadius)
-            ),
+        modifier =
+            Modifier
+                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+                .size(width = width, height = height)
+                .scale(scale)
+                .rotate(tilt)
+                .alpha(alpha)
+                .shadow(
+                    elevation = if (isDetached) 16.dp else 8.dp,
+                    shape = RoundedCornerShape(cornerRadius),
+                ),
         shape = RoundedCornerShape(cornerRadius),
-        color = if (isDetached) {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
-        border = BorderStroke(
-            1.dp,
-            if (isDetached) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant
-        )
+        color =
+            if (isDetached) {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
+        border =
+            BorderStroke(
+                1.dp,
+                if (isDetached) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant,
+            ),
     ) {
         if (!isDetached) {
             // Phase 1: Lifted Tab Pill appearance
             Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (tab.favicon != null) {
                     Image(
                         bitmap = tab.favicon!!.asImageBitmap(),
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clip(RoundedCornerShape(2.dp))
+                        modifier =
+                            Modifier
+                                .size(14.dp)
+                                .clip(RoundedCornerShape(2.dp)),
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
                 Spacer(modifier = Modifier.width(6.dp))
@@ -1396,14 +1419,14 @@ fun DraggedTabOverlay(
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = null,
                     modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {
@@ -1411,27 +1434,29 @@ fun DraggedTabOverlay(
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header Bar (44dp aligned to standard)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (tab.favicon != null) {
                         Image(
                             bitmap = tab.favicon!!.asImageBitmap(),
                             contentDescription = null,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clip(RoundedCornerShape(2.dp))
+                            modifier =
+                                Modifier
+                                    .size(14.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Default.Language,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
@@ -1439,7 +1464,7 @@ fun DraggedTabOverlay(
                         imageVector = Icons.Default.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(10.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -1449,14 +1474,14 @@ fun DraggedTabOverlay(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                         contentDescription = "悬浮窗",
                         modifier = Modifier.size(13.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
 
@@ -1464,30 +1489,31 @@ fun DraggedTabOverlay(
 
                 // Translucent Body Preview with live hardware snapshot
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                    contentAlignment = Alignment.Center,
                 ) {
                     if (snapshotBitmap != null && !snapshotBitmap.isRecycled) {
                         Image(
                             bitmap = snapshotBitmap.asImageBitmap(),
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
                         )
                     } else {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(16.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Language,
                                 contentDescription = null,
                                 modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
@@ -1495,7 +1521,7 @@ fun DraggedTabOverlay(
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -1514,7 +1540,7 @@ fun SettingsScreen(
     onClearData: (clearCache: Boolean, clearHistory: Boolean, clearCookies: Boolean) -> Unit,
     onBack: () -> Unit,
     onOpenUrl: (String, String) -> Unit = { _, _ -> },
-    activeWebViews: Map<String, EBWebView> = emptyMap()
+    activeWebViews: Map<String, EBWebView> = emptyMap(),
 ) {
     val context = LocalContext.current
     val browserPrefs = remember { BrowserPreferences.getInstance(context) }
@@ -1541,15 +1567,16 @@ fun SettingsScreen(
                     text = "手势与多窗口操作指南",
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
-                    color = Slate900
+                    color = Slate900,
                 )
             },
             text = {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Column {
                         Text("1. 下拉撕裂浮窗", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Slate900)
@@ -1579,7 +1606,7 @@ fun SettingsScreen(
                 }
             },
             containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(16.dp),
         )
     }
 
@@ -1591,7 +1618,7 @@ fun SettingsScreen(
                     text = "清理缓存与网站数据",
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
-                    color = Slate900
+                    color = Slate900,
                 )
             },
             text = {
@@ -1600,19 +1627,20 @@ fun SettingsScreen(
                         text = "选择需要清理的数据类型：",
                         fontSize = 13.sp,
                         color = Slate600,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(bottom = 12.dp),
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { clearCacheSelected = !clearCacheSelected }
-                            .padding(vertical = 6.dp)
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { clearCacheSelected = !clearCacheSelected }
+                                .padding(vertical = 6.dp),
                     ) {
                         Checkbox(
                             checked = clearCacheSelected,
-                            onCheckedChange = { clearCacheSelected = it }
+                            onCheckedChange = { clearCacheSelected = it },
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
@@ -1622,15 +1650,16 @@ fun SettingsScreen(
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { clearHistorySelected = !clearHistorySelected }
-                            .padding(vertical = 6.dp)
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { clearHistorySelected = !clearHistorySelected }
+                                .padding(vertical = 6.dp),
                     ) {
                         Checkbox(
                             checked = clearHistorySelected,
-                            onCheckedChange = { clearHistorySelected = it }
+                            onCheckedChange = { clearHistorySelected = it },
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
@@ -1640,15 +1669,16 @@ fun SettingsScreen(
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { clearCookiesSelected = !clearCookiesSelected }
-                            .padding(vertical = 6.dp)
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { clearCookiesSelected = !clearCookiesSelected }
+                                .padding(vertical = 6.dp),
                     ) {
                         Checkbox(
                             checked = clearCookiesSelected,
-                            onCheckedChange = { clearCookiesSelected = it }
+                            onCheckedChange = { clearCookiesSelected = it },
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
@@ -1663,7 +1693,7 @@ fun SettingsScreen(
                     onClick = {
                         showClearDialog = false
                         onClearData(clearCacheSelected, clearHistorySelected, clearCookiesSelected)
-                    }
+                    },
                 ) {
                     Text("确认清理", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
                 }
@@ -1674,7 +1704,7 @@ fun SettingsScreen(
                 }
             },
             containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(16.dp),
         )
     }
 
@@ -1683,30 +1713,33 @@ fun SettingsScreen(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Slate50),
-        contentAlignment = Alignment.TopCenter
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Slate50),
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
-            modifier = Modifier
-                .widthIn(max = 680.dp)
-                .fillMaxSize()
+            modifier =
+                Modifier
+                    .widthIn(max = 680.dp)
+                    .fillMaxSize(),
         ) {
             // Standard Secondary Page Top Bar
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .background(Color.White)
-                    .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .background(Color.White)
+                        .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "返回",
-                        tint = Slate900
+                        tint = Slate900,
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1714,7 +1747,7 @@ fun SettingsScreen(
                     text = "设置",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Slate900
+                    color = Slate900,
                 )
             }
 
@@ -1722,417 +1755,428 @@ fun SettingsScreen(
 
             // Settings Preferences Grouped Inset Cards
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
             ) {
-            // Group 1: 浏览与多窗口
-            Text(
-                text = "浏览与多窗口",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlue,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Slate200)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "默认打开网页方式",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.5.sp,
-                        color = Slate900
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        FilterChip(
-                            selected = openMode == OpenMode.TAB,
-                            onClick = { onOpenModeChange(OpenMode.TAB) },
-                            label = { Text("应用内标签") }
+                // Group 1: 浏览与多窗口
+                Text(
+                    text = "浏览与多窗口",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandBlue,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Slate200),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "默认打开网页方式",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900,
                         )
-                        FilterChip(
-                            selected = openMode == OpenMode.FLOATING,
-                            onClick = { onOpenModeChange(OpenMode.FLOATING) },
-                            label = { Text("独立悬浮窗") }
-                        )
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = Slate100
-                    )
-
-                    // User-Agent (网页标识符)
-                    Text(
-                        text = "网页标识符 (User-Agent)",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.5.sp,
-                        color = Slate900
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        UserAgentMode.entries.forEach { mode ->
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
                             FilterChip(
-                                selected = userAgentMode == mode,
-                                onClick = {
-                                    userAgentMode = mode
-                                    browserPrefs.userAgentMode = mode
-                                    activeWebViews.values.forEach { wv ->
-                                        browserPrefs.resolveUserAgent(wv.settings.userAgentString)?.let { ua ->
-                                            wv.settings.userAgentString = ua
-                                        }
-                                    }
-                                },
-                                label = { Text(mode.label) }
+                                selected = openMode == OpenMode.TAB,
+                                onClick = { onOpenModeChange(OpenMode.TAB) },
+                                label = { Text("应用内标签") },
                             )
-                        }
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = Slate100
-                    )
-
-                    // 默认搜索引擎
-                    Text(
-                        text = "默认搜索引擎",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.5.sp,
-                        color = Slate900
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SearchEngine.entries.forEach { engine ->
                             FilterChip(
-                                selected = searchEngine == engine,
-                                onClick = {
-                                    searchEngine = engine
-                                    browserPrefs.searchEngine = engine
-                                },
-                                label = { Text(engine.label) }
+                                selected = openMode == OpenMode.FLOATING,
+                                onClick = { onOpenModeChange(OpenMode.FLOATING) },
+                                label = { Text("独立悬浮窗") },
                             )
                         }
-                    }
 
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = Slate100
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "系统悬浮窗权限",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.5.sp,
-                            color = Slate900
-                        )
-                        if (!hasOverlayPermission) {
-                            Button(onClick = onRequestOverlayPermission) {
-                                Text("去授权", fontSize = 12.sp)
-                            }
-                        } else {
-                            Text(
-                                text = "已授权",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = BrandEmerald
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = Slate100
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text(
-                                text = "非活动浮窗点击仅激活焦点",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.5.sp,
-                                color = Slate900
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "开启后点击非活动悬浮网页首击仅切换聚焦与置顶，防止误触页面链接",
-                                fontSize = 11.5.sp,
-                                color = Slate500,
-                                lineHeight = 16.sp
-                            )
-                        }
-                        Switch(
-                            checked = isClickToFocusEnabled,
-                            onCheckedChange = { checked ->
-                                isClickToFocusEnabled = checked
-                                browserPrefs.isClickToFocusEnabled = checked
-                            }
-                        )
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = Slate100
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showGesturesDialog = true }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "手势与多窗口操作指南",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.5.sp,
-                            color = Slate900
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "查看指南",
-                            tint = Slate600,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Group 2: 广告拦截
-            Text(
-                text = "广告拦截",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlue,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Slate200)
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "广告拦截",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.5.sp,
-                            color = Slate900
-                        )
-                        Switch(
-                            checked = isAdBlockEnabled,
-                            onCheckedChange = {
-                                isAdBlockEnabled = it
-                                browserPrefs.isAdBlockEnabled = it
-                                io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(it)
-                            }
-                        )
-                    }
-
-                    if (isAdBlockEnabled) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = Slate100
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Slate100,
+                        )
+
+                        // User-Agent (网页标识符)
+                        Text(
+                            text = "网页标识符 (User-Agent)",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            UserAgentMode.entries.forEach { mode ->
+                                FilterChip(
+                                    selected = userAgentMode == mode,
+                                    onClick = {
+                                        userAgentMode = mode
+                                        browserPrefs.userAgentMode = mode
+                                        activeWebViews.values.forEach { wv ->
+                                            browserPrefs.resolveUserAgent(wv.settings.userAgentString)?.let { ua ->
+                                                wv.settings.userAgentString = ua
+                                            }
+                                        }
+                                    },
+                                    label = { Text(mode.label) },
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Slate100,
+                        )
+
+                        // 默认搜索引擎
+                        Text(
+                            text = "默认搜索引擎",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                            color = Slate900,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            SearchEngine.entries.forEach { engine ->
+                                FilterChip(
+                                    selected = searchEngine == engine,
+                                    onClick = {
+                                        searchEngine = engine
+                                        browserPrefs.searchEngine = engine
+                                    },
+                                    label = { Text(engine.label) },
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Slate100,
                         )
 
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showAdBlockRulesDialog = true }
-                                .padding(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
-                                text = "规则管理",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Slate900
+                                text = "系统悬浮窗权限",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900,
+                            )
+                            if (!hasOverlayPermission) {
+                                Button(onClick = onRequestOverlayPermission) {
+                                    Text("去授权", fontSize = 12.sp)
+                                }
+                            } else {
+                                Text(
+                                    text = "已授权",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = BrandEmerald,
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Slate100,
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = "非活动浮窗点击仅激活焦点",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.5.sp,
+                                    color = Slate900,
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "开启后点击非活动悬浮网页首击仅切换聚焦与置顶，防止误触页面链接",
+                                    fontSize = 11.5.sp,
+                                    color = Slate500,
+                                    lineHeight = 16.sp,
+                                )
+                            }
+                            Switch(
+                                checked = isClickToFocusEnabled,
+                                onCheckedChange = { checked ->
+                                    isClickToFocusEnabled = checked
+                                    browserPrefs.isClickToFocusEnabled = checked
+                                },
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = Slate100,
+                        )
+
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showGesturesDialog = true }
+                                    .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "手势与多窗口操作指南",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900,
                             )
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "规则管理",
-                                tint = Slate400,
-                                modifier = Modifier.size(18.dp)
+                                contentDescription = "查看指南",
+                                tint = Slate600,
+                                modifier = Modifier.size(18.dp),
                             )
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-            // Group 3: 数据与隐私
-            Text(
-                text = "数据与隐私",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlue,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Slate200)
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showFullHistoryDialog = true }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "浏览历史记录管理",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.5.sp,
-                            color = Slate900
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "查看",
-                            tint = Slate600,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    HorizontalDivider(color = Slate100)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showClearDialog = true }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "清理缓存与网站数据",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.5.sp,
-                            color = Slate900
-                        )
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "清除",
-                            tint = Color(0xFFEF4444),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Group 4: 关于应用
-            Text(
-                text = "关于",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlue,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Slate200)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_bubble_logo),
-                            contentDescription = null,
-                            tint = Color.Unspecified,
-                            modifier = Modifier.size(40.dp)
-                        )
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "FloatBro",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Slate900
-                            )
-                            Text(
-                                text = "版本 ${BuildConfig.VERSION_NAME} · GPL-3.0 开源许可",
-                                fontSize = 12.sp,
-                                color = Slate500,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Slate100)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showUpdateCenterDialog = true }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "检查新版本",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.5.sp,
-                            color = Slate900
-                        )
-                        Button(
-                            onClick = { showUpdateCenterDialog = true },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                // Group 2: 广告拦截
+                Text(
+                    text = "广告拦截",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandBlue,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Slate200),
+                ) {
+                    Column {
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text("检查更新", fontSize = 12.sp)
+                            Text(
+                                text = "广告拦截",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900,
+                            )
+                            Switch(
+                                checked = isAdBlockEnabled,
+                                onCheckedChange = {
+                                    isAdBlockEnabled = it
+                                    browserPrefs.isAdBlockEnabled = it
+                                    io.github.edsuns.adfilter.AdFilter
+                                        .get(context)
+                                        .setEnabled(it)
+                                },
+                            )
+                        }
+
+                        if (isAdBlockEnabled) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Slate100,
+                            )
+
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showAdBlockRulesDialog = true }
+                                        .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = "规则管理",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Slate900,
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "规则管理",
+                                    tint = Slate400,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Group 3: 数据与隐私
+                Text(
+                    text = "数据与隐私",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandBlue,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Slate200),
+                ) {
+                    Column {
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showFullHistoryDialog = true }
+                                    .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "浏览历史记录管理",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900,
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "查看",
+                                tint = Slate600,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        HorizontalDivider(color = Slate100)
+
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showClearDialog = true }
+                                    .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "清理缓存与网站数据",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900,
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "清除",
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Group 4: 关于应用
+                Text(
+                    text = "关于",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandBlue,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Slate200),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_bubble_logo),
+                                contentDescription = null,
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(40.dp),
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "FloatBro",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Slate900,
+                                )
+                                Text(
+                                    text = "版本 ${BuildConfig.VERSION_NAME} · GPL-3.0 开源许可",
+                                    fontSize = 12.sp,
+                                    color = Slate500,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Slate100)
+
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showUpdateCenterDialog = true }
+                                    .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "检查新版本",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900,
+                            )
+                            Button(
+                                onClick = { showUpdateCenterDialog = true },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Text("检查更新", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
             }
         }
-    }
     }
 
     if (showFullHistoryDialog) {
@@ -2142,13 +2186,13 @@ fun SettingsScreen(
                 showFullHistoryDialog = false
                 onBack()
                 onOpenUrl(url, title)
-            }
+            },
         )
     }
 
     if (showUpdateCenterDialog) {
         AppUpdateCenterDialog(
-            onDismiss = { showUpdateCenterDialog = false }
+            onDismiss = { showUpdateCenterDialog = false },
         )
     }
 }
@@ -2156,18 +2200,23 @@ fun SettingsScreen(
 @Composable
 fun FullHistoryManagementDialog(
     onDismiss: () -> Unit,
-    onOpenUrl: (String, String) -> Unit
+    onOpenUrl: (String, String) -> Unit,
 ) {
     val context = LocalContext.current
     val historyManager = remember { BrowsingHistoryManager.getInstance(context) }
     val fullList by historyManager.historyFlow.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredList = remember(searchQuery, fullList) {
-        if (searchQuery.isBlank()) fullList else fullList.filter {
-            it.title.contains(searchQuery, ignoreCase = true) || it.url.contains(searchQuery, ignoreCase = true)
+    val filteredList =
+        remember(searchQuery, fullList) {
+            if (searchQuery.isBlank()) {
+                fullList
+            } else {
+                fullList.filter {
+                    it.title.contains(searchQuery, ignoreCase = true) || it.url.contains(searchQuery, ignoreCase = true)
+                }
+            }
         }
-    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2175,13 +2224,13 @@ fun FullHistoryManagementDialog(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
                     text = "浏览历史记录 (${fullList.size})",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Slate900
+                    color = Slate900,
                 )
                 if (fullList.isNotEmpty()) {
                     Text(
@@ -2189,21 +2238,22 @@ fun FullHistoryManagementDialog(
                         fontSize = 12.sp,
                         color = Color(0xFFEF4444),
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .clickable {
-                                historyManager.clearHistory()
-                            }
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier =
+                            Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable {
+                                    historyManager.clearHistory()
+                                }.padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
             }
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 440.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 440.dp),
             ) {
                 OutlinedTextField(
                     value = searchQuery,
@@ -2218,58 +2268,68 @@ fun FullHistoryManagementDialog(
                                 Icon(Icons.Default.Close, contentDescription = "清空", modifier = Modifier.size(14.dp))
                             }
                         }
-                    }
+                    },
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
                 if (filteredList.isEmpty()) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(140.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text("暂无历史记录", fontSize = 13.sp, color = Slate500)
                     }
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         items(filteredList, key = { it.id }) { item ->
-                            val brandRes = when {
-                                item.url.contains("baidu.com") -> R.drawable.ic_brand_baidu
-                                item.url.contains("bing.com") -> R.drawable.ic_brand_bing
-                                item.url.contains("zhihu.com") -> R.drawable.ic_brand_zhihu
-                                item.url.contains("bilibili.com") -> R.drawable.ic_brand_bilibili
-                                else -> null
-                            }
+                            val brandRes =
+                                when {
+                                    item.url.contains("baidu.com") -> R.drawable.ic_brand_baidu
+                                    item.url.contains("bing.com") -> R.drawable.ic_brand_bing
+                                    item.url.contains("zhihu.com") -> R.drawable.ic_brand_zhihu
+                                    item.url.contains("bilibili.com") -> R.drawable.ic_brand_bilibili
+                                    else -> null
+                                }
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { onOpenUrl(item.url, item.title) }
-                                    .padding(vertical = 6.dp, horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { onOpenUrl(item.url, item.title) }
+                                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (brandRes != null) {
                                     Image(
                                         painter = painterResource(id = brandRes),
                                         contentDescription = null,
-                                        modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp))
+                                        modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)),
                                     )
                                 } else {
                                     Surface(
                                         shape = CircleShape,
                                         color = BrandBlue.copy(alpha = 0.12f),
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(18.dp),
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
-                                            val initial = try {
-                                                java.net.URI(item.url).host?.removePrefix("www.")?.firstOrNull()?.uppercaseChar()?.toString() ?: "W"
-                                            } catch (_: Exception) {
-                                                "W"
-                                            }
+                                            val initial =
+                                                try {
+                                                    java.net
+                                                        .URI(item.url)
+                                                        .host
+                                                        ?.removePrefix("www.")
+                                                        ?.firstOrNull()
+                                                        ?.uppercaseChar()
+                                                        ?.toString() ?: "W"
+                                                } catch (_: Exception) {
+                                                    "W"
+                                                }
                                             Text(initial, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = BrandBlue)
                                         }
                                     }
@@ -2282,7 +2342,7 @@ fun FullHistoryManagementDialog(
                                         fontWeight = FontWeight.Medium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        color = Slate900
+                                        color = Slate900,
                                     )
                                     Text(
                                         text = item.url,
@@ -2290,20 +2350,20 @@ fun FullHistoryManagementDialog(
                                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        color = Slate500
+                                        color = Slate500,
                                     )
                                 }
                                 IconButton(
                                     onClick = {
                                         historyManager.removeHistory(item.id)
                                     },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(24.dp),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
                                         contentDescription = "删除",
                                         tint = Slate400,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(14.dp),
                                     )
                                 }
                             }
@@ -2318,13 +2378,13 @@ fun FullHistoryManagementDialog(
             }
         },
         containerColor = Color.White,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
     )
 }
 
 @Composable
 fun AppUpdateCenterDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -2348,7 +2408,7 @@ fun AppUpdateCenterDialog(
             onError = { err ->
                 errorMessage = err
                 isLoading = false
-            }
+            },
         )
     }
 
@@ -2373,50 +2433,52 @@ fun AppUpdateCenterDialog(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.SystemUpdate,
                         contentDescription = null,
                         tint = BrandBlue,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(22.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "检查更新",
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Slate900
+                        color = Slate900,
                     )
                 }
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = BrandBlue.copy(alpha = 0.12f)
+                    color = BrandBlue.copy(alpha = 0.12f),
                 ) {
                     Text(
                         text = "v${updateManager.currentVersion}",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = BrandBlue,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
             }
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (isLoading) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(160.dp),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = BrandBlue, modifier = Modifier.size(32.dp))
@@ -2427,7 +2489,7 @@ fun AppUpdateCenterDialog(
                 } else if (errorMessage != null) {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(errorMessage!!, fontSize = 13.sp, color = Color(0xFFEF4444))
                         Spacer(modifier = Modifier.height(8.dp))
@@ -2436,10 +2498,16 @@ fun AppUpdateCenterDialog(
                                 isLoading = true
                                 errorMessage = null
                                 updateManager.fetchReleasesAsync(
-                                    onSuccess = { candidates = it; isLoading = false },
-                                    onError = { errorMessage = it; isLoading = false }
+                                    onSuccess = {
+                                        candidates = it
+                                        isLoading = false
+                                    },
+                                    onError = {
+                                        errorMessage = it
+                                        isLoading = false
+                                    },
                                 )
-                            }
+                            },
                         ) {
                             Text("重试", fontSize = 12.sp)
                         }
@@ -2452,24 +2520,24 @@ fun AppUpdateCenterDialog(
                                 shape = RoundedCornerShape(10.dp),
                                 color = BrandEmerald.copy(alpha = 0.1f),
                                 border = BorderStroke(1.dp, BrandEmerald.copy(alpha = 0.25f)),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = null,
                                         tint = BrandEmerald,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(18.dp),
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = "当前已是最新版本 (v${candidateData.currentVersion})",
                                         fontSize = 12.5.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Slate900
+                                        color = Slate900,
                                     )
                                 }
                             }
@@ -2484,7 +2552,7 @@ fun AppUpdateCenterDialog(
                                 activeRelease = rel
                                 activeDownloadId = updateManager.enqueueDownload(rel)
                                 Toast.makeText(context, "已加入系统下载队列，可在通知栏查看进度", Toast.LENGTH_SHORT).show()
-                            }
+                            },
                         )
 
                         UpdateReleaseCard(
@@ -2496,7 +2564,7 @@ fun AppUpdateCenterDialog(
                                 activeRelease = rel
                                 activeDownloadId = updateManager.enqueueDownload(rel)
                                 Toast.makeText(context, "已加入系统下载队列，可在通知栏查看进度", Toast.LENGTH_SHORT).show()
-                            }
+                            },
                         )
 
                         if (activeDownloadId != null && activeRelease != null) {
@@ -2505,26 +2573,26 @@ fun AppUpdateCenterDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(containerColor = Slate100),
-                                border = BorderStroke(1.dp, Slate300)
+                                border = BorderStroke(1.dp, Slate300),
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Text(
                                             text = "下载进度：${prog?.percent ?: 0}%",
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Slate900
+                                            color = Slate900,
                                         )
                                         TextButton(
                                             onClick = {
                                                 activeDownloadId?.let { updateManager.cancelDownload(it) }
                                                 activeDownloadId = null
                                                 activeRelease = null
-                                            }
+                                            },
                                         ) {
                                             Text("取消", fontSize = 11.5.sp, color = Color(0xFFEF4444))
                                         }
@@ -2533,7 +2601,7 @@ fun AppUpdateCenterDialog(
                                         progress = { (prog?.percent ?: 0) / 100f },
                                         modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
                                         color = BrandBlue,
-                                        trackColor = Slate200
+                                        trackColor = Slate200,
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -2547,7 +2615,7 @@ fun AppUpdateCenterDialog(
                                                     updateManager.installApk(apkFile)
                                                 }
                                             },
-                                            modifier = Modifier.fillMaxWidth()
+                                            modifier = Modifier.fillMaxWidth(),
                                         ) {
                                             Text("下载完成，立即安装", fontSize = 13.sp)
                                         }
@@ -2565,7 +2633,7 @@ fun AppUpdateCenterDialog(
             }
         },
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
     )
 }
 
@@ -2575,57 +2643,60 @@ fun UpdateReleaseCard(
     isBeta: Boolean,
     release: ReleaseInfo?,
     currentVersion: String,
-    onDownload: (ReleaseInfo) -> Unit
+    onDownload: (ReleaseInfo) -> Unit,
 ) {
     val isDark = isSystemInDarkTheme()
-    val cardBg = if (isBeta) {
-        if (isDark) Color(0xFF451A03) else Color(0xFFFFFBEB)
-    } else {
-        if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFF8FAFC)
-    }
-    val cardBorder = if (isBeta) {
-        if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A)
-    } else {
-        if (isDark) Color(0xFF334155) else Slate200
-    }
-    val channelTextColor = if (isBeta) {
-        if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
-    } else {
-        if (isDark) Color(0xFFF8FAFC) else Slate900
-    }
+    val cardBg =
+        if (isBeta) {
+            if (isDark) Color(0xFF451A03) else Color(0xFFFFFBEB)
+        } else {
+            if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFF8FAFC)
+        }
+    val cardBorder =
+        if (isBeta) {
+            if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A)
+        } else {
+            if (isDark) Color(0xFF334155) else Slate200
+        }
+    val channelTextColor =
+        if (isBeta) {
+            if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
+        } else {
+            if (isDark) Color(0xFFF8FAFC) else Slate900
+        }
     val tagTextColor = if (isDark) Color(0xFFF8FAFC) else Slate800
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
-        border = BorderStroke(1.dp, cardBorder)
+        border = BorderStroke(1.dp, cardBorder),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = channelName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.5.sp,
-                        color = channelTextColor
+                        color = channelTextColor,
                     )
                     if (isBeta) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = if (isDark) Color(0xFF78350F) else Color(0xFFFEF3C7)
+                            color = if (isDark) Color(0xFF78350F) else Color(0xFFFEF3C7),
                         ) {
                             Text(
                                 text = "测试版",
                                 fontSize = 10.sp,
                                 color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                             )
                         }
                     }
@@ -2634,7 +2705,7 @@ fun UpdateReleaseCard(
                     Text(
                         text = release.publishedAt,
                         fontSize = 11.sp,
-                        color = Slate500
+                        color = Slate500,
                     )
                 }
             }
@@ -2648,30 +2719,30 @@ fun UpdateReleaseCard(
                     text = release.tagName,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = tagTextColor
+                    color = tagTextColor,
                 )
                 if (release.body.isNotBlank()) {
                     MarkdownContent(
                         markdown = release.body,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
                 val isNewer = AppUpdateManager.isNewerVersion(release.tagName, currentVersion)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
                 ) {
                     if (isNewer) {
                         Button(
                             onClick = { onDownload(release) },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         ) {
                             Text(if (isBeta) "下载测试版" else "下载正式版", fontSize = 12.sp)
                         }
                     } else {
                         OutlinedButton(
                             onClick = { onDownload(release) },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         ) {
                             Text("重新下载安装包", fontSize = 11.5.sp)
                         }
@@ -2685,7 +2756,7 @@ fun UpdateReleaseCard(
 @Composable
 fun BrowserHomeView(
     onOpenUrl: (String, String) -> Unit,
-    onPopoutFloating: (String, String) -> Unit = { _, _ -> }
+    onPopoutFloating: (String, String) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
@@ -2707,18 +2778,25 @@ fun BrowserHomeView(
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
             val clip = clipboard?.primaryClip
             if (clip != null && clip.itemCount > 0) {
-                val text = clip.getItemAt(0)?.text?.toString()?.trim()
+                val text =
+                    clip
+                        .getItemAt(0)
+                        ?.text
+                        ?.toString()
+                        ?.trim()
                 val timestamp = clip.description?.timestamp ?: 0L
                 if (!text.isNullOrBlank() && (text.startsWith("http://") || text.startsWith("https://"))) {
-                    val isSuppressed = (text == prefs.lastDismissedClipboardUrl) &&
-                        (timestamp != 0L && timestamp <= prefs.lastDismissedClipboardTimestamp)
+                    val isSuppressed =
+                        (text == prefs.lastDismissedClipboardUrl) &&
+                            (timestamp != 0L && timestamp <= prefs.lastDismissedClipboardTimestamp)
                     if (!isSuppressed) {
                         clipboardUrl = text
                         clipboardTimestamp = timestamp
                     }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -2727,340 +2805,358 @@ fun BrowserHomeView(
 
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
-            modifier = Modifier
-                .widthIn(max = 640.dp)
-                .fillMaxWidth()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 20.dp, vertical = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier =
+                Modifier
+                    .widthIn(max = 640.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // 1. Clean App Logo Header (Responsive: 56dp phone / 72dp tablet)
             Box(
-                modifier = Modifier
-                    .padding(top = if (isLargeScreen) 36.dp else 24.dp, bottom = 20.dp),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .padding(top = if (isLargeScreen) 36.dp else 24.dp, bottom = 20.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_bubble_logo),
                     contentDescription = "FloatBro",
                     tint = Color.Unspecified,
-                    modifier = Modifier.size(homeLogoSize)
+                    modifier = Modifier.size(homeLogoSize),
                 )
             }
 
-        // 2. Clean Search Bar Capsule (Thumb Zone)
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("搜索或输入网址", fontSize = 13.sp) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = MaterialTheme.colorScheme.outline
-                )
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(
-                        onClick = { searchQuery = "" },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "清空",
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(24.dp),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = {
-                if (searchQuery.isNotBlank()) {
-                    onOpenUrl(searchQuery, searchQuery)
-                    searchQuery = ""
-                }
-            }),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                unfocusedIndicatorColor = Color.Transparent
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 3. Speed Dials (Bing, Bilibili, Zhihu, Baidu)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            QuickDialItem("必应", R.drawable.ic_brand_bing) {
-                onOpenUrl("https://cn.bing.com", "必应搜索")
-            }
-            QuickDialItem("哔哩哔哩", R.drawable.ic_brand_bilibili) {
-                onOpenUrl("https://m.bilibili.com", "哔哩哔哩")
-            }
-            QuickDialItem("知乎", R.drawable.ic_brand_zhihu) {
-                onOpenUrl("https://www.zhihu.com", "知乎")
-            }
-            QuickDialItem("百度", R.drawable.ic_brand_baidu) {
-                onOpenUrl("https://www.baidu.com", "百度")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // 4. Card 1: Clipboard URL Detection Banner (智能剪贴板链接探测)
-        if (clipboardUrl != null && !isClipboardDismissed) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 8.dp)
-                            ) {
-                                Text(
-                                    text = "剪贴板",
-                                    fontSize = 10.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                            Text(
-                                text = "检测到网页链接",
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+            // 2. Clean Search Bar Capsule (Thumb Zone)
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("搜索或输入网址", fontSize = 13.sp) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.outline,
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
                         IconButton(
-                            onClick = {
-                                clipboardUrl?.let { url ->
-                                    prefs.lastDismissedClipboardUrl = url
-                                    prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
-                                }
-                                isClipboardDismissed = true
-                            },
-                            modifier = Modifier.size(24.dp)
+                            onClick = { searchQuery = "" },
+                            modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "忽略",
+                                contentDescription = "清空",
                                 tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(16.dp),
                             )
                         }
                     }
-                    Text(
-                        text = clipboardUrl!!,
-                        fontSize = 11.sp,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(
-                            onClick = {
-                                val targetUrl = clipboardUrl!!
-                                prefs.lastDismissedClipboardUrl = targetUrl
-                                prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
-                                isClipboardDismissed = true
-                                onPopoutFloating(targetUrl, "网页")
-                            }
-                        ) {
-                            Text("悬浮打开", fontSize = 12.sp)
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions =
+                    KeyboardActions(onSearch = {
+                        if (searchQuery.isNotBlank()) {
+                            onOpenUrl(searchQuery, searchQuery)
+                            searchQuery = ""
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                val targetUrl = clipboardUrl!!
-                                prefs.lastDismissedClipboardUrl = targetUrl
-                                prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
-                                isClipboardDismissed = true
-                                onOpenUrl(targetUrl, "网页")
-                            }
-                        ) {
-                            Text("直接打开", fontSize = 12.sp)
-                        }
-                    }
+                    }),
+                colors =
+                    TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. Speed Dials (Bing, Bilibili, Zhihu, Baidu)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                QuickDialItem("必应", R.drawable.ic_brand_bing) {
+                    onOpenUrl("https://cn.bing.com", "必应搜索")
+                }
+                QuickDialItem("哔哩哔哩", R.drawable.ic_brand_bilibili) {
+                    onOpenUrl("https://m.bilibili.com", "哔哩哔哩")
+                }
+                QuickDialItem("知乎", R.drawable.ic_brand_zhihu) {
+                    onOpenUrl("https://www.zhihu.com", "知乎")
+                }
+                QuickDialItem("百度", R.drawable.ic_brand_baidu) {
+                    onOpenUrl("https://www.baidu.com", "百度")
                 }
             }
-            Spacer(modifier = Modifier.height(14.dp))
-        }
 
-        // 6. Recent Browsing History from persistent storage
-        if (historyList.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "最近浏览历史 (${historyList.size})",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "清除全部",
-                            fontSize = 11.5.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable {
-                                    BrowsingHistoryManager.getInstance(context).clearHistory()
-                                }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-                    historyList.forEach { item ->
-                        val brandRes = when {
-                            item.url.contains("baidu.com") -> R.drawable.ic_brand_baidu
-                            item.url.contains("bing.com") -> R.drawable.ic_brand_bing
-                            item.url.contains("zhihu.com") -> R.drawable.ic_brand_zhihu
-                            item.url.contains("bilibili.com") -> R.drawable.ic_brand_bilibili
-                            else -> null
-                        }
+            // 4. Card 1: Clipboard URL Detection Banner (智能剪贴板链接探测)
+            if (clipboardUrl != null && !isClipboardDismissed) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    onOpenUrl(item.url, item.title)
-                                }
-                                .padding(vertical = 6.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            if (brandRes != null) {
-                                Image(
-                                    painter = painterResource(id = brandRes),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                )
-                            } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    modifier = Modifier.size(20.dp)
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(end = 8.dp),
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        val hostInitial = try {
-                                            java.net.URI(item.url).host?.removePrefix("www.")?.firstOrNull()?.uppercaseChar()?.toString() ?: "W"
-                                        } catch (_: Exception) {
-                                            "W"
-                                        }
-                                        Text(
-                                            text = hostInitial,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
+                                    Text(
+                                        text = "剪贴板",
+                                        fontSize = 10.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
                                 }
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = item.title,
+                                    text = "检测到网页链接",
                                     fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = item.url,
-                                    fontSize = 11.sp,
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                             IconButton(
                                 onClick = {
-                                    BrowsingHistoryManager.getInstance(context).removeHistory(item.id)
+                                    clipboardUrl?.let { url ->
+                                        prefs.lastDismissedClipboardUrl = url
+                                        prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
+                                    }
+                                    isClipboardDismissed = true
                                 },
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp),
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "删除记录",
+                                    contentDescription = "忽略",
                                     tint = MaterialTheme.colorScheme.outline,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(14.dp),
                                 )
+                            }
+                        }
+                        Text(
+                            text = clipboardUrl!!,
+                            fontSize = 11.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    val targetUrl = clipboardUrl!!
+                                    prefs.lastDismissedClipboardUrl = targetUrl
+                                    prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
+                                    isClipboardDismissed = true
+                                    onPopoutFloating(targetUrl, "网页")
+                                },
+                            ) {
+                                Text("悬浮打开", fontSize = 12.sp)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    val targetUrl = clipboardUrl!!
+                                    prefs.lastDismissedClipboardUrl = targetUrl
+                                    prefs.lastDismissedClipboardTimestamp = clipboardTimestamp
+                                    isClipboardDismissed = true
+                                    onOpenUrl(targetUrl, "网页")
+                                },
+                            ) {
+                                Text("直接打开", fontSize = 12.sp)
                             }
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(14.dp))
             }
-            Spacer(modifier = Modifier.height(14.dp))
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-    }
+            // 6. Recent Browsing History from persistent storage
+            if (historyList.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "最近浏览历史 (${historyList.size})",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "清除全部",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier =
+                                    Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .clickable {
+                                            BrowsingHistoryManager.getInstance(context).clearHistory()
+                                        }.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        historyList.forEach { item ->
+                            val brandRes =
+                                when {
+                                    item.url.contains("baidu.com") -> R.drawable.ic_brand_baidu
+                                    item.url.contains("bing.com") -> R.drawable.ic_brand_bing
+                                    item.url.contains("zhihu.com") -> R.drawable.ic_brand_zhihu
+                                    item.url.contains("bilibili.com") -> R.drawable.ic_brand_bilibili
+                                    else -> null
+                                }
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            onOpenUrl(item.url, item.title)
+                                        }.padding(vertical = 6.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (brandRes != null) {
+                                    Image(
+                                        painter = painterResource(id = brandRes),
+                                        contentDescription = null,
+                                        modifier =
+                                            Modifier
+                                                .size(20.dp)
+                                                .clip(RoundedCornerShape(4.dp)),
+                                    )
+                                } else {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        modifier = Modifier.size(20.dp),
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            val hostInitial =
+                                                try {
+                                                    java.net
+                                                        .URI(item.url)
+                                                        .host
+                                                        ?.removePrefix("www.")
+                                                        ?.firstOrNull()
+                                                        ?.uppercaseChar()
+                                                        ?.toString() ?: "W"
+                                                } catch (_: Exception) {
+                                                    "W"
+                                                }
+                                            Text(
+                                                text = hostInitial,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.title,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = item.url,
+                                        fontSize = 11.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        BrowsingHistoryManager.getInstance(context).removeHistory(item.id)
+                                    },
+                                    modifier = Modifier.size(28.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "删除记录",
+                                        tint = MaterialTheme.colorScheme.outline,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 
 @Composable
-fun QuickDialItem(title: String, iconRes: Int, onClick: () -> Unit) {
+fun QuickDialItem(
+    title: String,
+    iconRes: Int,
+    onClick: () -> Unit,
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { onClick() }
-            .padding(4.dp)
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .clickable { onClick() }
+                .padding(4.dp),
     ) {
         Surface(
             shape = RoundedCornerShape(14.dp),
             color = Color.White,
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             shadowElevation = 2.dp,
-            modifier = Modifier.size(50.dp)
+            modifier = Modifier.size(50.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     painter = painterResource(id = iconRes),
                     contentDescription = title,
                     tint = Color.Unspecified,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }
@@ -3069,7 +3165,7 @@ fun QuickDialItem(title: String, iconRes: Int, onClick: () -> Unit) {
             text = title,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -3081,7 +3177,7 @@ fun InAppWebViewPane(
     onTearOff: () -> Unit,
     onUrlChanged: (String) -> Unit = {},
     onTitleReceived: (String) -> Unit,
-    onFaviconReceived: (Bitmap) -> Unit
+    onFaviconReceived: (Bitmap) -> Unit,
 ) {
     var loadingProgress by remember { mutableStateOf(0) }
     var isEditingUrl by remember { mutableStateOf(false) }
@@ -3116,36 +3212,37 @@ fun InAppWebViewPane(
     Column(modifier = Modifier.fillMaxSize()) {
         // Mini Toolbar matching FloatingWindowView: [Back] [Forward] [Capsule 34dp] [Refresh] [Popout]
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
                 onClick = { if (canGoBack) webView.goBack() },
                 enabled = canGoBack,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_nav_back),
                     contentDescription = "后退",
                     modifier = Modifier.size(18.dp),
-                    tint = if (canGoBack) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    tint = if (canGoBack) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                 )
             }
             Spacer(modifier = Modifier.width(2.dp))
             IconButton(
                 onClick = { if (canGoForward) webView.goForward() },
                 enabled = canGoForward,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_nav_forward),
                     contentDescription = "前进",
                     modifier = Modifier.size(18.dp),
-                    tint = if (canGoForward) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    tint = if (canGoForward) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
@@ -3155,52 +3252,57 @@ fun InAppWebViewPane(
                     shape = RoundedCornerShape(17.dp),
                     color = MaterialTheme.colorScheme.surface,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(34.dp)
-                        .padding(horizontal = 2.dp)
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .padding(horizontal = 2.dp),
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         BasicTextField(
                             value = editingUrlText,
                             onValueChange = { editingUrlText = it },
                             singleLine = true,
-                            textStyle = TextStyle(
-                                fontSize = 12.sp,
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
+                            textStyle =
+                                TextStyle(
+                                    fontSize = 12.sp,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                ),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                            keyboardActions = KeyboardActions(onGo = {
-                                if (editingUrlText.isNotBlank()) {
-                                    val resolved = LauncherActivity.resolveBrowserUrl(context, editingUrlText)
-                                    onUrlChanged(resolved)
-                                    webView.loadUrlSafely(resolved)
-                                }
-                                isEditingUrl = false
-                                keyboardController?.hide()
-                            }),
-                            modifier = Modifier
-                                .weight(1f)
-                                .focusRequester(focusRequester)
+                            keyboardActions =
+                                KeyboardActions(onGo = {
+                                    if (editingUrlText.isNotBlank()) {
+                                        val resolved = LauncherActivity.resolveBrowserUrl(context, editingUrlText)
+                                        onUrlChanged(resolved)
+                                        webView.loadUrlSafely(resolved)
+                                    }
+                                    isEditingUrl = false
+                                    keyboardController?.hide()
+                                }),
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .focusRequester(focusRequester),
                         )
                         IconButton(
                             onClick = {
                                 isEditingUrl = false
                                 keyboardController?.hide()
                             },
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         ) {
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "取消编辑",
                                 modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.outline
+                                tint = MaterialTheme.colorScheme.outline,
                             )
                         }
                     }
@@ -3212,26 +3314,28 @@ fun InAppWebViewPane(
                 Surface(
                     shape = RoundedCornerShape(17.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(34.dp)
-                        .padding(horizontal = 2.dp)
-                        .clickable {
-                            editingUrlText = tab.url
-                            isEditingUrl = true
-                        }
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .padding(horizontal = 2.dp)
+                            .clickable {
+                                editingUrlText = tab.url
+                                isEditingUrl = true
+                            },
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "SSL",
                             tint = Color(0xFF10B981),
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(12.dp),
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
@@ -3239,7 +3343,7 @@ fun InAppWebViewPane(
                             fontSize = 11.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -3249,22 +3353,25 @@ fun InAppWebViewPane(
             Box {
                 IconButton(
                     onClick = { showMoreMenu = true },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_more_vert),
                         contentDescription = "更多选项",
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 
                 val currentWvUrl = webView.url ?: tab.url
-                val host = remember(currentWvUrl) {
-                    try {
-                        Uri.parse(currentWvUrl).host?.lowercase() ?: ""
-                    } catch (_: Exception) { "" }
-                }
+                val host =
+                    remember(currentWvUrl) {
+                        try {
+                            Uri.parse(currentWvUrl).host?.lowercase() ?: ""
+                        } catch (_: Exception) {
+                            ""
+                        }
+                    }
                 val prefs = remember { BrowserPreferences.getInstance(context) }
                 val isGlobalEnabled = prefs.isAdBlockEnabled
                 val isSiteWhitelisted = host.isNotEmpty() && prefs.adBlockWhitelist.contains(host)
@@ -3273,12 +3380,13 @@ fun InAppWebViewPane(
                 DropdownMenu(
                     expanded = showMoreMenu,
                     onDismissRequest = { showMoreMenu = false },
-                    modifier = Modifier
-                        .width(110.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(10.dp)
-                        )
+                    modifier =
+                        Modifier
+                            .width(110.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(10.dp),
+                            ),
                 ) {
                     // 1. 刷新
                     DropdownMenuItem(
@@ -3286,7 +3394,7 @@ fun InAppWebViewPane(
                             Text(
                                 text = "刷新",
                                 fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         },
                         onClick = {
@@ -3294,7 +3402,7 @@ fun InAppWebViewPane(
                             webView.reload()
                         },
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                        modifier = Modifier.height(40.dp)
+                        modifier = Modifier.height(40.dp),
                     )
 
                     // 2. 复制网址
@@ -3304,7 +3412,7 @@ fun InAppWebViewPane(
                                 Text(
                                     text = "复制网址",
                                     fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             },
                             onClick = {
@@ -3314,7 +3422,7 @@ fun InAppWebViewPane(
                                 Toast.makeText(context, "网址已复制", Toast.LENGTH_SHORT).show()
                             },
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                            modifier = Modifier.height(40.dp)
+                            modifier = Modifier.height(40.dp),
                         )
                     }
 
@@ -3325,7 +3433,7 @@ fun InAppWebViewPane(
                                 Text(
                                     text = "标记广告",
                                     fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             },
                             onClick = {
@@ -3333,7 +3441,7 @@ fun InAppWebViewPane(
                                 zapperManager?.enterZapperMode()
                             },
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                            modifier = Modifier.height(40.dp)
+                            modifier = Modifier.height(40.dp),
                         )
                     }
 
@@ -3343,7 +3451,7 @@ fun InAppWebViewPane(
                             Text(
                                 text = adBlockTitle,
                                 fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         },
                         onClick = {
@@ -3367,7 +3475,7 @@ fun InAppWebViewPane(
                             }
                         },
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                        modifier = Modifier.height(40.dp)
+                        modifier = Modifier.height(40.dp),
                     )
                 }
             }
@@ -3377,13 +3485,13 @@ fun InAppWebViewPane(
                     zapperManager?.exitZapperMode(quietly = true)
                     onTearOff()
                 },
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                     contentDescription = "弹射为独立悬浮窗",
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -3392,11 +3500,12 @@ fun InAppWebViewPane(
         if (loadingProgress in 1..99) {
             LinearProgressIndicator(
                 progress = { loadingProgress / 100f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(2.dp),
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = Color.Transparent
+                trackColor = Color.Transparent,
             )
         } else {
             Spacer(modifier = Modifier.height(2.dp))
@@ -3404,24 +3513,28 @@ fun InAppWebViewPane(
 
         // Web Content reusing cached webView
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface),
         ) {
             AndroidView(
                 factory = { ctx ->
-                    val frameLayout = FrameLayout(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
+                    val frameLayout =
+                        FrameLayout(ctx).apply {
+                            layoutParams =
+                                ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
+                        }
                     (webView.parent as? ViewGroup)?.removeView(webView)
-                    webView.layoutParams = FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
+                    webView.layoutParams =
+                        FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
                     frameLayout.addView(webView)
 
                     val ezm = ElementZapperManager(ctx, webView, frameLayout)
@@ -3443,11 +3556,12 @@ fun InAppWebViewPane(
                             canGoForward = webView.canGoForward()
                         }
                         onNavigationBlockedListener = { event ->
-                            val msg = if (event.isAutoForwarded) {
-                                "已自动直达真实目标页"
-                            } else {
-                                "已拦截伪装跳转外链"
-                            }
+                            val msg =
+                                if (event.isAutoForwarded) {
+                                    "已自动直达真实目标页"
+                                } else {
+                                    "已拦截伪装跳转外链"
+                                }
                             Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -3468,11 +3582,12 @@ fun InAppWebViewPane(
                         canGoForward = webView.canGoForward()
                     }
                     webView.onNavigationBlockedListener = { event ->
-                        val msg = if (event.isAutoForwarded) {
-                            "已自动直达真实目标页"
-                        } else {
-                            "已拦截伪装跳转外链"
-                        }
+                        val msg =
+                            if (event.isAutoForwarded) {
+                                "已自动直达真实目标页"
+                            } else {
+                                "已拦截伪装跳转外链"
+                            }
                         Toast.makeText(webView.context, msg, Toast.LENGTH_SHORT).show()
                     }
                 },
@@ -3481,7 +3596,7 @@ fun InAppWebViewPane(
                     webView.onNavigationBlockedListener = null
                     frameLayout.removeView(webView)
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }

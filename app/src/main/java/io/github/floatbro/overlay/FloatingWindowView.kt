@@ -17,20 +17,15 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
-import android.graphics.Rect
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
-import io.github.floatbro.core.webview.TabOverlayStateBridge
-import io.github.floatbro.core.webview.security.NavigationBlockEvent
-import io.github.floatbro.core.webview.security.NavigationSecurityGuard
-import android.view.HapticFeedbackConstants
-import android.view.animation.DecelerateInterpolator
-import io.github.floatbro.ui.theme.FloatingWindowThemeColors
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -38,6 +33,7 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebChromeClient
@@ -45,15 +41,17 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
-import android.graphics.drawable.ColorDrawable
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.graphics.Typeface
 import io.github.floatbro.R
 import io.github.floatbro.browser.BrowserPreferences
 import io.github.floatbro.core.webview.EBWebView
+import io.github.floatbro.core.webview.TabOverlayStateBridge
+import io.github.floatbro.core.webview.security.NavigationBlockEvent
+import io.github.floatbro.core.webview.security.NavigationSecurityGuard
+import io.github.floatbro.ui.theme.FloatingWindowThemeColors
 import timber.log.Timber
 import kotlin.math.hypot
 
@@ -73,9 +71,8 @@ class FloatingWindowView(
     private val windowManager: WindowManager,
     val layoutParams: WindowManager.LayoutParams,
     private val lifecycleContext: OverlayLifecycleContext,
-    existingWebView: EBWebView? = null
+    existingWebView: EBWebView? = null,
 ) : FrameLayout(context) {
-
     val webView: EBWebView = existingWebView ?: EBWebView(android.content.MutableContextWrapper(context))
     private val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
 
@@ -144,8 +141,16 @@ class FloatingWindowView(
     private val currentMinHeightPx: Int
         get() {
             val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-            val isTablet = (minOf(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels) / resources.displayMetrics.density) >= 600f
-            return if (isLandscape && !isTablet) dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP) else dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
+            val isTablet =
+                (minOf(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels) / resources.displayMetrics.density) >=
+                    600f
+            return if (isLandscape &&
+                !isTablet
+            ) {
+                dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP)
+            } else {
+                dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
+            }
         }
 
     var isActiveWindow: Boolean = true
@@ -170,18 +175,20 @@ class FloatingWindowView(
         val cornerRadius = dpToPx(16f).toFloat()
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val windowBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
-        val strokeColor = if (isActiveWindow) {
-            FloatingWindowThemeColors.ActiveBorder
-        } else {
-            if (isDarkMode) FloatingWindowThemeColors.InactiveBorderDark else FloatingWindowThemeColors.InactiveBorderLight
-        }
+        val strokeColor =
+            if (isActiveWindow) {
+                FloatingWindowThemeColors.ActiveBorder
+            } else {
+                if (isDarkMode) FloatingWindowThemeColors.InactiveBorderDark else FloatingWindowThemeColors.InactiveBorderLight
+            }
         val strokeWidth = if (isActiveWindow) dpToPx(1.5f) else dpToPx(1f)
 
-        background = GradientDrawable().apply {
-            setColor(windowBg)
-            setCornerRadius(cornerRadius)
-            setStroke(strokeWidth, strokeColor)
-        }
+        background =
+            GradientDrawable().apply {
+                setColor(windowBg)
+                setCornerRadius(cornerRadius)
+                setStroke(strokeWidth, strokeColor)
+            }
         elevation = if (isActiveWindow) dpToPx(12f).toFloat() else dpToPx(4f).toFloat()
         if (::headerView.isInitialized) {
             headerView.alpha = if (isActiveWindow) 1.0f else 0.72f
@@ -192,11 +199,15 @@ class FloatingWindowView(
         lifecycleContext.attachToView(this)
 
         val cornerRadius = dpToPx(16f).toFloat()
-        outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, cornerRadius)
+        outlineProvider =
+            object : ViewOutlineProvider() {
+                override fun getOutline(
+                    view: View,
+                    outline: Outline,
+                ) {
+                    outline.setRoundRect(0, 0, view.width, view.height, cornerRadius)
+                }
             }
-        }
         clipToOutline = true
         isFocusable = true
         isFocusableInTouchMode = true
@@ -204,10 +215,11 @@ class FloatingWindowView(
 
         updateWindowBorderState()
 
-        val mainLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-        }
+        val mainLayout =
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            }
 
         // 1. Adaptive 42dp Header Bar
         headerView = createAdaptiveHeaderView()
@@ -225,17 +237,20 @@ class FloatingWindowView(
 
         // 3. Central Web Content
         if (existingWebView == null) {
-            val browserPrefs = io.github.floatbro.browser.BrowserPreferences.getInstance(context)
+            val browserPrefs =
+                io.github.floatbro.browser.BrowserPreferences
+                    .getInstance(context)
             browserPrefs.resolveUserAgent(webView.settings.userAgentString)?.let { ua ->
                 webView.settings.userAgentString = ua
             }
         }
         webView.apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
+            layoutParams =
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f,
+                )
 
             onPageStartedListener = { url ->
                 restoreHeaderNormalState()
@@ -256,7 +271,9 @@ class FloatingWindowView(
                 val resolvedTitle = title?.takeIf { it.isNotBlank() } ?: url
                 updateOmniText(resolvedTitle)
                 updateNavigationState()
-                io.github.floatbro.history.BrowsingHistoryManager.getInstance(context).recordVisit(url, resolvedTitle)
+                io.github.floatbro.history.BrowsingHistoryManager
+                    .getInstance(context)
+                    .recordVisit(url, resolvedTitle)
             }
 
             onProgressChangedListener = { progress ->
@@ -287,20 +304,22 @@ class FloatingWindowView(
                 exitFullscreenVideo(notifyCallback = false)
             }
         }
-        webContainer = FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        }
+        webContainer =
+            FrameLayout(context).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        0,
+                        1f,
+                    )
+            }
         (webView.parent as? ViewGroup)?.removeView(webView)
         webContainer.addView(
             webView,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
         )
         elementZapperManager = ElementZapperManager(context, webView, webContainer)
 
@@ -311,16 +330,17 @@ class FloatingWindowView(
 
             val snapshot = TabOverlayStateBridge.takeSnapshot(sessionId)
             if (snapshot != null && !snapshot.isRecycled) {
-                val coverImageView = ImageView(context).apply {
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    setImageBitmap(snapshot)
-                }
+                val coverImageView =
+                    ImageView(context).apply {
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                        setImageBitmap(snapshot)
+                    }
                 webContainer.addView(
                     coverImageView,
                     FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT
-                    )
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    ),
                 )
 
                 val onFrameCommitAction = {
@@ -328,40 +348,40 @@ class FloatingWindowView(
                         try {
                             viewTreeObserver.registerFrameCommitCallback {
                                 postDelayed({
-                                    coverImageView.animate()
+                                    coverImageView
+                                        .animate()
                                         .alpha(0f)
                                         .setDuration(120L)
                                         .withEndAction {
                                             coverImageView.setImageDrawable(null)
                                             webContainer.removeView(coverImageView)
-                                        }
-                                        .start()
+                                        }.start()
                                     TabOverlayStateBridge.notifyCommit(sessionId)
                                 }, 16L)
                             }
                         } catch (e: Exception) {
                             postDelayed({
-                                coverImageView.animate()
+                                coverImageView
+                                    .animate()
                                     .alpha(0f)
                                     .setDuration(120L)
                                     .withEndAction {
                                         coverImageView.setImageDrawable(null)
                                         webContainer.removeView(coverImageView)
-                                    }
-                                    .start()
+                                    }.start()
                                 TabOverlayStateBridge.notifyCommit(sessionId)
                             }, 48L)
                         }
                     } else {
                         postDelayed({
-                            coverImageView.animate()
-                            .alpha(0f)
-                            .setDuration(120L)
-                            .withEndAction {
-                                coverImageView.setImageDrawable(null)
-                                webContainer.removeView(coverImageView)
-                            }
-                            .start()
+                            coverImageView
+                                .animate()
+                                .alpha(0f)
+                                .setDuration(120L)
+                                .withEndAction {
+                                    coverImageView.setImageDrawable(null)
+                                    webContainer.removeView(coverImageView)
+                                }.start()
                             TabOverlayStateBridge.notifyCommit(sessionId)
                         }, 48L)
                     }
@@ -369,13 +389,16 @@ class FloatingWindowView(
                 if (isAttachedToWindow) {
                     onFrameCommitAction()
                 } else {
-                    addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
-                        override fun onViewAttachedToWindow(v: View) {
-                            removeOnAttachStateChangeListener(this)
-                            onFrameCommitAction()
-                        }
-                        override fun onViewDetachedFromWindow(v: View) {}
-                    })
+                    addOnAttachStateChangeListener(
+                        object : OnAttachStateChangeListener {
+                            override fun onViewAttachedToWindow(v: View) {
+                                removeOnAttachStateChangeListener(this)
+                                onFrameCommitAction()
+                            }
+
+                            override fun onViewDetachedFromWindow(v: View) {}
+                        },
+                    )
                 }
             } else {
                 val onEmptyCommitAction = {
@@ -400,13 +423,16 @@ class FloatingWindowView(
                 if (isAttachedToWindow) {
                     onEmptyCommitAction()
                 } else {
-                    addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
-                        override fun onViewAttachedToWindow(v: View) {
-                            removeOnAttachStateChangeListener(this)
-                            onEmptyCommitAction()
-                        }
-                        override fun onViewDetachedFromWindow(v: View) {}
-                    })
+                    addOnAttachStateChangeListener(
+                        object : OnAttachStateChangeListener {
+                            override fun onViewAttachedToWindow(v: View) {
+                                removeOnAttachStateChangeListener(this)
+                                onEmptyCommitAction()
+                            }
+
+                            override fun onViewDetachedFromWindow(v: View) {}
+                        },
+                    )
                 }
             }
         }
@@ -415,11 +441,12 @@ class FloatingWindowView(
         addView(mainLayout)
 
         // Video Fullscreen Container (window-scoped overlay)
-        customVideoContainer = FrameLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.BLACK)
-            visibility = GONE
-        }
+        customVideoContainer =
+            FrameLayout(context).apply {
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.BLACK)
+                visibility = GONE
+            }
         addView(customVideoContainer)
 
         // 4. 48dp Bottom-Right Resize Handle
@@ -427,13 +454,13 @@ class FloatingWindowView(
         addView(resizeHandle)
     }
 
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            dp,
-            context.resources.displayMetrics
-        ).toInt()
-    }
+    private fun dpToPx(dp: Float): Int =
+        TypedValue
+            .applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                context.resources.displayMetrics,
+            ).toInt()
 
     private fun createAdaptiveHeaderView(): View {
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -443,170 +470,190 @@ class FloatingWindowView(
         val textColor = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
         val cancelColor = if (isDarkMode) Color.parseColor("#60A5FA") else Color.parseColor("#2563EB")
 
-        val header = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(4f), dpToPx(2f), dpToPx(4f), dpToPx(2f))
-            setBackgroundColor(headerBg)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(44f)
-            )
-        }
+        val header =
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dpToPx(4f), dpToPx(2f), dpToPx(4f), dpToPx(2f))
+                setBackgroundColor(headerBg)
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dpToPx(44f),
+                    )
+            }
 
         // 1. Left Nav: Back & Forward buttons
-        btnBack = createHeaderButton(R.drawable.ic_nav_back, "后退") {
-            if (webView.canGoBack()) {
-                webView.goBack()
+        btnBack =
+            createHeaderButton(R.drawable.ic_nav_back, "后退") {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                }
+            }.apply {
+                (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(1f)
             }
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(1f)
-        }
 
-        btnForward = createHeaderButton(R.drawable.ic_nav_forward, "前进") {
-            if (webView.canGoForward()) {
-                webView.goForward()
+        btnForward =
+            createHeaderButton(R.drawable.ic_nav_forward, "前进") {
+                if (webView.canGoForward()) {
+                    webView.goForward()
+                }
+            }.apply {
+                (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(2f)
             }
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginEnd = dpToPx(2f)
-        }
 
         // 2. Center Omnibar Capsule (Height 34dp, Radius 17dp, Expandable)
-        omniCapsule = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(34f), 1f).apply {
-                marginEnd = dpToPx(2f)
-            }
-            setPadding(dpToPx(6f), 0, dpToPx(4f), 0)
-            background = GradientDrawable().apply {
-                setColor(capsuleBg)
-                cornerRadius = dpToPx(17f).toFloat()
-                setStroke(dpToPx(1f), capsuleStroke)
-            }
-
-            urlBadgeText = TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+        omniCapsule =
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                includeFontPadding = false
-                setPadding(0, 0, 0, 0)
-                text = "FloatBro 悬浮浏览"
-                textSize = 11f
-                setTextColor(textColor)
-                isSingleLine = true
-                ellipsize = android.text.TextUtils.TruncateAt.END
-                paint.isFakeBoldText = false
-                isClickable = false
-                isFocusable = false
-            }
-            addView(urlBadgeText)
-
-            urlEditText = EditText(context).apply {
-                layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
-                gravity = Gravity.CENTER_VERTICAL
-                includeFontPadding = false
-                setPadding(0, 0, 0, 0)
-                typeface = Typeface.MONOSPACE
-                textSize = 12f
-                setTextColor(textColor)
-                setBackgroundColor(Color.TRANSPARENT)
-                isSingleLine = true
-                imeOptions = EditorInfo.IME_ACTION_GO
-                visibility = GONE
-                setOnEditorActionListener { _, actionId, event ->
-                    if (actionId == EditorInfo.IME_ACTION_GO ||
-                        actionId == EditorInfo.IME_ACTION_SEARCH ||
-                        (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
-                    ) {
-                        commitUrlInput()
-                        true
-                    } else {
-                        false
+                layoutParams =
+                    LinearLayout.LayoutParams(0, dpToPx(34f), 1f).apply {
+                        marginEnd = dpToPx(2f)
                     }
-                }
-            }
-            addView(urlEditText)
+                setPadding(dpToPx(6f), 0, dpToPx(4f), 0)
+                background =
+                    GradientDrawable().apply {
+                        setColor(capsuleBg)
+                        cornerRadius = dpToPx(17f).toFloat()
+                        setStroke(dpToPx(1f), capsuleStroke)
+                    }
 
-            clearInputButton = ImageButton(context).apply {
-                val iconSize = dpToPx(20f)
-                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-                setBackgroundColor(Color.TRANSPARENT)
-                setImageResource(R.drawable.ic_clear)
-                val iconTint = if (isDarkMode) Color.parseColor("#CBD5E1") else Color.parseColor("#475569")
-                setColorFilter(iconTint)
-                visibility = GONE
-                setOnClickListener { urlEditText.setText("") }
-            }
-            addView(clearInputButton)
+                urlBadgeText =
+                    TextView(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+                        gravity = Gravity.CENTER_VERTICAL
+                        includeFontPadding = false
+                        setPadding(0, 0, 0, 0)
+                        text = "FloatBro 悬浮浏览"
+                        textSize = 11f
+                        setTextColor(textColor)
+                        isSingleLine = true
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                        paint.isFakeBoldText = false
+                        isClickable = false
+                        isFocusable = false
+                    }
+                addView(urlBadgeText)
 
-            btnCapsuleRetry = TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
-                    marginStart = dpToPx(2f)
-                }
-                gravity = Gravity.CENTER_VERTICAL
-                text = "↻"
-                textSize = 14f
-                paint.isFakeBoldText = true
-                setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
-                visibility = GONE
-            }
-            addView(btnCapsuleRetry)
+                urlEditText =
+                    EditText(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+                        gravity = Gravity.CENTER_VERTICAL
+                        includeFontPadding = false
+                        setPadding(0, 0, 0, 0)
+                        typeface = Typeface.MONOSPACE
+                        textSize = 12f
+                        setTextColor(textColor)
+                        setBackgroundColor(Color.TRANSPARENT)
+                        isSingleLine = true
+                        imeOptions = EditorInfo.IME_ACTION_GO
+                        visibility = GONE
+                        setOnEditorActionListener { _, actionId, event ->
+                            if (actionId == EditorInfo.IME_ACTION_GO ||
+                                actionId == EditorInfo.IME_ACTION_SEARCH ||
+                                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                            ) {
+                                commitUrlInput()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    }
+                addView(urlEditText)
 
-            btnCapsuleAllow = TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
-                    marginStart = dpToPx(2f)
-                }
-                gravity = Gravity.CENTER_VERTICAL
-                text = "放行 ↗"
-                textSize = 11f
-                paint.isFakeBoldText = true
-                setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
-                visibility = GONE
-            }
-            addView(btnCapsuleAllow)
+                clearInputButton =
+                    ImageButton(context).apply {
+                        val iconSize = dpToPx(20f)
+                        layoutParams =
+                            LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                                gravity = Gravity.CENTER_VERTICAL
+                            }
+                        setBackgroundColor(Color.TRANSPARENT)
+                        setImageResource(R.drawable.ic_clear)
+                        val iconTint = if (isDarkMode) Color.parseColor("#CBD5E1") else Color.parseColor("#475569")
+                        setColorFilter(iconTint)
+                        visibility = GONE
+                        setOnClickListener { urlEditText.setText("") }
+                    }
+                addView(clearInputButton)
 
-            setOnTouchListener { _, event -> handleOmnibarTouchEvent(event) }
-        }
+                btnCapsuleRetry =
+                    TextView(context).apply {
+                        layoutParams =
+                            LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+                                marginStart = dpToPx(2f)
+                            }
+                        gravity = Gravity.CENTER_VERTICAL
+                        text = "↻"
+                        textSize = 14f
+                        paint.isFakeBoldText = true
+                        setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+                        visibility = GONE
+                    }
+                addView(btnCapsuleRetry)
+
+                btnCapsuleAllow =
+                    TextView(context).apply {
+                        layoutParams =
+                            LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+                                marginStart = dpToPx(2f)
+                            }
+                        gravity = Gravity.CENTER_VERTICAL
+                        text = "放行 ↗"
+                        textSize = 11f
+                        paint.isFakeBoldText = true
+                        setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+                        visibility = GONE
+                    }
+                addView(btnCapsuleAllow)
+
+                setOnTouchListener { _, event -> handleOmnibarTouchEvent(event) }
+            }
 
         // 3. Cancel button for edit mode (hidden by default)
-        btnCancelEdit = TextView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
-                marginStart = dpToPx(4f)
-                marginEnd = dpToPx(4f)
+        btnCancelEdit =
+            TextView(context).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+                        marginStart = dpToPx(4f)
+                        marginEnd = dpToPx(4f)
+                    }
+                gravity = Gravity.CENTER_VERTICAL
+                text = "取消"
+                textSize = 13.5f
+                setTextColor(cancelColor)
+                visibility = GONE
+                isClickable = true
+                isFocusable = true
+                setPadding(dpToPx(8f), 0, dpToPx(8f), 0)
+                setOnClickListener { exitEditMode() }
             }
-            gravity = Gravity.CENTER_VERTICAL
-            text = "取消"
-            textSize = 13.5f
-            setTextColor(cancelColor)
-            visibility = GONE
-            isClickable = true
-            isFocusable = true
-            setPadding(dpToPx(8f), 0, dpToPx(8f), 0)
-            setOnClickListener { exitEditMode() }
-        }
 
         // 4. Right Action Cluster: More (Secondary Menu), Dock, Close
-        btnMore = createHeaderButton(R.drawable.ic_more_vert, "更多选项") {
-            showMoreActionMenu(btnMore)
-        }
+        btnMore =
+            createHeaderButton(R.drawable.ic_more_vert, "更多选项") {
+                showMoreActionMenu(btnMore)
+            }
 
-        btnDock = createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
-            val currentUrl = webView.url ?: "about:blank"
-            val currentTitle = webView.title ?: "已收回网页"
-            exitFullscreenVideo(notifyCallback = true)
-            onDockRequested?.invoke(currentUrl, currentTitle)
-        }
+        btnDock =
+            createHeaderButton(R.drawable.ic_dock_app, "收回至应用内标签") {
+                val currentUrl = webView.url ?: "about:blank"
+                val currentTitle = webView.title ?: "已收回网页"
+                exitFullscreenVideo(notifyCallback = true)
+                onDockRequested?.invoke(currentUrl, currentTitle)
+            }
 
-        btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗", widthDp = 36f) {
-            // Immediate zero-latency visual hide to eliminate perceived lag
-            visibility = GONE
-            exitFullscreenVideo(notifyCallback = true)
-            onCloseRequested?.invoke()
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(2f)
-        }
+        btnClose =
+            createHeaderButton(R.drawable.ic_close, "关闭浮窗", widthDp = 36f) {
+                // Immediate zero-latency visual hide to eliminate perceived lag
+                visibility = GONE
+                exitFullscreenVideo(notifyCallback = true)
+                onCloseRequested?.invoke()
+            }.apply {
+                (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(2f)
+            }
 
         header.addView(btnBack)
         header.addView(btnForward)
@@ -623,15 +670,16 @@ class FloatingWindowView(
         drawableRes: Int,
         tooltip: String,
         widthDp: Float = 28f,
-        onClick: () -> Unit
+        onClick: () -> Unit,
     ): ImageButton {
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val iconTint = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
         return ImageButton(context).apply {
             val btnWidth = dpToPx(widthDp)
-            layoutParams = LinearLayout.LayoutParams(btnWidth, LinearLayout.LayoutParams.MATCH_PARENT).apply {
-                marginStart = dpToPx(1f)
-            }
+            layoutParams =
+                LinearLayout.LayoutParams(btnWidth, LinearLayout.LayoutParams.MATCH_PARENT).apply {
+                    marginStart = dpToPx(1f)
+                }
             val typedValue = TypedValue()
             if (context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)) {
                 setBackgroundResource(typedValue.resourceId)
@@ -657,33 +705,40 @@ class FloatingWindowView(
         val dividerColor = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#E2E8F0")
 
         val density = context.resources.displayMetrics.density
+
         fun dp(v: Float): Int = (v * density + 0.5f).toInt()
 
-        val cardLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(bgColor)
-                cornerRadius = dp(10f).toFloat()
-                setStroke(dp(1f), borderColor)
+        val cardLayout =
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                background =
+                    GradientDrawable().apply {
+                        setColor(bgColor)
+                        cornerRadius = dp(10f).toFloat()
+                        setStroke(dp(1f), borderColor)
+                    }
+                elevation = dp(8f).toFloat()
+                setPadding(0, dp(4f), 0, dp(4f))
             }
-            elevation = dp(8f).toFloat()
-            setPadding(0, dp(4f), 0, dp(4f))
-        }
 
-        val popup = PopupWindow(
-            cardLayout,
-            dp(110f),
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
-        ).apply {
-            isOutsideTouchable = true
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            elevation = dp(8f).toFloat()
-        }
+        val popup =
+            PopupWindow(
+                cardLayout,
+                dp(110f),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                true,
+            ).apply {
+                isOutsideTouchable = true
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                elevation = dp(8f).toFloat()
+            }
         moreMenuPopup = popup
 
-        fun createMenuItem(text: String, onClick: () -> Unit): TextView {
-            return TextView(context).apply {
+        fun createMenuItem(
+            text: String,
+            onClick: () -> Unit,
+        ): TextView =
+            TextView(context).apply {
                 this.text = text
                 textSize = 13f
                 setTextColor(textColor)
@@ -691,10 +746,11 @@ class FloatingWindowView(
                 isClickable = true
                 isFocusable = true
                 setPadding(dp(14f), 0, dp(14f), 0)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(40f)
-                )
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dp(40f),
+                    )
                 val typedValue = TypedValue()
                 if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)) {
                     setBackgroundResource(typedValue.resourceId)
@@ -704,21 +760,26 @@ class FloatingWindowView(
                     onClick()
                 }
             }
-        }
 
-        fun createDivider(): View {
-            return View(context).apply {
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(0.5f)).apply {
-                    setMargins(dp(8f), 0, dp(8f), 0)
-                }
+        fun createDivider(): View =
+            View(context).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(0.5f)).apply {
+                        setMargins(dp(8f), 0, dp(8f), 0)
+                    }
                 setBackgroundColor(dividerColor)
             }
-        }
 
         val currentUrl = webView.url ?: ""
-        val host = try {
-            android.net.Uri.parse(currentUrl).host?.lowercase() ?: ""
-        } catch (_: Exception) { "" }
+        val host =
+            try {
+                android.net.Uri
+                    .parse(currentUrl)
+                    .host
+                    ?.lowercase() ?: ""
+            } catch (_: Exception) {
+                ""
+            }
 
         val prefs = BrowserPreferences.getInstance(context)
         val isGlobalEnabled = prefs.isAdBlockEnabled
@@ -726,52 +787,72 @@ class FloatingWindowView(
         val adBlockTitle = AdBlockMenuHelper.resolveMenuTitle(isGlobalEnabled, isSiteWhitelisted)
 
         // 1. 刷新
-        cardLayout.addView(createMenuItem("刷新") {
-            webView.reload()
-        })
+        cardLayout.addView(
+            createMenuItem("刷新") {
+                webView.reload()
+            },
+        )
 
         cardLayout.addView(createDivider())
 
         // 2. 复制网址
         if (currentUrl.isNotEmpty() && currentUrl != "about:blank") {
-            cardLayout.addView(createMenuItem("复制网址") {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("URL", currentUrl))
-                android.widget.Toast.makeText(context, "网址已复制", android.widget.Toast.LENGTH_SHORT).show()
-            })
+            cardLayout.addView(
+                createMenuItem("复制网址") {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("URL", currentUrl))
+                    android.widget.Toast
+                        .makeText(context, "网址已复制", android.widget.Toast.LENGTH_SHORT)
+                        .show()
+                },
+            )
             cardLayout.addView(createDivider())
         }
 
         // 3. 标记广告
         if (currentUrl.startsWith("http")) {
-            cardLayout.addView(createMenuItem("标记广告") {
-                if (::elementZapperManager.isInitialized) {
-                    elementZapperManager.enterZapperMode()
-                }
-            })
+            cardLayout.addView(
+                createMenuItem("标记广告") {
+                    if (::elementZapperManager.isInitialized) {
+                        elementZapperManager.enterZapperMode()
+                    }
+                },
+            )
             cardLayout.addView(createDivider())
         }
 
         // 4. 广告拦截: 开 / 关
-        cardLayout.addView(createMenuItem(adBlockTitle) {
-            if (!isGlobalEnabled) {
-                prefs.isAdBlockEnabled = true
-                io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(true)
-                android.widget.Toast.makeText(context, "广告拦截已开启", android.widget.Toast.LENGTH_SHORT).show()
-                webView.reload()
-            } else if (host.isNotEmpty()) {
-                val enabledNow = prefs.toggleAdBlockForHost(host)
-                val msg = if (enabledNow) "已恢复拦截" else "已暂停拦截"
-                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
-                webView.reload()
-            } else {
-                prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
-                io.github.edsuns.adfilter.AdFilter.get(context).setEnabled(prefs.isAdBlockEnabled)
-                val msg = if (prefs.isAdBlockEnabled) "广告拦截已开启" else "广告拦截已暂停"
-                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
-                webView.reload()
-            }
-        })
+        cardLayout.addView(
+            createMenuItem(adBlockTitle) {
+                if (!isGlobalEnabled) {
+                    prefs.isAdBlockEnabled = true
+                    io.github.edsuns.adfilter.AdFilter
+                        .get(context)
+                        .setEnabled(true)
+                    android.widget.Toast
+                        .makeText(context, "广告拦截已开启", android.widget.Toast.LENGTH_SHORT)
+                        .show()
+                    webView.reload()
+                } else if (host.isNotEmpty()) {
+                    val enabledNow = prefs.toggleAdBlockForHost(host)
+                    val msg = if (enabledNow) "已恢复拦截" else "已暂停拦截"
+                    android.widget.Toast
+                        .makeText(context, msg, android.widget.Toast.LENGTH_SHORT)
+                        .show()
+                    webView.reload()
+                } else {
+                    prefs.isAdBlockEnabled = !prefs.isAdBlockEnabled
+                    io.github.edsuns.adfilter.AdFilter
+                        .get(context)
+                        .setEnabled(prefs.isAdBlockEnabled)
+                    val msg = if (prefs.isAdBlockEnabled) "广告拦截已开启" else "广告拦截已暂停"
+                    android.widget.Toast
+                        .makeText(context, msg, android.widget.Toast.LENGTH_SHORT)
+                        .show()
+                    webView.reload()
+                }
+            },
+        )
 
         try {
             popup.showAsDropDown(anchor, dp(-74f), dp(4f))
@@ -798,7 +879,8 @@ class FloatingWindowView(
 
     private fun updateNavigationState() {
         post {
-            val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val isDarkMode =
+                (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             val activeColor = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
             val disabledColor = if (isDarkMode) Color.parseColor("#475569") else Color.parseColor("#94A3B8")
 
@@ -821,7 +903,8 @@ class FloatingWindowView(
             // Cancel any pending restoration
             capsuleRestoreRunnable?.let { removeCallbacks(it) }
 
-            val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val isDarkMode =
+                (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
             if (event.isAutoForwarded) {
                 // Case A: Auto-unwrapped destination
@@ -843,7 +926,8 @@ class FloatingWindowView(
                 // Case B: Pure rogue ad blocked
                 try {
                     performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
 
                 val blockedBg = if (isDarkMode) Color.parseColor("#451A03") else Color.parseColor("#FEF3C7")
                 val blockedStroke = if (isDarkMode) Color.parseColor("#D97706") else Color.parseColor("#FCD34D")
@@ -870,7 +954,8 @@ class FloatingWindowView(
                 btnCapsuleRetry.setTextColor(blockedText)
                 btnCapsuleRetry.setOnClickListener {
                     restoreHeaderNormalState()
-                    val selfHealJs = """
+                    val selfHealJs =
+                        """
                         (function() {
                             var el = document.querySelector('[data-floatbro-fallback-next]');
                             if (el && el.getAttribute('data-floatbro-fallback-next')) {
@@ -879,7 +964,7 @@ class FloatingWindowView(
                                 window.history.forward();
                             }
                         })();
-                    """.trimIndent()
+                        """.trimIndent()
                     webView.evaluateJavascript(selfHealJs, null)
                 }
 
@@ -900,76 +985,85 @@ class FloatingWindowView(
         dismissInWindowAllowCard()
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-        val card = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(14f), dpToPx(10f), dpToPx(14f), dpToPx(10f))
-            val cardBg = if (isDarkMode) Color.parseColor("#1E293B") else Color.parseColor("#FFFFFF")
-            val cardStroke = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#E2E8F0")
-            background = GradientDrawable().apply {
-                setColor(cardBg)
-                cornerRadius = dpToPx(12f).toFloat()
-                setStroke(dpToPx(1f), cardStroke)
-            }
-            elevation = dpToPx(8f).toFloat()
-
-            val titleView = TextView(context).apply {
-                text = "允许访问外部目标？\n${event.targetHost}"
-                textSize = 12f
-                isSingleLine = false
-                maxLines = 2
+        val card =
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setTextColor(if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A"))
-            }
-            addView(titleView)
-
-            val btnBar = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                    topMargin = dpToPx(8f)
-                }
-
-                val btnCancel = TextView(context).apply {
-                    text = "取消"
-                    textSize = 12f
-                    setPadding(dpToPx(12f), dpToPx(4f), dpToPx(12f), dpToPx(4f))
-                    setTextColor(if (isDarkMode) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
-                    setOnClickListener {
-                        dismissInWindowAllowCard()
-                        restoreHeaderNormalState()
+                setPadding(dpToPx(14f), dpToPx(10f), dpToPx(14f), dpToPx(10f))
+                val cardBg = if (isDarkMode) Color.parseColor("#1E293B") else Color.parseColor("#FFFFFF")
+                val cardStroke = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#E2E8F0")
+                background =
+                    GradientDrawable().apply {
+                        setColor(cardBg)
+                        cornerRadius = dpToPx(12f).toFloat()
+                        setStroke(dpToPx(1f), cardStroke)
                     }
-                }
-                addView(btnCancel)
+                elevation = dpToPx(8f).toFloat()
 
-                val btnConfirm = TextView(context).apply {
-                    text = "确认访问"
-                    textSize = 12f
-                    paint.isFakeBoldText = true
-                    setPadding(dpToPx(12f), dpToPx(4f), dpToPx(12f), dpToPx(4f))
-                    setTextColor(Color.parseColor("#2563EB"))
-                    setOnClickListener {
-                        dismissInWindowAllowCard()
-                        restoreHeaderNormalState()
-                        val currentHost = webView.url?.let { NavigationSecurityGuard.extractHost(it) } ?: ""
-                        NavigationSecurityGuard.issueBypassToken(currentHost, event.targetHost)
-                        webView.loadUrl(event.originalUrl)
+                val titleView =
+                    TextView(context).apply {
+                        text = "允许访问外部目标？\n${event.targetHost}"
+                        textSize = 12f
+                        isSingleLine = false
+                        maxLines = 2
+                        gravity = Gravity.CENTER
+                        setTextColor(if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A"))
                     }
-                }
-                addView(btnConfirm)
-            }
-            addView(btnBar)
-        }
+                addView(titleView)
 
-        val cardLp = FrameLayout.LayoutParams(
-            LayoutParams.WRAP_CONTENT,
-            LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        ).apply {
-            topMargin = dpToPx(16f)
-            leftMargin = dpToPx(16f)
-            rightMargin = dpToPx(16f)
-        }
+                val btnBar =
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER
+                        layoutParams =
+                            LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                                topMargin = dpToPx(8f)
+                            }
+
+                        val btnCancel =
+                            TextView(context).apply {
+                                text = "取消"
+                                textSize = 12f
+                                setPadding(dpToPx(12f), dpToPx(4f), dpToPx(12f), dpToPx(4f))
+                                setTextColor(if (isDarkMode) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
+                                setOnClickListener {
+                                    dismissInWindowAllowCard()
+                                    restoreHeaderNormalState()
+                                }
+                            }
+                        addView(btnCancel)
+
+                        val btnConfirm =
+                            TextView(context).apply {
+                                text = "确认访问"
+                                textSize = 12f
+                                paint.isFakeBoldText = true
+                                setPadding(dpToPx(12f), dpToPx(4f), dpToPx(12f), dpToPx(4f))
+                                setTextColor(Color.parseColor("#2563EB"))
+                                setOnClickListener {
+                                    dismissInWindowAllowCard()
+                                    restoreHeaderNormalState()
+                                    val currentHost = webView.url?.let { NavigationSecurityGuard.extractHost(it) } ?: ""
+                                    NavigationSecurityGuard.issueBypassToken(currentHost, event.targetHost)
+                                    webView.loadUrl(event.originalUrl)
+                                }
+                            }
+                        addView(btnConfirm)
+                    }
+                addView(btnBar)
+            }
+
+        val cardLp =
+            FrameLayout
+                .LayoutParams(
+                    LayoutParams.WRAP_CONTENT,
+                    LayoutParams.WRAP_CONTENT,
+                    Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                ).apply {
+                    topMargin = dpToPx(16f)
+                    leftMargin = dpToPx(16f)
+                    rightMargin = dpToPx(16f)
+                }
 
         inWindowActionCard = card
         webContainer.addView(card, cardLp)
@@ -989,7 +1083,8 @@ class FloatingWindowView(
         dismissInWindowAllowCard()
 
         if (::omniCapsule.isInitialized) {
-            val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val isDarkMode =
+                (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             val capsuleBg = if (isDarkMode) Color.parseColor("#1E293B") else Color.parseColor("#F1F5F9")
             val capsuleStroke = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#E2E8F0")
             val textColor = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
@@ -1013,9 +1108,7 @@ class FloatingWindowView(
         }
     }
 
-    private fun formatDisplayUrl(raw: String): String {
-        return raw.replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
-    }
+    private fun formatDisplayUrl(raw: String): String = raw.replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
 
     private fun updateOmniText(text: String) {
         if (!isEditMode) {
@@ -1033,13 +1126,14 @@ class FloatingWindowView(
         val displayMetrics = context.resources.displayMetrics
         val screenHeight = displayMetrics.heightPixels
         val estimatedImeHeightPx = dpToPx(300f)
-        val safeY = OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
-            currentY = layoutParams.y,
-            windowHeight = layoutParams.height,
-            screenHeight = screenHeight,
-            keyboardHeight = estimatedImeHeightPx,
-            safeMarginPx = dpToPx(16f)
-        )
+        val safeY =
+            OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
+                currentY = layoutParams.y,
+                windowHeight = layoutParams.height,
+                screenHeight = screenHeight,
+                keyboardHeight = estimatedImeHeightPx,
+                safeMarginPx = dpToPx(16f),
+            )
         if (safeY != layoutParams.y) {
             layoutParams.y = safeY
             if (isAttachedToWindow) {
@@ -1122,7 +1216,10 @@ class FloatingWindowView(
         Timber.d("Exited Omnibar Edit Mode for session $sessionId")
     }
 
-    fun enterFullscreenVideo(view: View, callback: WebChromeClient.CustomViewCallback?) {
+    fun enterFullscreenVideo(
+        view: View,
+        callback: WebChromeClient.CustomViewCallback?,
+    ) {
         if (customVideoView != null) {
             callback?.onCustomViewHidden()
             return
@@ -1141,8 +1238,8 @@ class FloatingWindowView(
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                Gravity.CENTER
-            )
+                Gravity.CENTER,
+            ),
         )
         customVideoContainer.visibility = VISIBLE
         resizeHandleView?.visibility = VISIBLE
@@ -1180,13 +1277,14 @@ class FloatingWindowView(
                 val displayMetrics = context.resources.displayMetrics
                 val screenHeight = displayMetrics.heightPixels
                 val estimatedImeHeightPx = dpToPx(300f)
-                val safeY = OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
-                    currentY = layoutParams.y,
-                    windowHeight = layoutParams.height,
-                    screenHeight = screenHeight,
-                    keyboardHeight = estimatedImeHeightPx,
-                    safeMarginPx = dpToPx(16f)
-                )
+                val safeY =
+                    OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
+                        currentY = layoutParams.y,
+                        windowHeight = layoutParams.height,
+                        screenHeight = screenHeight,
+                        keyboardHeight = estimatedImeHeightPx,
+                        safeMarginPx = dpToPx(16f),
+                    )
                 if (safeY != layoutParams.y) {
                     layoutParams.y = safeY
                     if (isAttachedToWindow) {
@@ -1220,12 +1318,15 @@ class FloatingWindowView(
     private fun commitUrlInput() {
         val input = urlEditText.text.toString().trim()
         if (input.isNotEmpty()) {
-            val prefs = io.github.floatbro.browser.BrowserPreferences.getInstance(context)
-            val resolved = io.github.floatbro.browser.BrowserUrlResolver.resolve(
-                input,
-                prefs.searchEngine,
-                prefs.customSearchUrl
-            )
+            val prefs =
+                io.github.floatbro.browser.BrowserPreferences
+                    .getInstance(context)
+            val resolved =
+                io.github.floatbro.browser.BrowserUrlResolver.resolve(
+                    input,
+                    prefs.searchEngine,
+                    prefs.customSearchUrl,
+                )
             webView.loadUrlSafely(resolved)
         }
         exitEditMode()
@@ -1328,12 +1429,13 @@ class FloatingWindowView(
 
         // Outer borders intercept for dragging
         val isVideoFullscreen = customVideoView != null
-        val onOuterEdge = if (isVideoFullscreen) {
-            // In video fullscreen: allow top and side edges to drag the window; do not intercept bottom edge to protect player progress bar
-            (y <= edgeSize || x <= edgeSize || x >= width - edgeSize)
-        } else {
-            y > headerHeight && (x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize)
-        }
+        val onOuterEdge =
+            if (isVideoFullscreen) {
+                // In video fullscreen: allow top and side edges to drag the window; do not intercept bottom edge to protect player progress bar
+                (y <= edgeSize || x <= edgeSize || x >= width - edgeSize)
+            } else {
+                y > headerHeight && (x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize)
+            }
         if (onOuterEdge) {
             return true
         }
@@ -1413,7 +1515,10 @@ class FloatingWindowView(
         return false
     }
 
-    private fun finishDragGesture(dropX: Float = 0f, dropY: Float = 0f): Boolean {
+    private fun finishDragGesture(
+        dropX: Float = 0f,
+        dropY: Float = 0f,
+    ): Boolean {
         val displayMetrics = context.resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
@@ -1421,13 +1526,14 @@ class FloatingWindowView(
 
         val isDismissHit = onDragEnded?.invoke(dropX, dropY) ?: false
 
-        val action = OverlayPhysicsHelper.resolveWindowDragAction(
-            currentY = layoutParams.y,
-            currentX = layoutParams.x,
-            windowWidth = winWidth,
-            screenWidth = screenWidth,
-            isDismissHit = isDismissHit
-        )
+        val action =
+            OverlayPhysicsHelper.resolveWindowDragAction(
+                currentY = layoutParams.y,
+                currentX = layoutParams.x,
+                windowWidth = winWidth,
+                screenWidth = screenWidth,
+                isDismissHit = isDismissHit,
+            )
 
         return when (action) {
             WindowDragAction.DISMISS_TO_TARGET -> {
@@ -1446,12 +1552,13 @@ class FloatingWindowView(
             WindowDragAction.SNAP_EDGE -> {
                 val edgeDetectRange = dpToPx(36f)
                 val startX = layoutParams.x
-                val targetX = OverlayPhysicsHelper.calculateSnapTargetX(
-                    currentX = startX,
-                    windowWidth = winWidth,
-                    screenWidth = screenWidth,
-                    snapThresholdPx = edgeDetectRange
-                )
+                val targetX =
+                    OverlayPhysicsHelper.calculateSnapTargetX(
+                        currentX = startX,
+                        windowWidth = winWidth,
+                        screenWidth = screenWidth,
+                        snapThresholdPx = edgeDetectRange,
+                    )
 
                 // Clamp Y in safe bounds
                 val minY = dpToPx(36f)
@@ -1478,11 +1585,13 @@ class FloatingWindowView(
                                 }
                             }
                         }
-                        addListener(object : android.animation.AnimatorListenerAdapter() {
-                            override fun onAnimationEnd(animation: android.animation.Animator) {
-                                onBringToFrontRequested?.invoke()
-                            }
-                        })
+                        addListener(
+                            object : android.animation.AnimatorListenerAdapter() {
+                                override fun onAnimationEnd(animation: android.animation.Animator) {
+                                    onBringToFrontRequested?.invoke()
+                                }
+                            },
+                        )
                         start()
                     }
                 } else {
@@ -1506,7 +1615,13 @@ class FloatingWindowView(
             MotionEvent.ACTION_DOWN -> {
                 isResizing = true
                 parent?.requestDisallowInterceptTouchEvent(true)
-                resizeHandleView?.animate()?.scaleX(1.15f)?.scaleY(1.15f)?.alpha(1.0f)?.setDuration(120)?.start()
+                resizeHandleView
+                    ?.animate()
+                    ?.scaleX(1.15f)
+                    ?.scaleY(1.15f)
+                    ?.alpha(1.0f)
+                    ?.setDuration(120)
+                    ?.start()
                 resizeStartX = event.rawX
                 resizeStartY = event.rawY
                 initialWindowWidth = layoutParams.width
@@ -1523,14 +1638,15 @@ class FloatingWindowView(
                 val maxAllowedWidth = displayMetrics.widthPixels - layoutParams.x
                 val maxAllowedHeight = displayMetrics.heightPixels - layoutParams.y
 
-                val (newWidth, newHeight) = WindowBoundsHelper.clampDimensions(
-                    rawWidth = initialWindowWidth + dx,
-                    rawHeight = initialWindowHeight + dy,
-                    minWidth = minWidthPx,
-                    maxWidth = maxAllowedWidth,
-                    minHeight = currentMinHeightPx,
-                    maxHeight = maxAllowedHeight
-                )
+                val (newWidth, newHeight) =
+                    WindowBoundsHelper.clampDimensions(
+                        rawWidth = initialWindowWidth + dx,
+                        rawHeight = initialWindowHeight + dy,
+                        minWidth = minWidthPx,
+                        maxWidth = maxAllowedWidth,
+                        minHeight = currentMinHeightPx,
+                        maxHeight = maxAllowedHeight,
+                    )
 
                 if (newWidth != layoutParams.width || newHeight != layoutParams.height) {
                     layoutParams.width = newWidth
@@ -1550,7 +1666,13 @@ class FloatingWindowView(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isResizing = false
                 parent?.requestDisallowInterceptTouchEvent(false)
-                resizeHandleView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.5f)?.setDuration(120)?.start()
+                resizeHandleView
+                    ?.animate()
+                    ?.scaleX(1.0f)
+                    ?.scaleY(1.0f)
+                    ?.alpha(0.5f)
+                    ?.setDuration(120)
+                    ?.start()
                 return true
             }
         }
@@ -1571,12 +1693,13 @@ class FloatingWindowView(
                     exitEditMode()
                     return true
                 }
-                val action = BackNavigationDispatcher.resolveBackAction(
-                    isVideoFullscreen = customVideoView != null,
-                    isMenuOpen = false,
-                    canPane2GoBack = false,
-                    canPane1GoBack = webView.canGoBack()
-                )
+                val action =
+                    BackNavigationDispatcher.resolveBackAction(
+                        isVideoFullscreen = customVideoView != null,
+                        isMenuOpen = false,
+                        canPane2GoBack = false,
+                        canPane1GoBack = webView.canGoBack(),
+                    )
                 return when (action) {
                     BackAction.EXIT_VIDEO_FULLSCREEN -> {
                         exitFullscreenVideo(notifyCallback = true)

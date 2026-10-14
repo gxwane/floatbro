@@ -40,16 +40,17 @@ import io.github.floatbro.ui.theme.*
  */
 @Composable
 fun AdBlockRulesDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val adFilter = remember {
-        try {
-            AdFilter.get(context)
-        } catch (_: Exception) {
-            null
+    val adFilter =
+        remember {
+            try {
+                AdFilter.get(context)
+            } catch (_: Exception) {
+                null
+            }
         }
-    }
 
     var isEasyListEnabled by remember {
         mutableStateOf(adFilter?.isRulePackEnabled(AdFilter.PACK_EASYLIST) ?: true)
@@ -61,13 +62,14 @@ fun AdBlockRulesDialog(
         mutableStateOf(adFilter?.isRulePackEnabled(AdFilter.PACK_PRIVACY) ?: true)
     }
 
-    val customFilter = remember {
-        try {
-            adFilter?.customFilter
-        } catch (_: Exception) {
-            null
+    val customFilter =
+        remember {
+            try {
+                adFilter?.customFilter
+            } catch (_: Exception) {
+                null
+            }
         }
-    }
 
     var customRules by remember {
         val list = mutableListOf<String>()
@@ -91,36 +93,38 @@ fun AdBlockRulesDialog(
                 text = "规则管理",
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
-                color = Slate900
+                color = Slate900,
             )
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 // 1. 基础过滤规则 (EasyList)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "基础过滤规则",
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.5.sp,
-                        color = Slate900
+                        color = Slate900,
                     )
                     Switch(
                         checked = isEasyListEnabled,
                         onCheckedChange = {
                             isEasyListEnabled = it
                             adFilter?.setRulePackEnabled(AdFilter.PACK_EASYLIST, it)
-                        }
+                        },
                     )
                 }
 
@@ -128,24 +132,25 @@ fun AdBlockRulesDialog(
 
                 // 2. 中文增强规则 (EasyList China)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "中文增强规则",
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.5.sp,
-                        color = Slate900
+                        color = Slate900,
                     )
                     Switch(
                         checked = isChinaEnabled,
                         onCheckedChange = {
                             isChinaEnabled = it
                             adFilter?.setRulePackEnabled(AdFilter.PACK_CHINA, it)
-                        }
+                        },
                     )
                 }
 
@@ -153,24 +158,25 @@ fun AdBlockRulesDialog(
 
                 // 3. 隐私防追踪 (EasyPrivacy)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "隐私防追踪",
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.5.sp,
-                        color = Slate900
+                        color = Slate900,
                     )
                     Switch(
                         checked = isPrivacyEnabled,
                         onCheckedChange = {
                             isPrivacyEnabled = it
                             adFilter?.setRulePackEnabled(AdFilter.PACK_PRIVACY, it)
-                        }
+                        },
                     )
                 }
 
@@ -179,38 +185,40 @@ fun AdBlockRulesDialog(
 
                 // 4. 自定义规则 (收敛在底部，可展开)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isCustomExpanded = !isCustomExpanded }
-                        .padding(vertical = 12.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { isCustomExpanded = !isCustomExpanded }
+                            .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "自定义规则 (${customRules.size})",
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.5.sp,
-                        color = Slate700
+                        color = Slate700,
                     )
                     Text(
                         text = if (isCustomExpanded) "收起" else "展开",
                         fontSize = 12.sp,
                         color = BrandBlue,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
                     )
                 }
 
                 if (isCustomExpanded) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             OutlinedTextField(
                                 value = newRuleInput,
@@ -218,7 +226,7 @@ fun AdBlockRulesDialog(
                                 placeholder = { Text("输入规则，如 ||example.com^", fontSize = 12.sp) },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             )
                             Button(
                                 onClick = {
@@ -235,7 +243,7 @@ fun AdBlockRulesDialog(
                                         }
                                     }
                                 },
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             ) {
                                 Text("添加", fontSize = 12.sp)
                             }
@@ -244,16 +252,17 @@ fun AdBlockRulesDialog(
                         if (customRules.isNotEmpty()) {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 customRules.forEach { rule ->
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(Slate50, RoundedCornerShape(6.dp))
-                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .background(Slate50, RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 8.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
                                         Text(
                                             text = rule,
@@ -262,7 +271,7 @@ fun AdBlockRulesDialog(
                                             color = Slate800,
                                             modifier = Modifier.weight(1f),
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            overflow = TextOverflow.Ellipsis,
                                         )
                                         IconButton(
                                             onClick = {
@@ -273,13 +282,13 @@ fun AdBlockRulesDialog(
                                                     Toast.makeText(context, "已移除规则", Toast.LENGTH_SHORT).show()
                                                 }
                                             },
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(24.dp),
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
                                                 contentDescription = "删除",
                                                 tint = Slate400,
-                                                modifier = Modifier.size(14.dp)
+                                                modifier = Modifier.size(14.dp),
                                             )
                                         }
                                     }
@@ -295,7 +304,7 @@ fun AdBlockRulesDialog(
                                         Toast.makeText(context, "已清空自定义规则", Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                modifier = Modifier.align(Alignment.End)
+                                modifier = Modifier.align(Alignment.End),
                             ) {
                                 Text("清空自定义规则", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                             }
@@ -310,6 +319,6 @@ fun AdBlockRulesDialog(
             }
         },
         containerColor = Color.White,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
     )
 }

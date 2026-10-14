@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017 DuckDuckGo
- *  
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,12 +24,15 @@ package io.github.edsuns.adblockclient
  * Reference: [github.com/duckduckgo/Android/releases/tag/5.38.1](https://github.com/duckduckgo/Android/releases/tag/5.38.1)
  */
 interface Client {
-
     val id: String
 
     var isGenericElementHidingEnabled: Boolean
 
-    fun matches(url: String, documentUrl: String, resourceType: ResourceType): MatchResult
+    fun matches(
+        url: String,
+        documentUrl: String,
+        resourceType: ResourceType,
+    ): MatchResult
 
     fun getElementHidingSelectors(url: String): String?
 
@@ -38,5 +41,4 @@ interface Client {
     fun getCssRules(url: String): Array<String>?
 
     fun getScriptlets(url: String): Array<String>?
-
 }

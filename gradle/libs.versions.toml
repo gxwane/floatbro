@@ -4,6 +4,10 @@ agp = "8.13.2"
 kotlin = "2.1.21"
 ksp = "2.1.20-1.0.32"
 
+# --- 质量与静态分析工具链 ---
+spotless = "7.0.2"
+detekt = "1.23.8"
+
 # --- Kotlin 协程与序列化 ---
 coroutines = "1.11.0"
 kotlinxSerializationJson = "1.6.3"
@@ -115,3 +119,5 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

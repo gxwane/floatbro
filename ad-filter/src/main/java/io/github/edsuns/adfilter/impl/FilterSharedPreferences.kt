@@ -12,8 +12,9 @@ import kotlinx.serialization.json.Json
  * Created by Edsuns@qq.com on 2021/1/1.
  */
 @OptIn(ExperimentalSerializationApi::class)
-internal class FilterSharedPreferences(private val context: Context) {
-
+internal class FilterSharedPreferences(
+    private val context: Context,
+) {
     val hasInstallation: Boolean
         get() = preferences.contains(KEY_FILTER_MAP)
 
@@ -27,12 +28,13 @@ internal class FilterSharedPreferences(private val context: Context) {
 
     var downloadFilterIdMap: HashMap<String, String>
         get() = Json.decodeFromString(preferences.getString(KEY_DOWNLOAD_FILTER_ID_MAP, "{}")!!)
-        set(value) = preferences.edit {
-            putString(
-                KEY_DOWNLOAD_FILTER_ID_MAP,
-                Json.encodeToString(value)
-            )
-        }
+        set(value) =
+            preferences.edit {
+                putString(
+                    KEY_DOWNLOAD_FILTER_ID_MAP,
+                    Json.encodeToString(value),
+                )
+            }
 
     private val preferences: SharedPreferences
         get() = context.getSharedPreferences(FILENAME, Context.MODE_PRIVATE)

@@ -14,7 +14,6 @@ package io.github.floatbro.overlay
 import kotlin.math.hypot
 
 object OverlayPhysicsHelper {
-
     /**
      * Calculates the adjusted Y coordinate for a floating window to avoid being covered
      * by the software keyboard (IME).
@@ -31,7 +30,7 @@ object OverlayPhysicsHelper {
         windowHeight: Int,
         screenHeight: Int,
         keyboardHeight: Int,
-        safeMarginPx: Int = 32
+        safeMarginPx: Int = 32,
     ): Int {
         if (keyboardHeight <= 0) return currentY
         val keyboardTop = screenHeight - keyboardHeight
@@ -56,7 +55,7 @@ object OverlayPhysicsHelper {
         currentX: Int,
         windowWidth: Int,
         screenWidth: Int,
-        snapThresholdPx: Int
+        snapThresholdPx: Int,
     ): Int {
         val windowRight = currentX + windowWidth
         return when {
@@ -74,7 +73,7 @@ object OverlayPhysicsHelper {
         bubbleCenterY: Float,
         targetCenterX: Float,
         targetCenterY: Float,
-        hitRadiusPx: Float
+        hitRadiusPx: Float,
     ): Boolean {
         val distance = hypot(bubbleCenterX - targetCenterX, bubbleCenterY - targetCenterY)
         return distance <= hitRadiusPx
@@ -89,7 +88,7 @@ object OverlayPhysicsHelper {
         windowWidth: Int,
         screenWidth: Int,
         isDismissHit: Boolean,
-        collapseRatio: Float = 0.40f
+        collapseRatio: Float = 0.40f,
     ): WindowDragAction {
         if (isDismissHit) {
             return WindowDragAction.DISMISS_TO_TARGET
@@ -109,5 +108,5 @@ object OverlayPhysicsHelper {
 enum class WindowDragAction {
     DISMISS_TO_TARGET,
     COLLAPSE_TO_BUBBLE,
-    SNAP_EDGE
+    SNAP_EDGE,
 }

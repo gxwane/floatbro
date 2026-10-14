@@ -24,7 +24,6 @@ import org.junit.Test
  * and view tree binding readiness.
  */
 class OverlayLifecycleContextTest {
-
     @get:Rule
     val instantTaskExecutorRule = InstantTaskExecutorRule()
 

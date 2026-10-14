@@ -14,28 +14,29 @@ package io.github.edsuns.adfilter.script
  * frame stays visible.
  */
 internal object NativeExtendedCss {
-
     // Pseudo-classes (and legacy attribute forms) with no native equivalent.
-    private val NON_NATIVE_MARKERS = listOf(
-        ":contains(",
-        ":has-text(",
-        ":matches-css",
-        ":matches-attr(",
-        ":matches-property(",
-        ":xpath(",
-        ":nth-ancestor(",
-        ":upward(",
-        ":remove(",
-        ":if(",
-        ":if-not(",
-        ":min-text-length(",
-        ":watch-attr",
-        "-abp-",
-        "[-ext-",
-    )
+    private val NON_NATIVE_MARKERS =
+        listOf(
+            ":contains(",
+            ":has-text(",
+            ":matches-css",
+            ":matches-attr(",
+            ":matches-property(",
+            ":xpath(",
+            ":nth-ancestor(",
+            ":upward(",
+            ":remove(",
+            ":if(",
+            ":if-not(",
+            ":min-text-length(",
+            ":watch-attr",
+            "-abp-",
+            "[-ext-",
+        )
 
     fun isNativeExpressible(selector: String): Boolean =
-        '{' !in selector && '}' !in selector &&
+        '{' !in selector &&
+            '}' !in selector &&
             NON_NATIVE_MARKERS.none { selector.contains(it, ignoreCase = true) }
 
     /**
@@ -43,7 +44,10 @@ internal object NativeExtendedCss {
      * the WebView doesn't support (e.g. :has() before Chromium 105) then
      * invalidates only its own rule instead of a whole grouped one.
      */
-    fun buildRules(selectors: List<String>, hidingDeclaration: String): String {
+    fun buildRules(
+        selectors: List<String>,
+        hidingDeclaration: String,
+    ): String {
         val sb = StringBuilder()
         for (selector in selectors) {
             if (!isNativeExpressible(selector)) continue

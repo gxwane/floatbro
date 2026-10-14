@@ -16,7 +16,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class AdBlockMenuHelperTest {
-
     @Test
     fun testGlobalDisabledTakesPrecedence() {
         // 当全局关闭时，无论站点是否在白名单，都应明确提示“全局已关闭”，严禁误报为“已加白名单”

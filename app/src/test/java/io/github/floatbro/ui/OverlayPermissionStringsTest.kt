@@ -17,7 +17,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OverlayPermissionStringsTest {
-
     @Test
     fun testRationaleTitleAndButtonsAreConcise() {
         assertEquals("开启悬浮窗权限", OverlayPermissionStrings.RATIONALE_TITLE)

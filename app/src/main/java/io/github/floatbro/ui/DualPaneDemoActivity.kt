@@ -21,45 +21,50 @@ import io.github.floatbro.core.webview.controller.PaneController
 import io.github.floatbro.core.webview.twopane.TwoPaneLayout
 
 class DualPaneDemoActivity : ComponentActivity() {
-
     private lateinit var twoPaneLayout: TwoPaneLayout
     private lateinit var controller: PaneController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val rootLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#EEEEEE"))
-        }
+        val rootLayout =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.parseColor("#EEEEEE"))
+            }
 
         // Top Control Bar
-        val controlBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#E0E0E0"))
-            setPadding(16, 12, 16, 12)
-        }
+        val controlBar =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setBackgroundColor(Color.parseColor("#E0E0E0"))
+                setPadding(16, 12, 16, 12)
+            }
 
-        val btnToggleOrientation = Button(this).apply {
-            text = "横/竖切分"
-            setOnClickListener { controller.toggleOrientation() }
-        }
+        val btnToggleOrientation =
+            Button(this).apply {
+                text = "横/竖切分"
+                setOnClickListener { controller.toggleOrientation() }
+            }
 
-        val btnToggleSecond = Button(this).apply {
-            text = "开/关副屏"
-            setOnClickListener { controller.toggleSecondPane() }
-        }
+        val btnToggleSecond =
+            Button(this).apply {
+                text = "开/关副屏"
+                setOnClickListener { controller.toggleSecondPane() }
+            }
 
-        val btnSwap = Button(this).apply {
-            text = "对调两屏"
-            setOnClickListener { controller.swapPanes() }
-        }
+        val btnSwap =
+            Button(this).apply {
+                text = "对调两屏"
+                setOnClickListener { controller.swapPanes() }
+            }
 
-        val btnReset = Button(this).apply {
-            text = "50:50复位"
-            setOnClickListener { controller.resetRatio() }
-        }
+        val btnReset =
+            Button(this).apply {
+                text = "50:50复位"
+                setOnClickListener { controller.resetRatio() }
+            }
 
         controlBar.addView(btnToggleOrientation)
         controlBar.addView(btnToggleSecond)
@@ -69,13 +74,15 @@ class DualPaneDemoActivity : ComponentActivity() {
         rootLayout.addView(controlBar)
 
         // TwoPaneLayout Container
-        twoPaneLayout = TwoPaneLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        }
+        twoPaneLayout =
+            TwoPaneLayout(this).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        0,
+                        1f,
+                    )
+            }
         controller = PaneController(twoPaneLayout)
 
         rootLayout.addView(twoPaneLayout)

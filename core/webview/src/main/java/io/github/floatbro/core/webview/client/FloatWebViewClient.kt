@@ -33,9 +33,8 @@ class FloatWebViewClient(
     private val onPageFinishedCallback: ((url: String) -> Unit)? = null,
     private val onTitleUpdated: ((title: String) -> Unit)? = null,
     private val onPageCommitVisibleCallback: ((url: String) -> Unit)? = null,
-    private val onNavigationBlockedCallback: ((NavigationBlockEvent) -> Unit)? = null
+    private val onNavigationBlockedCallback: ((NavigationBlockEvent) -> Unit)? = null,
 ) : WebViewClient() {
-
     /**
      * When true (e.g. during Element Zapper mode), physically freezes all navigation
      * to prevent rogue ad scripts or clicked links from navigating the page away.
@@ -44,7 +43,7 @@ class FloatWebViewClient(
 
     override fun shouldInterceptRequest(
         view: WebView,
-        request: WebResourceRequest
+        request: WebResourceRequest,
     ): WebResourceResponse? {
         // Block rogue pseudo-domain app hijacks (e.g. baiduboxapp DNS failure)
         val host = request.url.host?.lowercase()
@@ -56,8 +55,10 @@ class FloatWebViewClient(
         // Block rogue subresources on non-standard high ports (e.g. ad networks on :37068, :33473, :8321)
         val port = request.url.port
         val isNonStandardPort = port > 0 && port != 80 && port != 443 && port != 8080 && port != 8443
-        val isLocalhost = host == "localhost" || host == "127.0.0.1" ||
-            (host != null && (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")))
+        val isLocalhost =
+            host == "localhost" ||
+                host == "127.0.0.1" ||
+                (host != null && (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")))
         if (isNonStandardPort && !isLocalhost && !request.isForMainFrame) {
             Timber.i("Blocked high-port rogue subresource: %s (port=%d)", request.url, port)
             return WebResourceResponse("text/plain", "UTF-8", null)
@@ -68,16 +69,25 @@ class FloatWebViewClient(
             AdFilter.get().setMainFrameUrl(view, request.url.toString())
         }
 
-        val mainFrameUrl = if (request.isForMainFrame) {
-            request.url.toString()
-        } else {
-            AdFilter.get().getMainFrameUrl(view)
-                ?: request.requestHeaders?.get("Referer")
-                ?: request.requestHeaders?.get("referer")
-        }
-        val mainFrameHost = try {
-            mainFrameUrl?.let { android.net.Uri.parse(it).host?.lowercase() } ?: ""
-        } catch (_: Exception) { "" }
+        val mainFrameUrl =
+            if (request.isForMainFrame) {
+                request.url.toString()
+            } else {
+                AdFilter.get().getMainFrameUrl(view)
+                    ?: request.requestHeaders?.get("Referer")
+                    ?: request.requestHeaders?.get("referer")
+            }
+        val mainFrameHost =
+            try {
+                mainFrameUrl?.let {
+                    android.net.Uri
+                        .parse(it)
+                        .host
+                        ?.lowercase()
+                } ?: ""
+            } catch (_: Exception) {
+                ""
+            }
 
         val prefs = BrowserPreferences.getInstance(view.context)
         if (prefs.isAdBlockEnabled && (mainFrameHost.isEmpty() || prefs.isAdBlockEnabledForHost(mainFrameHost))) {
@@ -90,26 +100,33 @@ class FloatWebViewClient(
         return super.shouldInterceptRequest(view, request)
     }
 
-    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-        return handleUrlOverride(view, request, request.url.toString())
-    }
+    override fun shouldOverrideUrlLoading(
+        view: WebView,
+        request: WebResourceRequest,
+    ): Boolean = handleUrlOverride(view, request, request.url.toString())
 
     @Deprecated("Deprecated in Java")
-    override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-        return handleUrlOverride(view, null, url)
-    }
+    override fun shouldOverrideUrlLoading(
+        view: WebView,
+        url: String,
+    ): Boolean = handleUrlOverride(view, null, url)
 
-    private fun handleUrlOverride(view: WebView, request: WebResourceRequest?, url: String): Boolean {
+    private fun handleUrlOverride(
+        view: WebView,
+        request: WebResourceRequest?,
+        url: String,
+    ): Boolean {
         if (isNavigationFrozen) {
             Timber.w("Navigation Freeze active: Blocked navigation attempt to %s", url)
             return true
         }
 
-        val uri = try {
-            android.net.Uri.parse(url)
-        } catch (_: Exception) {
-            return true
-        }
+        val uri =
+            try {
+                android.net.Uri.parse(url)
+            } catch (_: Exception) {
+                return true
+            }
 
         val scheme = uri.scheme?.lowercase() ?: return true
         val host = uri.host?.lowercase()
@@ -122,8 +139,8 @@ class FloatWebViewClient(
                     originalUrl = url,
                     cleanRedirectUrl = null,
                     targetHost = host,
-                    isAutoForwarded = false
-                )
+                    isAutoForwarded = false,
+                ),
             )
             return true
         }
@@ -155,8 +172,8 @@ class FloatWebViewClient(
                             originalUrl = url,
                             cleanRedirectUrl = unwrapped,
                             targetHost = targetHost,
-                            isAutoForwarded = true
-                        )
+                            isAutoForwarded = true,
+                        ),
                     )
                     // REDLINE-5: Return true immediately to prevent rogue URL from entering the history stack (BackForwardList)!
                     view.post {
@@ -173,8 +190,8 @@ class FloatWebViewClient(
                         originalUrl = url,
                         cleanRedirectUrl = null,
                         targetHost = targetHost,
-                        isAutoForwarded = false
-                    )
+                        isAutoForwarded = false,
+                    ),
                 )
                 // Return true to block ad landing page from committing
                 return true
@@ -185,9 +202,20 @@ class FloatWebViewClient(
         return false
     }
 
-    private fun injectAdFilterScriptIfEnabled(view: WebView, url: String?) {
+    private fun injectAdFilterScriptIfEnabled(
+        view: WebView,
+        url: String?,
+    ) {
         if (!url.isNullOrEmpty()) {
-            val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+            val host =
+                try {
+                    android.net.Uri
+                        .parse(url)
+                        .host
+                        ?.lowercase() ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
             val prefs = BrowserPreferences.getInstance(view.context)
             if (prefs.isAdBlockEnabled && (host.isEmpty() || prefs.isAdBlockEnabledForHost(host))) {
                 try {
@@ -200,7 +228,11 @@ class FloatWebViewClient(
         }
     }
 
-    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+    override fun onPageStarted(
+        view: WebView,
+        url: String?,
+        favicon: Bitmap?,
+    ) {
         super.onPageStarted(view, url, favicon)
         // 1. Inject Stealth polyfill for mobile anti-anti-adblock & anti-crawler protection
         injectStealthPolyfill(view)
@@ -211,7 +243,10 @@ class FloatWebViewClient(
         }
     }
 
-    override fun onPageFinished(view: WebView, url: String?) {
+    override fun onPageFinished(
+        view: WebView,
+        url: String?,
+    ) {
         super.onPageFinished(view, url)
         injectAdFilterScriptIfEnabled(view, url)
         if (!url.isNullOrEmpty()) {
@@ -219,14 +254,19 @@ class FloatWebViewClient(
             InputFocusBridge.inject(view)
 
             // Bing mobile viewport resize & anti-collapse fallback (scoped strictly to *.bing.com)
-            val isBing = try {
-                android.net.Uri.parse(url).host?.endsWith("bing.com") == true
-            } catch (_: Exception) {
-                false
-            }
+            val isBing =
+                try {
+                    android.net.Uri
+                        .parse(url)
+                        .host
+                        ?.endsWith("bing.com") == true
+                } catch (_: Exception) {
+                    false
+                }
 
             if (isBing) {
-                val bingFixJs = """
+                val bingFixJs =
+                    """
                     (function() {
                         window.dispatchEvent(new Event('resize'));
                         var app = document.getElementById('hp_app');
@@ -235,19 +275,25 @@ class FloatWebViewClient(
                             window.dispatchEvent(new Event('resize'));
                         }
                     })();
-                """.trimIndent()
+                    """.trimIndent()
                 view.evaluateJavascript(bingFixJs, null)
             }
 
             // Scoped novel site decryption fallback (strictly scoped to known novel domains)
-            val isNovelSite = try {
-                val host = android.net.Uri.parse(url).host?.lowercase() ?: ""
-                host.endsWith("piquge.com") || host.endsWith("biquge.com")
-            } catch (_: Exception) {
-                false
-            }
+            val isNovelSite =
+                try {
+                    val host =
+                        android.net.Uri
+                            .parse(url)
+                            .host
+                            ?.lowercase() ?: ""
+                    host.endsWith("piquge.com") || host.endsWith("biquge.com")
+                } catch (_: Exception) {
+                    false
+                }
             if (isNovelSite) {
-                val novelFixJs = """
+                val novelFixJs =
+                    """
                     (function() {
                         try {
                             if (typeof c !== 'undefined' && typeof php_decrypt_js === 'function') {
@@ -258,7 +304,7 @@ class FloatWebViewClient(
                             }
                         } catch (_) {}
                     })();
-                """.trimIndent()
+                    """.trimIndent()
                 view.evaluateJavascript(novelFixJs, null)
             }
 
@@ -269,23 +315,30 @@ class FloatWebViewClient(
     }
 
     companion object {
-        fun isAbortedError(errorCode: Int, description: String?): Boolean {
+        fun isAbortedError(
+            errorCode: Int,
+            description: String?,
+        ): Boolean {
             val desc = description ?: ""
             return desc.contains("ERR_ABORTED", ignoreCase = true) ||
-                   (errorCode == WebViewClient.ERROR_UNKNOWN && desc.contains("ABORTED", ignoreCase = true))
+                (errorCode == WebViewClient.ERROR_UNKNOWN && desc.contains("ABORTED", ignoreCase = true))
         }
 
         @Volatile
         private var cachedSanitizerJs: String? = null
 
         fun injectPaginationSanitizer(view: WebView) {
-            val js = cachedSanitizerJs ?: try {
-                view.context.assets.open("adfilter/pagination_sanitizer.js").bufferedReader().use { it.readText() }
-                    .also { cachedSanitizerJs = it }
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to load pagination_sanitizer.js")
-                null
-            }
+            val js =
+                cachedSanitizerJs ?: try {
+                    view.context.assets
+                        .open("adfilter/pagination_sanitizer.js")
+                        .bufferedReader()
+                        .use { it.readText() }
+                        .also { cachedSanitizerJs = it }
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to load pagination_sanitizer.js")
+                    null
+                }
             if (!js.isNullOrBlank()) {
                 view.evaluateJavascript(js, null)
             }
@@ -304,7 +357,10 @@ class FloatWebViewClient(
         """
     }
 
-    override fun onPageCommitVisible(view: WebView, url: String) {
+    override fun onPageCommitVisible(
+        view: WebView,
+        url: String,
+    ) {
         super.onPageCommitVisible(view, url)
         Timber.d("onPageCommitVisible: %s", url)
         injectAdFilterScriptIfEnabled(view, url)
@@ -316,7 +372,7 @@ class FloatWebViewClient(
     override fun onReceivedError(
         view: WebView,
         request: WebResourceRequest,
-        error: WebResourceError
+        error: WebResourceError,
     ) {
         super.onReceivedError(view, request, error)
         if (request.isForMainFrame) {
@@ -338,7 +394,7 @@ class FloatWebViewClient(
         view: WebView,
         errorCode: Int,
         description: String?,
-        failingUrl: String?
+        failingUrl: String?,
     ) {
         @Suppress("DEPRECATION")
         super.onReceivedError(view, errorCode, description, failingUrl)
@@ -353,24 +409,34 @@ class FloatWebViewClient(
         view.loadDataWithBaseURL(url, errorHtml, "text/html", "UTF-8", url)
     }
 
-    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+    override fun onRenderProcessGone(
+        view: WebView,
+        detail: RenderProcessGoneDetail,
+    ): Boolean {
         Timber.e("WebView render process gone (didCrash=%b)", detail.didCrash())
         (view.parent as? ViewGroup)?.removeView(view)
         view.destroy()
         return true
     }
 
-    private fun generateErrorHtml(url: String, description: String): String {
-        val safeUrl = url.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&#39;")
-        val safeDesc = description.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&#39;")
+    private fun generateErrorHtml(
+        url: String,
+        description: String,
+    ): String {
+        val safeUrl =
+            url
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;")
+        val safeDesc =
+            description
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;")
 
         return """
             <!DOCTYPE html>
@@ -430,7 +496,7 @@ class FloatWebViewClient(
               </div>
             </body>
             </html>
-        """.trimIndent()
+            """.trimIndent()
     }
 
     private fun injectStealthPolyfill(view: WebView) {

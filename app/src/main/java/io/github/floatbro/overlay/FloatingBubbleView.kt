@@ -38,9 +38,8 @@ import kotlin.math.hypot
 class FloatingBubbleView(
     context: Context,
     private val windowManager: WindowManager,
-    private val layoutParams: WindowManager.LayoutParams
+    private val layoutParams: WindowManager.LayoutParams,
 ) : FrameLayout(context) {
-
     var onBubbleClicked: (() -> Unit)? = null
     var onPositionChanged: ((x: Int, y: Int) -> Unit)? = null
     var onDismissRequested: (() -> Unit)? = null
@@ -62,18 +61,20 @@ class FloatingBubbleView(
         val iconSizePx = dpToPx(30f)
 
         // Pure circular container: #FFFFFF background, 2dp #2563EB border (Matching Prototype .edge-bubble)
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.WHITE)
-            setStroke(dpToPx(2f), Color.parseColor("#2563EB"))
-        }
+        background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+                setStroke(dpToPx(2f), Color.parseColor("#2563EB"))
+            }
         elevation = dpToPx(12f).toFloat()
 
-        iconView = ImageView(context).apply {
-            layoutParams = LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
-            setImageResource(R.drawable.ic_bubble_logo)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
+        iconView =
+            ImageView(context).apply {
+                layoutParams = LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
+                setImageResource(R.drawable.ic_bubble_logo)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
         addView(iconView)
         alpha = 0.85f
 
@@ -82,11 +83,14 @@ class FloatingBubbleView(
         }
     }
 
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    override fun onMeasure(
+        widthMeasureSpec: Int,
+        heightMeasureSpec: Int,
+    ) {
         val sizePx = dpToPx(52f)
         super.onMeasure(
             MeasureSpec.makeMeasureSpec(sizePx, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(sizePx, MeasureSpec.EXACTLY)
+            MeasureSpec.makeMeasureSpec(sizePx, MeasureSpec.EXACTLY),
         )
     }
 
@@ -98,19 +102,27 @@ class FloatingBubbleView(
         }
     }
 
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            dp,
-            context.resources.displayMetrics
-        ).toInt()
-    }
+    private fun dpToPx(dp: Float): Int =
+        TypedValue
+            .applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                context.resources.displayMetrics,
+            ).toInt()
 
     fun setHoveredOnDismissTarget(hovered: Boolean) {
         if (hovered) {
-            animate().scaleX(0.82f).scaleY(0.82f).setDuration(120).start()
+            animate()
+                .scaleX(0.82f)
+                .scaleY(0.82f)
+                .setDuration(120)
+                .start()
         } else {
-            animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+            animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .setDuration(120)
+                .start()
         }
     }
 
@@ -122,7 +134,12 @@ class FloatingBubbleView(
                 initialTouchX = event.rawX
                 initialTouchY = event.rawY
                 isDragging = false
-                animate().scaleX(0.92f).scaleY(0.92f).alpha(1.0f).setDuration(100).start()
+                animate()
+                    .scaleX(0.92f)
+                    .scaleY(0.92f)
+                    .alpha(1.0f)
+                    .setDuration(100)
+                    .start()
                 return true
             }
 
@@ -151,7 +168,11 @@ class FloatingBubbleView(
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (!isDragging) {
-                    animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                    animate()
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .setDuration(100)
+                        .start()
                     onBubbleClicked?.invoke()
                 } else {
                     val bubbleSize = (width.takeIf { it > 0 } ?: dpToPx(52f)).toFloat()
@@ -159,7 +180,11 @@ class FloatingBubbleView(
                     val centerY = layoutParams.y + bubbleSize / 2f
                     val isDismissed = onDragEnded?.invoke(centerX, centerY) ?: false
                     if (!isDismissed) {
-                        animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .setDuration(100)
+                            .start()
                         snapToEdge()
                     }
                 }
@@ -178,11 +203,12 @@ class FloatingBubbleView(
         val centerX = currentX + bubbleWidth / 2
         val tuckDepth = dpToPx(18f)
 
-        val targetX = if (centerX < screenWidth / 2) {
-            -tuckDepth
-        } else {
-            screenWidth - bubbleWidth + tuckDepth
-        }
+        val targetX =
+            if (centerX < screenWidth / 2) {
+                -tuckDepth
+            } else {
+                screenWidth - bubbleWidth + tuckDepth
+            }
 
         // Clamp Y to safe screen bounds (avoid status bar and gesture navigation bar)
         val minY = dpToPx(36f)
@@ -199,11 +225,13 @@ class FloatingBubbleView(
                 onPositionChanged?.invoke(layoutParams.x, layoutParams.y)
             }
         }
-        animator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                animate().alpha(0.85f).setDuration(200).start()
-            }
-        })
+        animator.addListener(
+            object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    animate().alpha(0.85f).setDuration(200).start()
+                }
+            },
+        )
         animator.start()
     }
 }

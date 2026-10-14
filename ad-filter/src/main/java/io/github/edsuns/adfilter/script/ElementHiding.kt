@@ -10,8 +10,9 @@ import java.net.URL
 /**
  * Created by Edsuns@qq.com on 2021/1/22.
  */
-internal class ElementHiding constructor(private val detector: Detector) {
-
+internal class ElementHiding constructor(
+    private val detector: Detector,
+) {
     private val eleHidingJS by lazy {
         ScriptInjection.parseScript(this, JsAssets.load("element_hiding.js"), true)
     }
@@ -20,7 +21,10 @@ internal class ElementHiding constructor(private val detector: Detector) {
         ScriptInjection.parseScript(this, JsAssets.load("elemhide_blocked.js"))
     }
 
-    internal fun elemhideBlockedResource(webView: WebView?, resourceUrl: String?) {
+    internal fun elemhideBlockedResource(
+        webView: WebView?,
+        resourceUrl: String?,
+    ) {
         var filenameWithQuery: String
         try {
             filenameWithQuery = extractPathWithQuery(resourceUrl)
@@ -35,29 +39,35 @@ internal class ElementHiding constructor(private val detector: Detector) {
 
         // It finds all the elements with source URLs ending with ... and then compare full paths.
         // We do this trick because the paths in JS (code) can be relative and in DOM tree they are absolute.
-        val selectorBuilder = StringBuilder()
-            .append("[src$='").append(filenameWithQuery)
-            .append("'], [srcset$='")
-            .append(filenameWithQuery)
-            .append("']")
+        val selectorBuilder =
+            StringBuilder()
+                .append("[src$='")
+                .append(filenameWithQuery)
+                .append("'], [srcset$='")
+                .append(filenameWithQuery)
+                .append("']")
 
         // all UI views including WebView can be touched from UI thread only
         webView?.post {
-            val scriptBuilder = StringBuilder(elemhideBlockedJs)
-                .append("\n\n")
-                .append("elemhideForSelector(\"")
-                .append(resourceUrl)// 1st argument
+            val scriptBuilder =
+                StringBuilder(elemhideBlockedJs)
+                    .append("\n\n")
+                    .append("elemhideForSelector(\"")
+                    .append(resourceUrl) // 1st argument
 
             scriptBuilder.append("\", \"")
-            scriptBuilder.append(escapeJavaScriptString(selectorBuilder.toString()))// 2nd argument
+            scriptBuilder.append(escapeJavaScriptString(selectorBuilder.toString())) // 2nd argument
 
-            scriptBuilder.append("\", 0)")// attempt #0
+            scriptBuilder.append("\", 0)") // attempt #0
 
             webView.evaluateJavascript(scriptBuilder.toString(), null)
         }
     }
 
-    fun perform(webView: WebView?, url: String?) {
+    fun perform(
+        webView: WebView?,
+        url: String?,
+    ) {
         if (webView == null) return
         webView.evaluateJavascript(eleHidingJS, null)
         Timber.v("Evaluated element hiding Javascript for $url")
@@ -73,7 +83,8 @@ internal class ElementHiding constructor(private val detector: Detector) {
 
     private fun sanitizeSelectors(raw: String): String {
         if (raw.isBlank()) return ""
-        return raw.split(',')
+        return raw
+            .split(',')
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.contains('{') && !it.contains('}') }
             .joinToString(", ")
@@ -109,8 +120,7 @@ internal class ElementHiding constructor(private val detector: Detector) {
      * rules without a per-mutation JS matcher.
      */
     @JavascriptInterface
-    fun getExtendedCssStyleSheet(documentUrl: String): String =
-        NativeExtendedCss.buildRules(detector.getExtendedCssSelectors(documentUrl), HIDING_CSS)
+    fun getExtendedCssStyleSheet(documentUrl: String): String = NativeExtendedCss.buildRules(detector.getExtendedCssSelectors(documentUrl), HIDING_CSS)
 
     /**
      * Extract path with query from URL
@@ -147,7 +157,8 @@ internal class ElementHiding constructor(private val detector: Detector) {
                 else -> sb.append(c)
             }
         }
-        return sb.toString()
+        return sb
+            .toString()
             .replace(U2028, "\u2028")
             .replace(U2029, "\u2029")
     }
@@ -159,7 +170,7 @@ internal class ElementHiding constructor(private val detector: Detector) {
         oldValue: String,
         newValue: String,
         every: Int,
-        ignoreCase: Boolean = false
+        ignoreCase: Boolean = false,
     ): String {
         run {
             var occurrenceIndex: Int = indexOf(oldValue, 0, ignoreCase)

@@ -31,8 +31,9 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  * This enables Jetpack Compose (ComposeView) to run smoothly inside a foreground Service
  * without crashing due to missing Activity Lifecycle owners.
  */
-class OverlayLifecycleContext : SavedStateRegistryOwner, ViewModelStoreOwner {
-
+class OverlayLifecycleContext :
+    SavedStateRegistryOwner,
+    ViewModelStoreOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
     private val store = ViewModelStore()

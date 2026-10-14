@@ -25,20 +25,20 @@ import java.util.zip.CRC32
 internal class DefaultRulesInstaller(
     private val context: Context,
     private val binaryDataStore: BinaryDataStore,
-    private val filterDataLoader: FilterDataLoader
+    private val filterDataLoader: FilterDataLoader,
 ) {
-
     data class PackInfo(
         val id: String,
         val assetPath: String,
-        val prefKey: String
+        val prefKey: String,
     )
 
-    val packs = listOf(
-        PackInfo(AdFilter.PACK_EASYLIST, "adfilter/rules_easylist.txt", "pref_pack_easylist"),
-        PackInfo(AdFilter.PACK_CHINA, "adfilter/rules_easylist_china.txt", "pref_pack_china"),
-        PackInfo(AdFilter.PACK_PRIVACY, "adfilter/rules_easyprivacy.txt", "pref_pack_privacy")
-    )
+    val packs =
+        listOf(
+            PackInfo(AdFilter.PACK_EASYLIST, "adfilter/rules_easylist.txt", "pref_pack_easylist"),
+            PackInfo(AdFilter.PACK_CHINA, "adfilter/rules_easylist_china.txt", "pref_pack_china"),
+            PackInfo(AdFilter.PACK_PRIVACY, "adfilter/rules_easyprivacy.txt", "pref_pack_privacy"),
+        )
 
     fun ensureInstalledAndLoaded() {
         for (pack in packs) {
@@ -70,7 +70,8 @@ internal class DefaultRulesInstaller(
                 val processedData = client.getProcessedData()
                 val count = client.getFiltersCount()
                 binaryDataStore.saveData(pack.id, processedData)
-                prefs.edit()
+                prefs
+                    .edit()
                     .putLong(crcKey, currentCrc)
                     .putInt(countKey, count)
                     .apply()
@@ -87,7 +88,10 @@ internal class DefaultRulesInstaller(
         return prefs.getBoolean(pack.prefKey, true)
     }
 
-    fun setPackEnabled(packId: String, enabled: Boolean) {
+    fun setPackEnabled(
+        packId: String,
+        enabled: Boolean,
+    ) {
         val pack = packs.find { it.id == packId } ?: return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean(pack.prefKey, enabled).apply()
@@ -95,15 +99,13 @@ internal class DefaultRulesInstaller(
 
     fun getRuleCount(packId: String): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val count = prefs.getInt("count_${packId}", 0)
+        val count = prefs.getInt("count_$packId", 0)
         if (count > 0) return count
         ensureInstalled(packId)
-        return prefs.getInt("count_${packId}", 0)
+        return prefs.getInt("count_$packId", 0)
     }
 
-    private fun openAsset(assetPath: String): InputStream {
-        return context.assets.open(assetPath)
-    }
+    private fun openAsset(assetPath: String): InputStream = context.assets.open(assetPath)
 
     private fun calculateAssetCrc(assetPath: String): Long {
         val crc = CRC32()

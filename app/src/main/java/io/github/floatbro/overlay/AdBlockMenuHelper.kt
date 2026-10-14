@@ -20,11 +20,13 @@ object AdBlockMenuHelper {
     const val TITLE_SITE_WHITELISTED = "广告拦截: 关"
     const val TITLE_SITE_ENABLED = "广告拦截: 开"
 
-    fun resolveMenuTitle(isGlobalEnabled: Boolean, isSiteWhitelisted: Boolean): String {
-        return when {
+    fun resolveMenuTitle(
+        isGlobalEnabled: Boolean,
+        isSiteWhitelisted: Boolean,
+    ): String =
+        when {
             !isGlobalEnabled -> TITLE_GLOBAL_DISABLED
             isSiteWhitelisted -> TITLE_SITE_WHITELISTED
             else -> TITLE_SITE_ENABLED
         }
-    }
 }

@@ -17,7 +17,6 @@ import org.junit.Before
 import org.junit.Test
 
 class BrowsingHistoryManagerTest {
-
     private lateinit var historyManager: BrowsingHistoryManager
 
     @Before
@@ -51,10 +50,11 @@ class BrowsingHistoryManagerTest {
 
     @Test
     fun testSerializationRoundTrip() {
-        val original = listOf(
-            HistoryItem(id = "1", url = "https://zhihu.com", title = "知乎", timestamp = 1000L),
-            HistoryItem(id = "2", url = "https://baidu.com", title = "百度", timestamp = 2000L)
-        )
+        val original =
+            listOf(
+                HistoryItem(id = "1", url = "https://zhihu.com", title = "知乎", timestamp = 1000L),
+                HistoryItem(id = "2", url = "https://baidu.com", title = "百度", timestamp = 2000L),
+            )
         val json = historyManager.serializeToJson(original)
         val deserialized = historyManager.deserializeFromJson(json)
 

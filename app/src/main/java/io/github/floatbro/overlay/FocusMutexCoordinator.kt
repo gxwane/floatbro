@@ -22,8 +22,9 @@ import timber.log.Timber
  *    so underlying apps and sibling floating windows can still receive touches;
  * 3. Any outside touch or dismiss event safely restores FLAG_NOT_FOCUSABLE.
  */
-class FocusMutexCoordinator(private val windowManager: WindowManager) {
-
+class FocusMutexCoordinator(
+    private val windowManager: WindowManager,
+) {
     private var currentFocusedSession: FloatingSession? = null
 
     /**
@@ -41,8 +42,10 @@ class FocusMutexCoordinator(private val windowManager: WindowManager) {
         }
 
         // 2. Clear FLAG_NOT_FOCUSABLE and enforce non-modal outside touch watch
-        targetSession.windowParams.flags = (targetSession.windowParams.flags
-            and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or
+        targetSession.windowParams.flags = (
+            targetSession.windowParams.flags
+                and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        ) or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
 

@@ -1,0 +1,83 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ElementZapperHelper.kt$ElementZapperHelper$cleanHost.contains(" ") || cleanHost.contains("\n") || cleanHost.contains("\r") || cleanHost.contains("#")</ID>
+    <ID>ComplexCondition:ElementZapperHelper.kt$ElementZapperHelper$cleanSelector.contains('\r') || cleanSelector.contains('\n') || cleanSelector.contains('{') || cleanSelector.contains('}')</ID>
+    <ID>ComplexCondition:FloatingWindowView.kt$FloatingWindowView$actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_SEARCH || (event != null &amp;&amp; event.keyCode == KeyEvent.KEYCODE_ENTER &amp;&amp; event.action == KeyEvent.ACTION_DOWN)</ID>
+    <ID>ComplexCondition:LauncherActivity.kt$LauncherActivity$closed != null &amp;&amp; closed.url != "about:home" &amp;&amp; closed.url != "about:blank" &amp;&amp; closed.url.isNotBlank()</ID>
+    <ID>ComplexCondition:WindowBoundsHelper.kt$WindowBoundsHelper$w1 &lt;= 0 || h1 &lt;= 0 || w2 &lt;= 0 || h2 &lt;= 0</ID>
+    <ID>CyclomaticComplexMethod:AdBlockRulesDialog.kt$@Composable fun AdBlockRulesDialog( onDismiss: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:AppUpdateManager.kt$AppUpdateManager$fun fetchReleasesSync( repoOwner: String = DEFAULT_REPO_OWNER, repoName: String = DEFAULT_REPO_NAME, ): UpdateCandidates</ID>
+    <ID>CyclomaticComplexMethod:BrowserUrlResolver.kt$BrowserUrlResolver$fun resolve( input: String, engine: SearchEngine = SearchEngine.BING, customSearchUrl: String? = null, ): String</ID>
+    <ID>CyclomaticComplexMethod:ElementZapperManager.kt$ElementZapperManager$private fun showCapsuleView()</ID>
+    <ID>CyclomaticComplexMethod:FloatWebViewClient.kt$FloatWebViewClient$override fun shouldInterceptRequest( view: WebView, request: WebResourceRequest, ): WebResourceResponse?</ID>
+    <ID>CyclomaticComplexMethod:FloatWebViewClient.kt$FloatWebViewClient$private fun handleUrlOverride( view: WebView, request: WebResourceRequest?, url: String, ): Boolean</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowManager.kt$FloatingWindowManager$fun closeSession( session: FloatingSession, preserveWebView: Boolean = false, )</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowManager.kt$FloatingWindowManager$fun showWindow( url: String? = null, initialX: Int? = null, initialY: Int? = null, windowId: String? = null, )</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowView.kt$FloatingWindowView$override fun onInterceptTouchEvent(ev: MotionEvent): Boolean</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowView.kt$FloatingWindowView$private fun createAdaptiveHeaderView(): View</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowView.kt$FloatingWindowView$private fun handleNavigationBlocked(event: NavigationBlockEvent)</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowView.kt$FloatingWindowView$private fun restoreHeaderNormalState()</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowView.kt$FloatingWindowView$private fun showInWindowAllowCard(event: NavigationBlockEvent)</ID>
+    <ID>CyclomaticComplexMethod:FloatingWindowView.kt$FloatingWindowView$private fun showMoreActionMenu(anchor: View)</ID>
+    <ID>CyclomaticComplexMethod:LauncherActivity.kt$@Composable fun AppTabStrip( tabs: List&lt;BrowserTab&gt;, activeTabId: String, draggingTabId: String? = null, rootLayoutCoordinates: LayoutCoordinates? = null, onSelectTab: (String) -&gt; Unit, onCloseTab: (String) -&gt; Unit, onNewTab: () -&gt; Unit, onOpenSettings: () -&gt; Unit, onTabDragStart: (BrowserTab, Offset, IntSize) -&gt; Unit = { _, _, _ -&gt; }, onTabDrag: (Offset) -&gt; Unit = {}, onTabDragEnd: () -&gt; Unit = {}, onTabDragCancel: () -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:LauncherActivity.kt$@Composable fun AppUpdateCenterDialog( onDismiss: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:LauncherActivity.kt$@Composable fun BrowserHomeView( onOpenUrl: (String, String) -&gt; Unit, onPopoutFloating: (String, String) -&gt; Unit = { _, _ -&gt; }, )</ID>
+    <ID>CyclomaticComplexMethod:LauncherActivity.kt$@Composable fun InAppWebViewPane( tab: BrowserTab, webView: EBWebView, onTearOff: () -&gt; Unit, onUrlChanged: (String) -&gt; Unit = {}, onTitleReceived: (String) -&gt; Unit, onFaviconReceived: (Bitmap) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:LauncherActivity.kt$@Composable fun UpdateReleaseCard( channelName: String, isBeta: Boolean, release: ReleaseInfo?, currentVersion: String, onDownload: (ReleaseInfo) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:LauncherActivity.kt$LauncherActivity$override fun onCreate(savedInstanceState: Bundle?)</ID>
+    <ID>CyclomaticComplexMethod:MarkdownText.kt$MarkdownParser$fun parseBlocks(markdown: String): List&lt;MarkdownBlock&gt;</ID>
+    <ID>CyclomaticComplexMethod:NavigationSecurityGuard.kt$NavigationSecurityGuard$fun isExempted( currentDocUrl: String?, targetUrl: String, ): Boolean</ID>
+    <ID>CyclomaticComplexMethod:PaneContainer.kt$PaneContainer$private fun initToolbar()</ID>
+    <ID>CyclomaticComplexMethod:RegexFilterSet.kt$RegexRule.Companion$fun parse(line: String): RegexRule?</ID>
+    <ID>CyclomaticComplexMethod:RegexFilterSet.kt$RegexRule.Companion$internal fun requiredLiterals(pattern: String): List&lt;String&gt;</ID>
+    <ID>CyclomaticComplexMethod:UrlTargetUnwrapper.kt$UrlTargetUnwrapper$private fun extractInternal( url: String, depth: Int, ): String?</ID>
+    <ID>EmptyFunctionBlock:FloatingWindowView.kt$FloatingWindowView.&lt;no name provided&gt;${}</ID>
+    <ID>IteratorNotThrowingNoSuchElementException:RuleIterator.kt$RuleIterator : Iterator</ID>
+    <ID>LargeClass:FloatingWindowView.kt$FloatingWindowView : FrameLayout</ID>
+    <ID>LongMethod:AdBlockRulesDialog.kt$@Composable fun AdBlockRulesDialog( onDismiss: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ElementZapperManager.kt$ElementZapperManager$private fun showCapsuleView()</ID>
+    <ID>LongMethod:FloatingWindowManager.kt$FloatingWindowManager$fun showWindow( url: String? = null, initialX: Int? = null, initialY: Int? = null, windowId: String? = null, )</ID>
+    <ID>LongMethod:FloatingWindowView.kt$FloatingWindowView$private fun createAdaptiveHeaderView(): View</ID>
+    <ID>LongMethod:FloatingWindowView.kt$FloatingWindowView$private fun showMoreActionMenu(anchor: View)</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun AppTabStrip( tabs: List&lt;BrowserTab&gt;, activeTabId: String, draggingTabId: String? = null, rootLayoutCoordinates: LayoutCoordinates? = null, onSelectTab: (String) -&gt; Unit, onCloseTab: (String) -&gt; Unit, onNewTab: () -&gt; Unit, onOpenSettings: () -&gt; Unit, onTabDragStart: (BrowserTab, Offset, IntSize) -&gt; Unit = { _, _, _ -&gt; }, onTabDrag: (Offset) -&gt; Unit = {}, onTabDragEnd: () -&gt; Unit = {}, onTabDragCancel: () -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun AppUpdateCenterDialog( onDismiss: () -&gt; Unit, )</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun BrowserHomeView( onOpenUrl: (String, String) -&gt; Unit, onPopoutFloating: (String, String) -&gt; Unit = { _, _ -&gt; }, )</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun DraggedTabOverlay( tab: BrowserTab, offset: Offset, width: Dp, height: Dp, scale: Float, tilt: Float, alpha: Float, cornerRadius: Dp, isDetached: Boolean, snapshotBitmap: Bitmap? = null, )</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun FullHistoryManagementDialog( onDismiss: () -&gt; Unit, onOpenUrl: (String, String) -&gt; Unit, )</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun InAppWebViewPane( tab: BrowserTab, webView: EBWebView, onTearOff: () -&gt; Unit, onUrlChanged: (String) -&gt; Unit = {}, onTitleReceived: (String) -&gt; Unit, onFaviconReceived: (Bitmap) -&gt; Unit, )</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun SettingsScreen( openMode: OpenMode, onOpenModeChange: (OpenMode) -&gt; Unit, hasOverlayPermission: Boolean, onRequestOverlayPermission: () -&gt; Unit, onClearData: (clearCache: Boolean, clearHistory: Boolean, clearCookies: Boolean) -&gt; Unit, onBack: () -&gt; Unit, onOpenUrl: (String, String) -&gt; Unit = { _, _ -&gt; }, activeWebViews: Map&lt;String, EBWebView&gt; = emptyMap(), )</ID>
+    <ID>LongMethod:LauncherActivity.kt$@Composable fun UpdateReleaseCard( channelName: String, isBeta: Boolean, release: ReleaseInfo?, currentVersion: String, onDownload: (ReleaseInfo) -&gt; Unit, )</ID>
+    <ID>LongMethod:LauncherActivity.kt$LauncherActivity$override fun onCreate(savedInstanceState: Bundle?)</ID>
+    <ID>LongMethod:MarkdownText.kt$@Composable private fun RenderBlock(block: MarkdownBlock)</ID>
+    <ID>LongParameterList:RegexFilterSet.kt$RegexRule$( val ruleText: String, val isException: Boolean, private val pattern: String, private val matchCase: Boolean, /** Resource types named by `$type` options (bit set of [FilterOption]). */ private val typeOptions: Int, /** Resource types named by `$~type` options. */ private val antiTypeOptions: Int, private val thirdParty: Boolean, private val notThirdParty: Boolean, private val domains: List&lt;String&gt;, private val antiDomains: List&lt;String&gt;, )</ID>
+    <ID>LongParameterList:WindowBoundsHelper.kt$WindowBoundsHelper$( rawWidth: Int, rawHeight: Int, minWidth: Int, maxWidth: Int, minHeight: Int, maxHeight: Int, )</ID>
+    <ID>LongParameterList:WindowBoundsHelper.kt$WindowBoundsHelper$( x1: Int, y1: Int, w1: Int, h1: Int, x2: Int, y2: Int, w2: Int, h2: Int, )</ID>
+    <ID>NestedBlockDepth:AppUpdateManager.kt$AppUpdateManager$fun fetchReleasesSync( repoOwner: String = DEFAULT_REPO_OWNER, repoName: String = DEFAULT_REPO_NAME, ): UpdateCandidates</ID>
+    <ID>NestedBlockDepth:AppUpdateManager.kt$AppUpdateManager.Companion$fun compareSemVer( v1: String, v2: String, ): Int</ID>
+    <ID>NestedBlockDepth:FloatWebViewClient.kt$FloatWebViewClient$private fun handleUrlOverride( view: WebView, request: WebResourceRequest?, url: String, ): Boolean</ID>
+    <ID>NestedBlockDepth:FloatingWindowManager.kt$FloatingWindowManager$fun showWindow( url: String? = null, initialX: Int? = null, initialY: Int? = null, windowId: String? = null, )</ID>
+    <ID>NestedBlockDepth:FloatingWindowView.kt$FloatingWindowView$fun exitEditMode()</ID>
+    <ID>NestedBlockDepth:FloatingWindowView.kt$FloatingWindowView$override fun onInterceptTouchEvent(ev: MotionEvent): Boolean</ID>
+    <ID>NestedBlockDepth:FloatingWindowView.kt$FloatingWindowView$private fun finishDragGesture( dropX: Float = 0f, dropY: Float = 0f, ): Boolean</ID>
+    <ID>NestedBlockDepth:FloatingWindowView.kt$FloatingWindowView$private fun handleOmnibarTouchEvent(event: MotionEvent): Boolean</ID>
+    <ID>NestedBlockDepth:FloatingWindowView.kt$FloatingWindowView$private fun handleResizeTouchEvent(event: MotionEvent): Boolean</ID>
+    <ID>NestedBlockDepth:FloatingWindowView.kt$FloatingWindowView$private fun handleWebInputFocusChanged(isFocused: Boolean)</ID>
+    <ID>NestedBlockDepth:RegexFilterSet.kt$RegexRule.Companion$fun parse(line: String): RegexRule?</ID>
+    <ID>RethrowCaughtException:AppUpdateManager.kt$AppUpdateManager$throw e</ID>
+    <ID>SwallowedException:FloatingWindowView.kt$FloatingWindowView$e: Exception</ID>
+    <ID>SwallowedException:RegexFilterSet.kt$RegexFilterSet.Companion$e: Exception</ID>
+    <ID>SwallowedException:RegexFilterSet.kt$RegexRule$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:RegexFilterSet.kt$RegexRule$e: PatternSyntaxException</ID>
+    <ID>TooGenericExceptionThrown:AdFilter.kt$AdFilter.Companion$throw RuntimeException("Should call create() before get()")</ID>
+    <ID>TooManyFunctions:TabOverlayStateBridge.kt$TabOverlayStateBridge</ID>
+    <ID>UnusedParameter:ComposeOverlayHost.kt$onResetSplit: () -&gt; Unit</ID>
+    <ID>UnusedParameter:ElementZapperManager.kt$ElementZapperManager$quietly: Boolean = true</ID>
+    <ID>UnusedParameter:FloatingWindowManager.kt$FloatingWindowManager$newConfig: android.content.res.Configuration</ID>
+    <ID>UnusedParameter:OverlayPhysicsHelper.kt$OverlayPhysicsHelper$currentY: Int</ID>
+    <ID>UnusedPrivateProperty:BubbleDismissTargetView.kt$BubbleDismissTargetView$private val windowManager: WindowManager</ID>
+    <ID>UnusedPrivateProperty:LauncherActivity.kt$val currentOnTabDragCancel by rememberUpdatedState(onTabDragCancel)</ID>
+    <ID>UnusedPrivateProperty:MarkdownText.kt$private val CodeBorder = Color(0xFFCBD5E1)</ID>
+  </CurrentIssues>
+</SmellBaseline>

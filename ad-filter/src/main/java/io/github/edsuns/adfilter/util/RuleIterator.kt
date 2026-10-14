@@ -3,8 +3,9 @@ package io.github.edsuns.adfilter.util
 /**
  * Created by Edsuns@qq.com on 2021/1/24.
  */
-open class RuleIterator internal constructor(data: String? = null) : Iterator<String> {
-
+open class RuleIterator internal constructor(
+    data: String? = null,
+) : Iterator<String> {
     internal val dataBuilder: StringBuilder =
         if (data == null) StringBuilder() else StringBuilder(data)
 
@@ -56,9 +57,7 @@ open class RuleIterator internal constructor(data: String? = null) : Iterator<St
         return dataBuilder.substring(lineStart, lineEnd)
     }
 
-    fun contains(rule: String): Boolean {
-        return indexOf(rule) > -1
-    }
+    fun contains(rule: String): Boolean = indexOf(rule) > -1
 
     private fun indexOf(rule: String): Int {
         var start = 0
@@ -82,9 +81,7 @@ open class RuleIterator internal constructor(data: String? = null) : Iterator<St
         }
     }
 
-    fun isComment(rule: String): Boolean {
-        return rule.startsWith("! ")
-    }
+    fun isComment(rule: String): Boolean = rule.startsWith("! ")
 
     fun comment(rule: String) {
         if (!isComment(rule)) {

@@ -35,8 +35,9 @@ import java.util.UUID
  * 4. Safe Z-order elevation on touch and CPU/memory throttling on inactive windows;
  * 5. Full bidirectional docking back to host app tabs.
  */
-class FloatingWindowManager(private val context: Context) {
-
+class FloatingWindowManager(
+    private val context: Context,
+) {
     companion object {
         const val MAX_CONCURRENT_SESSIONS = 3
     }
@@ -46,11 +47,12 @@ class FloatingWindowManager(private val context: Context) {
     private val windowManager: WindowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-    private val lifecycleContext = OverlayLifecycleContext().apply {
-        onCreate()
-        onStart()
-        onResume()
-    }
+    private val lifecycleContext =
+        OverlayLifecycleContext().apply {
+            onCreate()
+            onStart()
+            onResume()
+        }
 
     private val focusMutex = FocusMutexCoordinator(windowManager)
     private val bubbleStack = BubbleStackCoordinator(themedContext, windowManager)
@@ -93,9 +95,10 @@ class FloatingWindowManager(private val context: Context) {
     }
 
     private fun ensureDismissTargetAttached(): BubbleDismissTargetView {
-        val target = dismissTargetView ?: BubbleDismissTargetView(context, windowManager).also {
-            dismissTargetView = it
-        }
+        val target =
+            dismissTargetView ?: BubbleDismissTargetView(context, windowManager).also {
+                dismissTargetView = it
+            }
         if (!target.isAttachedToWindow) {
             try {
                 windowManager.addView(target, target.layoutParams)
@@ -106,22 +109,21 @@ class FloatingWindowManager(private val context: Context) {
         return target
     }
 
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            dp,
-            context.resources.displayMetrics
-        ).toInt()
-    }
+    private fun dpToPx(dp: Float): Int =
+        TypedValue
+            .applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                context.resources.displayMetrics,
+            ).toInt()
 
-    private fun getOverlayWindowType(): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    private fun getOverlayWindowType(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
-    }
 
     /**
      * Shows, restores, or launches a new floating browser session.
@@ -130,7 +132,7 @@ class FloatingWindowManager(private val context: Context) {
         url: String? = null,
         initialX: Int? = null,
         initialY: Int? = null,
-        windowId: String? = null
+        windowId: String? = null,
     ) {
         val targetId = windowId ?: UUID.randomUUID().toString()
         Timber.d("showWindow requested: id=$targetId, url=$url, initialX=$initialX, initialY=$initialY")
@@ -163,23 +165,46 @@ class FloatingWindowManager(private val context: Context) {
         val isLandscape = screenWidth > screenHeight
 
         val minWidthPx = dpToPx(WindowBoundsHelper.MIN_WIDTH_DP)
-        val minHeightPx = if (isLandscape && !isTablet) dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP) else dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
+        val minHeightPx =
+            if (isLandscape &&
+                !isTablet
+            ) {
+                dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP)
+            } else {
+                dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
+            }
 
-        val widthRatio = when {
-            isTablet && isLandscape -> 0.52f
-            isTablet && !isLandscape -> 0.65f
-            !isTablet && isLandscape -> 0.45f
-            else -> 0.88f
-        }
-        val heightRatio = when {
-            isTablet && isLandscape -> 0.65f
-            isTablet && !isLandscape -> 0.60f
-            !isTablet && isLandscape -> 0.72f
-            else -> 0.60f
-        }
+        val widthRatio =
+            when {
+                isTablet && isLandscape -> 0.52f
+                isTablet && !isLandscape -> 0.65f
+                !isTablet && isLandscape -> 0.45f
+                else -> 0.88f
+            }
+        val heightRatio =
+            when {
+                isTablet && isLandscape -> 0.65f
+                isTablet && !isLandscape -> 0.60f
+                !isTablet && isLandscape -> 0.72f
+                else -> 0.60f
+            }
 
-        val maxInitialWidthDp = if (isTablet) 580f else if (isLandscape) 480f else 380f
-        val maxInitialHeightDp = if (isTablet) 720f else if (isLandscape) 320f else 560f
+        val maxInitialWidthDp =
+            if (isTablet) {
+                580f
+            } else if (isLandscape) {
+                480f
+            } else {
+                380f
+            }
+        val maxInitialHeightDp =
+            if (isTablet) {
+                720f
+            } else if (isLandscape) {
+                320f
+            } else {
+                560f
+            }
 
         val defaultWidth = (screenWidth * widthRatio).toInt().coerceIn(minWidthPx, dpToPx(maxInitialWidthDp))
         val defaultHeight = (screenHeight * heightRatio).toInt().coerceIn(minHeightPx, dpToPx(maxInitialHeightDp))
@@ -193,60 +218,67 @@ class FloatingWindowManager(private val context: Context) {
         val maxY = (screenHeight - defaultHeight - dpToPx(48f)).coerceAtLeast(minY)
         val targetY = ((initialY ?: (screenHeight - defaultHeight) / 4) + cascadeOffset).coerceIn(minY, maxY)
 
-        val windowParams = WindowManager.LayoutParams(
-            defaultWidth,
-            defaultHeight,
-            getOverlayWindowType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = targetX
-            y = targetY
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        }
+        val windowParams =
+            WindowManager
+                .LayoutParams(
+                    defaultWidth,
+                    defaultHeight,
+                    getOverlayWindowType(),
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                    PixelFormat.TRANSLUCENT,
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                    x = targetX
+                    y = targetY
+                    softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                }
 
         val bubbleSize = dpToPx(52f)
-        val bubbleParams = WindowManager.LayoutParams(
-            bubbleSize,
-            bubbleSize,
-            getOverlayWindowType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = dpToPx(12f)
-            y = dpToPx(120f) + (sessions.size * dpToPx(62f))
-        }
+        val bubbleParams =
+            WindowManager
+                .LayoutParams(
+                    bubbleSize,
+                    bubbleSize,
+                    getOverlayWindowType(),
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                    PixelFormat.TRANSLUCENT,
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                    x = dpToPx(12f)
+                    y = dpToPx(120f) + (sessions.size * dpToPx(62f))
+                }
 
-        val existingWv = TabOverlayStateBridge.takeWebView(targetId)
-            ?: windowId?.let { TabOverlayStateBridge.takeWebView(it) }
+        val existingWv =
+            TabOverlayStateBridge.takeWebView(targetId)
+                ?: windowId?.let { TabOverlayStateBridge.takeWebView(it) }
 
         if (existingWv != null) {
             existingWv.updateBaseContext(themedContext)
         }
 
-        val windowView = FloatingWindowView(
-            context = themedContext,
-            sessionId = targetId,
-            windowManager = windowManager,
-            layoutParams = windowParams,
-            lifecycleContext = lifecycleContext,
-            existingWebView = existingWv
-        )
+        val windowView =
+            FloatingWindowView(
+                context = themedContext,
+                sessionId = targetId,
+                windowManager = windowManager,
+                layoutParams = windowParams,
+                lifecycleContext = lifecycleContext,
+                existingWebView = existingWv,
+            )
 
-        val session = FloatingSession(
-            id = targetId,
-            url = url ?: "https://cn.bing.com",
-            windowView = windowView,
-            windowParams = windowParams,
-            bubbleParams = bubbleParams,
-            mode = OverlayMode.WINDOW
-        )
+        val session =
+            FloatingSession(
+                id = targetId,
+                url = url ?: "https://cn.bing.com",
+                windowView = windowView,
+                windowParams = windowParams,
+                bubbleParams = bubbleParams,
+                mode = OverlayMode.WINDOW,
+            )
 
         // Setup session callbacks
         windowView.apply {
@@ -274,25 +306,27 @@ class FloatingWindowManager(private val context: Context) {
             onDragMoved = { rawX, rawY ->
                 val target = ensureDismissTargetAttached()
                 val (targetCenterX, targetCenterY) = target.getTargetCenter()
-                val isHit = OverlayPhysicsHelper.isDropTargetHit(
-                    bubbleCenterX = rawX,
-                    bubbleCenterY = rawY,
-                    targetCenterX = targetCenterX,
-                    targetCenterY = targetCenterY,
-                    hitRadiusPx = hitRadiusPx.toFloat()
-                )
+                val isHit =
+                    OverlayPhysicsHelper.isDropTargetHit(
+                        bubbleCenterX = rawX,
+                        bubbleCenterY = rawY,
+                        targetCenterX = targetCenterX,
+                        targetCenterY = targetCenterY,
+                        hitRadiusPx = hitRadiusPx.toFloat(),
+                    )
                 target.setHovered(isHit)
             }
             onDragEnded = { rawX, rawY ->
                 val target = ensureDismissTargetAttached()
                 val (targetCenterX, targetCenterY) = target.getTargetCenter()
-                val isHit = OverlayPhysicsHelper.isDropTargetHit(
-                    bubbleCenterX = rawX,
-                    bubbleCenterY = rawY,
-                    targetCenterX = targetCenterX,
-                    targetCenterY = targetCenterY,
-                    hitRadiusPx = hitRadiusPx.toFloat()
-                )
+                val isHit =
+                    OverlayPhysicsHelper.isDropTargetHit(
+                        bubbleCenterX = rawX,
+                        bubbleCenterY = rawY,
+                        targetCenterX = targetCenterX,
+                        targetCenterY = targetCenterY,
+                        hitRadiusPx = hitRadiusPx.toFloat(),
+                    )
                 target.hideTarget()
                 if (isHit) {
                     Timber.d("FloatingWindow dropped onto dismiss target. Cleanly closing session ${session.id}")
@@ -325,8 +359,9 @@ class FloatingWindowManager(private val context: Context) {
                 existingWv.resumeTimers()
                 // True hardware frame commit and visual cover fadeout is coordinated by FloatingWindowView
             } else {
-                val savedState = TabOverlayStateBridge.takeState(targetId)
-                    ?: windowId?.let { TabOverlayStateBridge.takeState(it) }
+                val savedState =
+                    TabOverlayStateBridge.takeState(targetId)
+                        ?: windowId?.let { TabOverlayStateBridge.takeState(it) }
 
                 if (savedState != null) {
                     Timber.d("Restoring state from TabOverlayStateBridge for session $targetId")
@@ -413,14 +448,22 @@ class FloatingWindowManager(private val context: Context) {
         val higherSessions = windowSessions.drop(sessionIndex + 1)
         return higherSessions.any { higher ->
             WindowBoundsHelper.isOverlapping(
-                x1 = curX, y1 = curY, w1 = curW, h1 = curH,
-                x2 = higher.windowParams.x, y2 = higher.windowParams.y,
-                w2 = higher.windowParams.width, h2 = higher.windowParams.height
+                x1 = curX,
+                y1 = curY,
+                w1 = curW,
+                h1 = curH,
+                x2 = higher.windowParams.x,
+                y2 = higher.windowParams.y,
+                w2 = higher.windowParams.width,
+                h2 = higher.windowParams.height,
             )
         }
     }
 
-    private fun setupBubbleCallbacks(bubble: FloatingBubbleView, session: FloatingSession) {
+    private fun setupBubbleCallbacks(
+        bubble: FloatingBubbleView,
+        session: FloatingSession,
+    ) {
         val hitRadiusPx = dpToPx(72f).toFloat()
 
         bubble.onBubbleClicked = { restoreBubbleToWindow(session) }
@@ -437,13 +480,14 @@ class FloatingWindowManager(private val context: Context) {
         bubble.onDragMoved = { bubbleCenterX, bubbleCenterY ->
             val target = ensureDismissTargetAttached()
             val (targetCenterX, targetCenterY) = target.getTargetCenter()
-            val isHit = OverlayPhysicsHelper.isDropTargetHit(
-                bubbleCenterX = bubbleCenterX,
-                bubbleCenterY = bubbleCenterY,
-                targetCenterX = targetCenterX,
-                targetCenterY = targetCenterY,
-                hitRadiusPx = hitRadiusPx
-            )
+            val isHit =
+                OverlayPhysicsHelper.isDropTargetHit(
+                    bubbleCenterX = bubbleCenterX,
+                    bubbleCenterY = bubbleCenterY,
+                    targetCenterX = targetCenterX,
+                    targetCenterY = targetCenterY,
+                    hitRadiusPx = hitRadiusPx,
+                )
             target.setHovered(isHit)
             bubble.setHoveredOnDismissTarget(isHit)
         }
@@ -451,13 +495,14 @@ class FloatingWindowManager(private val context: Context) {
         bubble.onDragEnded = { bubbleCenterX, bubbleCenterY ->
             val target = ensureDismissTargetAttached()
             val (targetCenterX, targetCenterY) = target.getTargetCenter()
-            val isHit = OverlayPhysicsHelper.isDropTargetHit(
-                bubbleCenterX = bubbleCenterX,
-                bubbleCenterY = bubbleCenterY,
-                targetCenterX = targetCenterX,
-                targetCenterY = targetCenterY,
-                hitRadiusPx = hitRadiusPx
-            )
+            val isHit =
+                OverlayPhysicsHelper.isDropTargetHit(
+                    bubbleCenterX = bubbleCenterX,
+                    bubbleCenterY = bubbleCenterY,
+                    targetCenterX = targetCenterX,
+                    targetCenterY = targetCenterY,
+                    hitRadiusPx = hitRadiusPx,
+                )
             target.hideTarget()
             bubble.setHoveredOnDismissTarget(false)
             if (isHit) {
@@ -498,15 +543,18 @@ class FloatingWindowManager(private val context: Context) {
         val tuckDepth = dpToPx(18f)
 
         val winX = session.windowView.layoutParams.x
-        val winWidth = session.windowView.layoutParams.width.takeIf { it > 0 } ?: dpToPx(280f)
+        val winWidth =
+            session.windowView.layoutParams.width
+                .takeIf { it > 0 } ?: dpToPx(280f)
         val winCenterX = winX + winWidth / 2
         val isRightSide = winCenterX >= screenWidth / 2 || winX > (screenWidth * 0.4f)
 
-        val targetX = if (isRightSide) {
-            screenWidth - bubbleSize + tuckDepth
-        } else {
-            -tuckDepth
-        }
+        val targetX =
+            if (isRightSide) {
+                screenWidth - bubbleSize + tuckDepth
+            } else {
+                -tuckDepth
+            }
 
         val winY = session.windowView.layoutParams.y
         val minY = dpToPx(48f)
@@ -518,14 +566,15 @@ class FloatingWindowManager(private val context: Context) {
 
         // 4. Create or attach bubble
         if (session.bubbleView == null) {
-            session.bubbleView = FloatingBubbleView(
-                context = context,
-                windowManager = windowManager,
-                layoutParams = session.bubbleParams
-            ).apply {
-                updateFavicon(session.favicon)
-                setupBubbleCallbacks(this, session)
-            }
+            session.bubbleView =
+                FloatingBubbleView(
+                    context = context,
+                    windowManager = windowManager,
+                    layoutParams = session.bubbleParams,
+                ).apply {
+                    updateFavicon(session.favicon)
+                    setupBubbleCallbacks(this, session)
+                }
         } else {
             setupBubbleCallbacks(session.bubbleView!!, session)
         }
@@ -580,15 +629,17 @@ class FloatingWindowManager(private val context: Context) {
         val bubbleY = session.bubbleParams.y
         val isBubbleOnRight = bubbleX > screenWidth / 2
 
-        val targetWinX = if (isBubbleOnRight) {
-            (screenWidth - winWidth).coerceAtLeast(0)
-        } else {
-            0
-        }
-        val targetWinY = (bubbleY - dpToPx(16f)).coerceIn(
-            dpToPx(36f),
-            (screenHeight - winHeight - dpToPx(48f)).coerceAtLeast(dpToPx(36f))
-        )
+        val targetWinX =
+            if (isBubbleOnRight) {
+                (screenWidth - winWidth).coerceAtLeast(0)
+            } else {
+                0
+            }
+        val targetWinY =
+            (bubbleY - dpToPx(16f)).coerceIn(
+                dpToPx(36f),
+                (screenHeight - winHeight - dpToPx(48f)).coerceAtLeast(dpToPx(36f)),
+            )
 
         session.windowParams.x = targetWinX
         session.windowParams.y = targetWinY
@@ -612,7 +663,10 @@ class FloatingWindowManager(private val context: Context) {
     /**
      * Completely destroys a floating session and its views.
      */
-    fun closeSession(session: FloatingSession, preserveWebView: Boolean = false) {
+    fun closeSession(
+        session: FloatingSession,
+        preserveWebView: Boolean = false,
+    ) {
         // Immediate zero-latency visual hide to eliminate perceived lag
         session.windowView.visibility = View.GONE
         focusMutex.releaseFocus(session)
@@ -643,7 +697,9 @@ class FloatingWindowManager(private val context: Context) {
         val finalUrl = session.windowView.webView.url ?: session.url
         val finalTitle = session.windowView.webView.title ?: ""
         if (finalUrl.isNotBlank() && finalUrl != "about:blank") {
-            io.github.floatbro.history.BrowsingHistoryManager.getInstance(context).recordVisit(finalUrl, finalTitle)
+            io.github.floatbro.history.BrowsingHistoryManager
+                .getInstance(context)
+                .recordVisit(finalUrl, finalTitle)
         }
 
         // 4. Destroy WebView clean sequence (only if not preserved for docking)
@@ -681,7 +737,11 @@ class FloatingWindowManager(private val context: Context) {
     /**
      * Closes the floating session and sends its URL back to the host launcher activity.
      */
-    fun dockSessionToApp(session: FloatingSession, dockUrl: String, dockTitle: String) {
+    fun dockSessionToApp(
+        session: FloatingSession,
+        dockUrl: String,
+        dockTitle: String,
+    ) {
         val windowView = session.windowView
         val wv = windowView.webView
 
@@ -698,13 +758,14 @@ class FloatingWindowManager(private val context: Context) {
 
         closeSession(session, preserveWebView = true)
 
-        val intent = Intent(context, io.github.floatbro.ui.LauncherActivity::class.java).apply {
-            action = io.github.floatbro.ui.LauncherActivity.ACTION_DOCK_TAB
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_URL, dockUrl)
-            putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_TITLE, dockTitle)
-            putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_SESSION_ID, session.id)
-        }
+        val intent =
+            Intent(context, io.github.floatbro.ui.LauncherActivity::class.java).apply {
+                action = io.github.floatbro.ui.LauncherActivity.ACTION_DOCK_TAB
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_URL, dockUrl)
+                putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_TAB_TITLE, dockTitle)
+                putExtra(io.github.floatbro.ui.LauncherActivity.EXTRA_SESSION_ID, session.id)
+            }
         context.startActivity(intent)
     }
 
@@ -773,7 +834,14 @@ class FloatingWindowManager(private val context: Context) {
         val isLandscape = screenW > screenH
 
         val minW = dpToPx(WindowBoundsHelper.MIN_WIDTH_DP)
-        val minH = if (isLandscape && !isTablet) dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP) else dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
+        val minH =
+            if (isLandscape &&
+                !isTablet
+            ) {
+                dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP)
+            } else {
+                dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
+            }
 
         sessions.values.forEach { session ->
             val wp = session.windowParams

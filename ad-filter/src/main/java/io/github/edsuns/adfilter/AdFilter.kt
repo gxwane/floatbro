@@ -11,7 +11,6 @@ import io.github.edsuns.adfilter.impl.AdFilterImpl
  * Created by Edsuns@qq.com on 2020/10/24.
  */
 interface AdFilter {
-
     /**
      * View model of AdFilter.
      */
@@ -37,7 +36,10 @@ interface AdFilter {
     /**
      * Enable or disable a built-in rule pack.
      */
-    fun setRulePackEnabled(id: String, enabled: Boolean) {}
+    fun setRulePackEnabled(
+        id: String,
+        enabled: Boolean,
+    ) {}
 
     /**
      * Get the count of rules in a built-in rule pack.
@@ -48,7 +50,10 @@ interface AdFilter {
      * Call this function when [WebViewClient.shouldInterceptRequest],
      * and use [FilterResult.resourceResponse] as return value.
      */
-    fun shouldIntercept(webView: WebView, request: WebResourceRequest): FilterResult
+    fun shouldIntercept(
+        webView: WebView,
+        request: WebResourceRequest,
+    ): FilterResult
 
     /**
      * @param url url of the request
@@ -58,13 +63,16 @@ interface AdFilter {
     fun shouldIntercept(
         url: String,
         documentUrl: String = url,
-        resourceType: ResourceType? = null
+        resourceType: ResourceType? = null,
     ): FilterResult
 
     /**
      * Call this function when [WebViewClient.onPageStarted], it will run the filter script.
      */
-    fun performScript(webView: WebView?, url: String?)
+    fun performScript(
+        webView: WebView?,
+        url: String?,
+    )
 
     /**
      * Call this function when [webView] is created to setup filter on it.
@@ -79,7 +87,10 @@ interface AdFilter {
     /**
      * Cache main-frame URL for the given [webView].
      */
-    fun setMainFrameUrl(webView: WebView, url: String) {}
+    fun setMainFrameUrl(
+        webView: WebView,
+        url: String,
+    ) {}
 
     companion object {
         const val PACK_EASYLIST = "builtin_easylist"
@@ -92,17 +103,17 @@ interface AdFilter {
         /**
          * @return [AdFilter] singleton (if it is not instantiated, an exception is thrown)
          */
-        fun get(): AdFilter =
-            instance ?: throw RuntimeException("Should call create() before get()")
+        fun get(): AdFilter = instance ?: throw RuntimeException("Should call create() before get()")
 
         /**
          * @return [AdFilter] singleton (if it is not instantiated, singleton will be created)
          */
-        fun get(context: Context): AdFilter = instance ?: synchronized(this) {
-            // keep application context rather than any other context to avoid memory leak
-            instance = instance ?: AdFilterImpl(context.applicationContext)
-            instance!!
-        }
+        fun get(context: Context): AdFilter =
+            instance ?: synchronized(this) {
+                // keep application context rather than any other context to avoid memory leak
+                instance = instance ?: AdFilterImpl(context.applicationContext)
+                instance!!
+            }
 
         /**
          * Instantiate [AdFilter] singleton.

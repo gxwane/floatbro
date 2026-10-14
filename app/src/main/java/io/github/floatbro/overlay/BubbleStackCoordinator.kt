@@ -24,20 +24,20 @@ import timber.log.Timber
  */
 class BubbleStackCoordinator(
     private val context: Context,
-    private val windowManager: WindowManager
+    private val windowManager: WindowManager,
 ) {
     private val activeBubbles = mutableListOf<FloatingSession>()
 
     private val bubblePitchPx = dpToPx(62f)
     private val baseMarginYPx = dpToPx(120f)
 
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            dp,
-            context.resources.displayMetrics
-        ).toInt()
-    }
+    private fun dpToPx(dp: Float): Int =
+        TypedValue
+            .applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                context.resources.displayMetrics,
+            ).toInt()
 
     /**
      * Registers a session into the edge bubble stack and positions it at the next available slot.
@@ -52,9 +52,10 @@ class BubbleStackCoordinator(
         val maxY = (displayMetrics.heightPixels - dpToPx(100f)).coerceAtLeast(minY)
 
         val isCurrentOnRight = session.bubbleParams.x > screenWidth / 2
-        val sameSideBubbles = activeBubbles.filter {
-            it.id != session.id && (it.bubbleParams.x > screenWidth / 2) == isCurrentOnRight
-        }
+        val sameSideBubbles =
+            activeBubbles.filter {
+                it.id != session.id && (it.bubbleParams.x > screenWidth / 2) == isCurrentOnRight
+            }
 
         if (sameSideBubbles.isNotEmpty()) {
             var adjustedY = session.bubbleParams.y

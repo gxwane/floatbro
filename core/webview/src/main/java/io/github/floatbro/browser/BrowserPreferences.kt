@@ -14,41 +14,47 @@ package io.github.floatbro.browser
 import android.content.Context
 import android.content.SharedPreferences
 
-enum class UserAgentMode(val label: String) {
+enum class UserAgentMode(
+    val label: String,
+) {
     DEFAULT("默认移动端"),
     DESKTOP("桌面电脑"),
     TABLET("平板/iPad"),
-    CUSTOM("自定义");
+    CUSTOM("自定义"),
+    ;
 
     companion object {
         const val DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         const val TABLET_UA = "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
 
-        fun fromName(name: String?): UserAgentMode {
-            return entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: DEFAULT
-        }
+        fun fromName(name: String?): UserAgentMode = entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: DEFAULT
     }
 }
 
-enum class SearchEngine(val label: String, val searchUrlTemplate: String) {
+enum class SearchEngine(
+    val label: String,
+    val searchUrlTemplate: String,
+) {
     BING("必应", "https://cn.bing.com/search?q=%s"),
     BAIDU("百度", "https://www.baidu.com/s?wd=%s"),
     GOOGLE("谷歌", "https://www.google.com/search?q=%s"),
     DUCKDUCKGO("DuckDuckGo", "https://duckduckgo.com/?q=%s"),
-    CUSTOM("自定义", "%s");
+    CUSTOM("自定义", "%s"),
+    ;
 
     companion object {
-        fun fromName(name: String?): SearchEngine {
-            return entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: BING
-        }
+        fun fromName(name: String?): SearchEngine = entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: BING
     }
 }
 
-class BrowserPreferences(context: Context) {
-    private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences(
-        PREFS_NAME,
-        Context.MODE_PRIVATE
-    )
+class BrowserPreferences(
+    context: Context,
+) {
+    private val prefs: SharedPreferences =
+        context.applicationContext.getSharedPreferences(
+            PREFS_NAME,
+            Context.MODE_PRIVATE,
+        )
 
     var userAgentMode: UserAgentMode
         get() = UserAgentMode.fromName(prefs.getString(KEY_UA_MODE, UserAgentMode.DEFAULT.name))
@@ -130,14 +136,13 @@ class BrowserPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_CLICK_TO_FOCUS, true)
         set(value) = prefs.edit().putBoolean(KEY_CLICK_TO_FOCUS, value).apply()
 
-    fun resolveUserAgent(defaultSystemUa: String? = null): String? {
-        return when (userAgentMode) {
+    fun resolveUserAgent(defaultSystemUa: String? = null): String? =
+        when (userAgentMode) {
             UserAgentMode.DEFAULT -> defaultSystemUa
             UserAgentMode.DESKTOP -> UserAgentMode.DESKTOP_UA
             UserAgentMode.TABLET -> UserAgentMode.TABLET_UA
             UserAgentMode.CUSTOM -> customUserAgent.ifBlank { defaultSystemUa }
         }
-    }
 
     companion object {
         private const val PREFS_NAME = "floatbro_browser_prefs"
@@ -154,10 +159,9 @@ class BrowserPreferences(context: Context) {
         @Volatile
         private var instance: BrowserPreferences? = null
 
-        fun getInstance(context: Context): BrowserPreferences {
-            return instance ?: synchronized(this) {
+        fun getInstance(context: Context): BrowserPreferences =
+            instance ?: synchronized(this) {
                 instance ?: BrowserPreferences(context.applicationContext).also { instance = it }
             }
-        }
     }
 }

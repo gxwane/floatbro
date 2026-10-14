@@ -23,7 +23,6 @@ import org.junit.Test
  * Verifies boundaries, ratio clamping, orientation toggling, and negative invariants.
  */
 class TwoPaneStateTest {
-
     @Test
     fun `scenario - default state initialization has 50 percent ratio and horizontal orientation`() {
         // GIVEN: Default TwoPaneState

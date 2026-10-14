@@ -18,7 +18,6 @@ package io.github.edsuns.adblockclient
 
 import android.net.Uri
 
-
 /**
  * Modified by Edsuns@qq.com.
  *
@@ -26,8 +25,9 @@ import android.net.Uri
  *
  * Reference: [github.com/duckduckgo/Android/releases/tag/5.38.1](https://github.com/duckduckgo/Android/releases/tag/5.38.1)
  */
-class AdBlockClient(override val id: String) : Client {
-
+class AdBlockClient(
+    override val id: String,
+) : Client {
     private val nativeClientPointer: Long
     private var rawDataPointer: Long
     private var processedDataPointer: Long
@@ -50,7 +50,10 @@ class AdBlockClient(override val id: String) : Client {
     /**
      * @param data requires UTF-8 bytes
      */
-    fun loadBasicData(data: ByteArray, preserveRules: Boolean = false) {
+    fun loadBasicData(
+        data: ByteArray,
+        preserveRules: Boolean = false,
+    ) {
         rawDataPointer = loadBasicData(nativeClientPointer, data, preserveRules)
         regexFilters = RegexFilterSet.parse(String(data, Charsets.UTF_8))
     }
@@ -61,12 +64,15 @@ class AdBlockClient(override val id: String) : Client {
 
     private external fun isGenericElementHidingEnabled(clientPointer: Long): Boolean
 
-    private external fun setGenericElementHidingEnabled(clientPointer: Long, enabled: Boolean)
+    private external fun setGenericElementHidingEnabled(
+        clientPointer: Long,
+        enabled: Boolean,
+    )
 
     private external fun loadBasicData(
         clientPointer: Long,
         data: ByteArray,
-        preserveRules: Boolean
+        preserveRules: Boolean,
     ): Long
 
     /**
@@ -83,10 +89,13 @@ class AdBlockClient(override val id: String) : Client {
         return true
     }
 
-    private external fun loadProcessedData(clientPointer: Long, data: ByteArray, length: Int): Long
+    private external fun loadProcessedData(
+        clientPointer: Long,
+        data: ByteArray,
+        length: Int,
+    ): Long
 
-    fun getProcessedData(): ByteArray =
-        RegexFilterSet.pack(getProcessedData(nativeClientPointer), regexFilters)
+    fun getProcessedData(): ByteArray = RegexFilterSet.pack(getProcessedData(nativeClientPointer), regexFilters)
 
     private external fun getProcessedData(clientPointer: Long): ByteArray
 
@@ -97,7 +106,7 @@ class AdBlockClient(override val id: String) : Client {
     override fun matches(
         url: String,
         documentUrl: String,
-        resourceType: ResourceType
+        resourceType: ResourceType,
     ): MatchResult {
         val firstPartyDomain = documentUrl.baseHost() ?: return MatchResult(false, null, null)
         val result = matches(nativeClientPointer, url, firstPartyDomain, resourceType.filterOption)
@@ -108,28 +117,36 @@ class AdBlockClient(override val id: String) : Client {
         clientPointer: Long,
         url: String,
         firstPartyDomain: String,
-        filterOption: Int
+        filterOption: Int,
     ): MatchResult
 
-    override fun getElementHidingSelectors(url: String): String? =
-        getElementHidingSelectors(nativeClientPointer, url)
+    override fun getElementHidingSelectors(url: String): String? = getElementHidingSelectors(nativeClientPointer, url)
 
-    override fun getExtendedCssSelectors(url: String): Array<String>? =
-        getExtendedCssSelectors(nativeClientPointer, url)
+    override fun getExtendedCssSelectors(url: String): Array<String>? = getExtendedCssSelectors(nativeClientPointer, url)
 
-    override fun getCssRules(url: String): Array<String>? =
-        getCssRules(nativeClientPointer, url)
+    override fun getCssRules(url: String): Array<String>? = getCssRules(nativeClientPointer, url)
 
-    override fun getScriptlets(url: String): Array<String>? =
-        getScriptlets(nativeClientPointer, url)
+    override fun getScriptlets(url: String): Array<String>? = getScriptlets(nativeClientPointer, url)
 
-    private external fun getElementHidingSelectors(clientPointer: Long, url: String): String?
+    private external fun getElementHidingSelectors(
+        clientPointer: Long,
+        url: String,
+    ): String?
 
-    private external fun getExtendedCssSelectors(clientPointer: Long, url: String): Array<String>?
+    private external fun getExtendedCssSelectors(
+        clientPointer: Long,
+        url: String,
+    ): Array<String>?
 
-    private external fun getCssRules(clientPointer: Long, url: String): Array<String>?
+    private external fun getCssRules(
+        clientPointer: Long,
+        url: String,
+    ): Array<String>?
 
-    private external fun getScriptlets(clientPointer: Long, url: String): Array<String>?
+    private external fun getScriptlets(
+        clientPointer: Long,
+        url: String,
+    ): Array<String>?
 
     @Suppress("unused", "protectedInFinal")
     protected fun finalize() {
@@ -139,7 +156,7 @@ class AdBlockClient(override val id: String) : Client {
     private external fun releaseClient(
         clientPointer: Long,
         rawDataPointer: Long,
-        processedDataPointer: Long
+        processedDataPointer: Long,
     )
 
     private fun String.baseHost(): String? {

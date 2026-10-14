@@ -17,7 +17,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OverlayPhysicsHelperTest {
-
     @Test
     fun testKeyboardAvoidanceOffsetCalculation() {
         val screenHeight = 2000
@@ -28,34 +27,37 @@ class OverlayPhysicsHelperTest {
         // Case 1: Window is in lower half (Y=1000).
         // Bottom is 1800, which collides with keyboard top (2000 - 700 = 1300).
         // Expected Y: 1300 - 800 - 50 = 450
-        val targetY = OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
-            currentY = 1000,
-            windowHeight = windowHeight,
-            screenHeight = screenHeight,
-            keyboardHeight = keyboardHeight,
-            safeMarginPx = safeMargin
-        )
+        val targetY =
+            OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
+                currentY = 1000,
+                windowHeight = windowHeight,
+                screenHeight = screenHeight,
+                keyboardHeight = keyboardHeight,
+                safeMarginPx = safeMargin,
+            )
         assertEquals(450, targetY)
 
         // Case 2: Window is in upper half (Y=200). Bottom is 1000 <= 1300.
         // No collision -> returns original Y (200)
-        val nonCollidingY = OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
-            currentY = 200,
-            windowHeight = windowHeight,
-            screenHeight = screenHeight,
-            keyboardHeight = keyboardHeight,
-            safeMarginPx = safeMargin
-        )
+        val nonCollidingY =
+            OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
+                currentY = 200,
+                windowHeight = windowHeight,
+                screenHeight = screenHeight,
+                keyboardHeight = keyboardHeight,
+                safeMarginPx = safeMargin,
+            )
         assertEquals(200, nonCollidingY)
 
         // Case 3: Extreme keyboard height where target would be negative -> clamps to 0
-        val clampedY = OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
-            currentY = 1000,
-            windowHeight = 1500,
-            screenHeight = screenHeight,
-            keyboardHeight = 800,
-            safeMarginPx = safeMargin
-        )
+        val clampedY =
+            OverlayPhysicsHelper.calculateKeyboardAvoidanceY(
+                currentY = 1000,
+                windowHeight = 1500,
+                screenHeight = screenHeight,
+                keyboardHeight = 800,
+                safeMarginPx = safeMargin,
+            )
         assertEquals(0, clampedY)
     }
 
@@ -72,8 +74,8 @@ class OverlayPhysicsHelperTest {
                 currentX = 50,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                snapThresholdPx = snapThreshold
-            )
+                snapThresholdPx = snapThreshold,
+            ),
         )
 
         // Near right edge (currentX = 400, right edge = 1000 > 1080 - 120 = 960) -> snaps to 1080 - 600 = 480
@@ -83,8 +85,8 @@ class OverlayPhysicsHelperTest {
                 currentX = 400,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                snapThresholdPx = snapThreshold
-            )
+                snapThresholdPx = snapThreshold,
+            ),
         )
 
         // In middle (currentX = 200, left 200 >= 120, right 800 <= 960) -> no snap
@@ -94,8 +96,8 @@ class OverlayPhysicsHelperTest {
                 currentX = 200,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                snapThresholdPx = snapThreshold
-            )
+                snapThresholdPx = snapThreshold,
+            ),
         )
     }
 
@@ -112,8 +114,8 @@ class OverlayPhysicsHelperTest {
                 bubbleCenterY = 2190f,
                 targetCenterX = targetCenterX,
                 targetCenterY = targetCenterY,
-                hitRadiusPx = hitRadius
-            )
+                hitRadiusPx = hitRadius,
+            ),
         )
 
         // Far away outside hit radius
@@ -123,8 +125,8 @@ class OverlayPhysicsHelperTest {
                 bubbleCenterY = 500f,
                 targetCenterX = targetCenterX,
                 targetCenterY = targetCenterY,
-                hitRadiusPx = hitRadius
-            )
+                hitRadiusPx = hitRadius,
+            ),
         )
     }
 
@@ -141,8 +143,8 @@ class OverlayPhysicsHelperTest {
                 currentX = 200,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                isDismissHit = false
-            )
+                isDismissHit = false,
+            ),
         )
 
         // 2. Downward drag hitting dismiss target -> DISMISS_TO_TARGET
@@ -153,8 +155,8 @@ class OverlayPhysicsHelperTest {
                 currentX = 240,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                isDismissHit = true
-            )
+                isDismissHit = true,
+            ),
         )
 
         // 3. Pushed off screen left (x = -300 < -240) -> COLLAPSE_TO_BUBBLE
@@ -165,8 +167,8 @@ class OverlayPhysicsHelperTest {
                 currentX = -300,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                isDismissHit = false
-            )
+                isDismissHit = false,
+            ),
         )
 
         // 4. Normal drag inside screen -> SNAP_EDGE
@@ -177,8 +179,8 @@ class OverlayPhysicsHelperTest {
                 currentX = 200,
                 windowWidth = windowWidth,
                 screenWidth = screenWidth,
-                isDismissHit = false
-            )
+                isDismissHit = false,
+            ),
         )
     }
 }

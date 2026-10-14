@@ -21,7 +21,6 @@ import org.junit.Test
  * harmless navigation aborts (like 301/302 redirects, e.g. acfun.cn) from real network errors.
  */
 class FloatWebViewClientErrorTest {
-
     @Test
     fun `isAbortedError identifies ERR_ABORTED in description regardless of case`() {
         // Typical Chromium description for redirected or cancelled requests

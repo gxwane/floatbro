@@ -17,7 +17,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppUpdateSemVerTest {
-
     @Test
     fun testCompareSemVerIdentical() {
         assertEquals(0, AppUpdateManager.compareSemVer("1.0.0", "1.0.0"))

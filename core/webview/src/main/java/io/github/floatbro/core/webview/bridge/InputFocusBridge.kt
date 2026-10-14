@@ -21,7 +21,7 @@ import timber.log.Timber
  * enabling dynamic WindowManager flag toggling (FLAG_NOT_FOCUSABLE).
  */
 class InputFocusBridge(
-    private val onFocusChanged: (Boolean) -> Unit
+    private val onFocusChanged: (Boolean) -> Unit,
 ) {
     companion object {
         const val INTERFACE_NAME = "FloatBroFocusBridge"
@@ -36,8 +36,8 @@ class InputFocusBridge(
                     var tag = (elem.tagName || '').toLowerCase();
                     if (tag === 'input') {
                         var type = (elem.type || 'text').toLowerCase();
-                        return type !== 'button' && type !== 'submit' && type !== 'checkbox' && 
-                               type !== 'radio' && type !== 'reset' && type !== 'image' && 
+                        return type !== 'button' && type !== 'submit' && type !== 'checkbox' &&
+                               type !== 'radio' && type !== 'reset' && type !== 'image' &&
                                type !== 'color' && type !== 'range' && type !== 'file';
                     }
                     if (tag === 'textarea' || tag === 'select') return true;

@@ -34,9 +34,8 @@ import io.github.floatbro.R
 @SuppressLint("ViewConstructor")
 class BubbleDismissTargetView(
     context: Context,
-    private val windowManager: WindowManager
+    private val windowManager: WindowManager,
 ) : FrameLayout(context) {
-
     val layoutParams: WindowManager.LayoutParams
     private val backgroundDrawable: GradientDrawable
     private val iconView: ImageView
@@ -47,37 +46,41 @@ class BubbleDismissTargetView(
     private var isTargetVisible = false
 
     init {
-        layoutParams = WindowManager.LayoutParams(
-            targetSizePx,
-            targetSizePx,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            },
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = dpToPx(48f)
-        }
+        layoutParams =
+            WindowManager
+                .LayoutParams(
+                    targetSizePx,
+                    targetSizePx,
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    } else {
+                        @Suppress("DEPRECATION")
+                        WindowManager.LayoutParams.TYPE_PHONE
+                    },
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    PixelFormat.TRANSLUCENT,
+                ).apply {
+                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                    y = dpToPx(48f)
+                }
 
-        backgroundDrawable = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#40EF4444")) // Semi-transparent red
-            setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
-        }
+        backgroundDrawable =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#40EF4444")) // Semi-transparent red
+                setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
+            }
         background = backgroundDrawable
         elevation = dpToPx(16f).toFloat()
 
-        iconView = ImageView(context).apply {
-            layoutParams = LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
-            setImageResource(R.drawable.ic_trash_bin)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
+        iconView =
+            ImageView(context).apply {
+                layoutParams = LayoutParams(iconSizePx, iconSizePx, Gravity.CENTER)
+                setImageResource(R.drawable.ic_trash_bin)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
         addView(iconView)
 
         alpha = 0f
@@ -85,13 +88,13 @@ class BubbleDismissTargetView(
         scaleY = 0.7f
     }
 
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            dp,
-            context.resources.displayMetrics
-        ).toInt()
-    }
+    private fun dpToPx(dp: Float): Int =
+        TypedValue
+            .applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                context.resources.displayMetrics,
+            ).toInt()
 
     fun showTarget() {
         if (isTargetVisible) return

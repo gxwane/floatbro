@@ -19,14 +19,14 @@ import org.junit.Test
  * Unit Tests for MarkdownParser ensuring GitHub release notes are parsed accurately without truncation.
  */
 class MarkdownParserTest {
-
     @Test
     fun `parses headings accurately`() {
-        val markdown = """
+        val markdown =
+            """
             # Version 1.2.0
             ## What's Changed
             ### Bug Fixes
-        """.trimIndent()
+            """.trimIndent()
 
         val blocks = MarkdownParser.parseBlocks(markdown)
         assertEquals(3, blocks.size)
@@ -42,31 +42,43 @@ class MarkdownParserTest {
 
     @Test
     fun `parses unordered and ordered lists`() {
-        val markdown = """
+        val markdown =
+            """
             * Fixed floating window flicker
             - Added click-to-focus support
             + Cleaned up ViewRootImpl detach
             1. First step
             2. Second step
-        """.trimIndent()
+            """.trimIndent()
 
         val blocks = MarkdownParser.parseBlocks(markdown)
         assertEquals(5, blocks.size)
         assertTrue(blocks[0] is MarkdownBlock.BulletItem && (blocks[0] as MarkdownBlock.BulletItem).text == "Fixed floating window flicker")
         assertTrue(blocks[1] is MarkdownBlock.BulletItem && (blocks[1] as MarkdownBlock.BulletItem).text == "Added click-to-focus support")
-        assertTrue(blocks[2] is MarkdownBlock.BulletItem && (blocks[2] as MarkdownBlock.BulletItem).text == "Cleaned up ViewRootImpl detach")
-        assertTrue(blocks[3] is MarkdownBlock.NumberedItem && (blocks[3] as MarkdownBlock.NumberedItem).number == "1" && (blocks[3] as MarkdownBlock.NumberedItem).text == "First step")
-        assertTrue(blocks[4] is MarkdownBlock.NumberedItem && (blocks[4] as MarkdownBlock.NumberedItem).number == "2" && (blocks[4] as MarkdownBlock.NumberedItem).text == "Second step")
+        assertTrue(
+            blocks[2] is MarkdownBlock.BulletItem && (blocks[2] as MarkdownBlock.BulletItem).text == "Cleaned up ViewRootImpl detach",
+        )
+        assertTrue(
+            blocks[3] is MarkdownBlock.NumberedItem &&
+                (blocks[3] as MarkdownBlock.NumberedItem).number == "1" &&
+                (blocks[3] as MarkdownBlock.NumberedItem).text == "First step",
+        )
+        assertTrue(
+            blocks[4] is MarkdownBlock.NumberedItem &&
+                (blocks[4] as MarkdownBlock.NumberedItem).number == "2" &&
+                (blocks[4] as MarkdownBlock.NumberedItem).text == "Second step",
+        )
     }
 
     @Test
     fun `parses code blocks and blockquotes`() {
-        val markdown = """
+        val markdown =
+            """
             > Important upgrade notice
             ```kotlin
             val app = "FloatBro"
             ```
-        """.trimIndent()
+            """.trimIndent()
 
         val blocks = MarkdownParser.parseBlocks(markdown)
         assertEquals(2, blocks.size)
@@ -87,12 +99,13 @@ class MarkdownParserTest {
 
     @Test
     fun `preserves long release text beyond 160 characters without truncation`() {
-        val longChangelog = buildString {
-            append("## Full Release Notes\n")
-            repeat(20) { idx ->
-                append("* Feature item #$idx: Detailed description of the feature and fixes.\n")
+        val longChangelog =
+            buildString {
+                append("## Full Release Notes\n")
+                repeat(20) { idx ->
+                    append("* Feature item #$idx: Detailed description of the feature and fixes.\n")
+                }
             }
-        }
         assertTrue("Input is longer than 500 chars", longChangelog.length > 500)
 
         val blocks = MarkdownParser.parseBlocks(longChangelog)
@@ -103,14 +116,15 @@ class MarkdownParserTest {
 
     @Test
     fun `parses headings levels 1 through 6 accurately`() {
-        val markdown = """
+        val markdown =
+            """
             # H1
             ## H2
             ### H3
             #### H4
             ##### H5
             ###### H6
-        """.trimIndent()
+            """.trimIndent()
 
         val blocks = MarkdownParser.parseBlocks(markdown)
         assertEquals(6, blocks.size)
@@ -131,10 +145,11 @@ class MarkdownParserTest {
 
     @Test
     fun `handles unclosed code blocks safely`() {
-        val markdown = """
+        val markdown =
+            """
             ```kotlin
             val x = 42
-        """.trimIndent()
+            """.trimIndent()
         val blocks = MarkdownParser.parseBlocks(markdown)
         assertEquals(1, blocks.size)
         assertTrue(blocks[0] is MarkdownBlock.CodeBlock)
@@ -142,4 +157,3 @@ class MarkdownParserTest {
         assertEquals("val x = 42", (blocks[0] as MarkdownBlock.CodeBlock).code.trim())
     }
 }
-

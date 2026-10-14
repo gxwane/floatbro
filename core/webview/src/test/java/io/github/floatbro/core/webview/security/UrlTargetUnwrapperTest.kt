@@ -18,7 +18,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UrlTargetUnwrapperTest {
-
     @Test
     fun `extractTargetUrl extracts clean destination from standard target param`() {
         val raw = "https://ad.network.com/jump?click_id=999&target=https%3A%2F%2Fm.biquge.com%2Fread%2F102.html"
@@ -45,13 +44,16 @@ class UrlTargetUnwrapperTest {
 
     @Test
     fun `extractTargetUrl unwraps nested trampoline URLs up to max depth`() {
-        val nested = "https://ad1.com/jump?target=" + java.net.URLEncoder.encode(
-            "https://ad2.com/forward?dest=" + java.net.URLEncoder.encode(
-                "https://novel.com/chapter/50.html",
-                "UTF-8"
-            ),
-            "UTF-8"
-        )
+        val nested =
+            "https://ad1.com/jump?target=" +
+                java.net.URLEncoder.encode(
+                    "https://ad2.com/forward?dest=" +
+                        java.net.URLEncoder.encode(
+                            "https://novel.com/chapter/50.html",
+                            "UTF-8",
+                        ),
+                    "UTF-8",
+                )
         val extracted = UrlTargetUnwrapper.extractTargetUrl(nested)
         assertEquals("https://novel.com/chapter/50.html", extracted)
     }

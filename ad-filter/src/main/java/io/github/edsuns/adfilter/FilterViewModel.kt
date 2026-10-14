@@ -18,7 +18,12 @@ interface FilterViewModel {
      * [Filter.id] to [Filter]
      */
     val filters: StateFlow<Map<String, Filter>>
-    fun updateFilterByFilterId(id: String, filter: Filter)
+
+    fun updateFilterByFilterId(
+        id: String,
+        filter: Filter,
+    )
+
     fun updateFilters()
 
     /**
@@ -26,7 +31,10 @@ interface FilterViewModel {
      * @param name the name of the filter
      * @param url the subscription url of the filter
      */
-    fun addFilter(name: String, url: String): Filter
+    fun addFilter(
+        name: String,
+        url: String,
+    ): Filter
 
     /**
      * Remove specified filter.
@@ -40,14 +48,21 @@ interface FilterViewModel {
      * @param enabled true to enable
      * @param post true to notify changes by [StateFlow]
      */
-    fun setFilterEnabled(id: String, enabled: Boolean, post: Boolean = true)
+    fun setFilterEnabled(
+        id: String,
+        enabled: Boolean,
+        post: Boolean = true,
+    )
 
     /**
      * Rename specified filter.
      * @param id [Filter.id]
      * @param name new name of the filter
      */
-    fun renameFilter(id: String, name: String)
+    fun renameFilter(
+        id: String,
+        name: String,
+    )
 
     /**
      * @return true if custom filter is enabled

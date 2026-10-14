@@ -16,15 +16,16 @@ import android.content.res.Resources
 import android.util.TypedValue
 
 object DisplayUtils {
-    fun dpToPx(dp: Float, context: Context): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            dp,
-            context.resources.displayMetrics
-        ).toInt()
-    }
+    fun dpToPx(
+        dp: Float,
+        context: Context,
+    ): Int =
+        TypedValue
+            .applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                context.resources.displayMetrics,
+            ).toInt()
 
-    fun pxToDp(px: Int): Float {
-        return px / Resources.getSystem().displayMetrics.density
-    }
+    fun pxToDp(px: Int): Float = px / Resources.getSystem().displayMetrics.density
 }

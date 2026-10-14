@@ -22,7 +22,6 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -34,188 +33,191 @@ import io.github.floatbro.core.webview.R
  * mini toolbar, address input, and progress indicator.
  */
 @SuppressLint("SetTextI18n")
-class PaneContainer @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-    defStyleAttr: Int = 0
-) : LinearLayout(context, attrs, defStyleAttr) {
+class PaneContainer
+    @JvmOverloads
+    constructor(
+        context: Context,
+        attrs: AttributeSet? = null,
+        defStyleAttr: Int = 0,
+    ) : LinearLayout(context, attrs, defStyleAttr) {
+        val toolbar: LinearLayout = LinearLayout(context)
+        val webView: EBWebView = EBWebView(context)
+        val urlInput: EditText = EditText(context)
+        val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
 
-    val toolbar: LinearLayout = LinearLayout(context)
-    val webView: EBWebView = EBWebView(context)
-    val urlInput: EditText = EditText(context)
-    val progressBar: ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
-    
-    val btnBack: ImageButton = ImageButton(context)
-    val btnForward: ImageButton = ImageButton(context)
-    val btnSendToOther: ImageButton = ImageButton(context)
-    val btnClosePane: ImageButton = ImageButton(context)
+        val btnBack: ImageButton = ImageButton(context)
+        val btnForward: ImageButton = ImageButton(context)
+        val btnSendToOther: ImageButton = ImageButton(context)
+        val btnClosePane: ImageButton = ImageButton(context)
 
-    var isToolbarVisible: Boolean
-        get() = toolbar.visibility == View.VISIBLE
-        set(value) {
-            toolbar.visibility = if (value) View.VISIBLE else View.GONE
-        }
-
-    var onSendUrlToOtherPaneRequested: ((url: String) -> Unit)? = null
-    var onClosePaneRequested: (() -> Unit)? = null
-    var onInputFocusChanged: ((Boolean) -> Unit)? = null
-
-    init {
-        orientation = VERTICAL
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-        setBackgroundColor(Color.WHITE)
-
-        initToolbar()
-        initProgressBar()
-        initWebView()
-    }
-
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            dp,
-            context.resources.displayMetrics
-        ).toInt()
-    }
-
-    private fun initToolbar() {
-        toolbar.apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(6f), dpToPx(4f), dpToPx(6f), dpToPx(4f))
-            setBackgroundColor(Color.parseColor("#F8FAFC"))
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(42f))
-        }
-
-        // Back Button
-        btnBack.apply {
-            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
-            setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(R.drawable.ic_pane_back)
-            contentDescription = "后退"
-            setOnClickListener { if (webView.canGoBack()) webView.goBack() }
-        }
-
-        // Forward Button
-        btnForward.apply {
-            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
-            setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(R.drawable.ic_pane_forward)
-            contentDescription = "前进"
-            setOnClickListener { if (webView.canGoForward()) webView.goForward() }
-        }
-
-        // URL Input
-        urlInput.apply {
-            layoutParams = LayoutParams(0, dpToPx(34f), 1f).apply {
-                marginStart = dpToPx(4f)
-                marginEnd = dpToPx(4f)
+        var isToolbarVisible: Boolean
+            get() = toolbar.visibility == View.VISIBLE
+            set(value) {
+                toolbar.visibility = if (value) View.VISIBLE else View.GONE
             }
-            background = GradientDrawable().apply {
-                setColor(Color.WHITE)
-                cornerRadius = dpToPx(16f).toFloat()
-                setStroke(dpToPx(1f), Color.parseColor("#E2E8F0"))
+
+        var onSendUrlToOtherPaneRequested: ((url: String) -> Unit)? = null
+        var onClosePaneRequested: (() -> Unit)? = null
+        var onInputFocusChanged: ((Boolean) -> Unit)? = null
+
+        init {
+            orientation = VERTICAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+
+            initToolbar()
+            initProgressBar()
+            initWebView()
+        }
+
+        private fun dpToPx(dp: Float): Int =
+            TypedValue
+                .applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    dp,
+                    context.resources.displayMetrics,
+                ).toInt()
+
+        private fun initToolbar() {
+            toolbar.apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dpToPx(6f), dpToPx(4f), dpToPx(6f), dpToPx(4f))
+                setBackgroundColor(Color.parseColor("#F8FAFC"))
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(42f))
             }
-            setPadding(dpToPx(12f), 0, dpToPx(12f), 0)
-            textSize = 12f
-            setTextColor(Color.parseColor("#0F172A"))
-            setHintTextColor(Color.parseColor("#94A3B8"))
-            setSingleLine(true)
-            imeOptions = EditorInfo.IME_ACTION_GO
-            hint = "输入网址或搜索内容"
-            setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_SEARCH) {
-                    hideKeyboard()
-                    loadUrl(text.toString())
-                    true
-                } else {
-                    false
+
+            // Back Button
+            btnBack.apply {
+                layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
+                setBackgroundColor(Color.TRANSPARENT)
+                setImageResource(R.drawable.ic_pane_back)
+                contentDescription = "后退"
+                setOnClickListener { if (webView.canGoBack()) webView.goBack() }
+            }
+
+            // Forward Button
+            btnForward.apply {
+                layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
+                setBackgroundColor(Color.TRANSPARENT)
+                setImageResource(R.drawable.ic_pane_forward)
+                contentDescription = "前进"
+                setOnClickListener { if (webView.canGoForward()) webView.goForward() }
+            }
+
+            // URL Input
+            urlInput.apply {
+                layoutParams =
+                    LayoutParams(0, dpToPx(34f), 1f).apply {
+                        marginStart = dpToPx(4f)
+                        marginEnd = dpToPx(4f)
+                    }
+                background =
+                    GradientDrawable().apply {
+                        setColor(Color.WHITE)
+                        cornerRadius = dpToPx(16f).toFloat()
+                        setStroke(dpToPx(1f), Color.parseColor("#E2E8F0"))
+                    }
+                setPadding(dpToPx(12f), 0, dpToPx(12f), 0)
+                textSize = 12f
+                setTextColor(Color.parseColor("#0F172A"))
+                setHintTextColor(Color.parseColor("#94A3B8"))
+                setSingleLine(true)
+                imeOptions = EditorInfo.IME_ACTION_GO
+                hint = "输入网址或搜索内容"
+                setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_SEARCH) {
+                        hideKeyboard()
+                        loadUrl(text.toString())
+                        true
+                    } else {
+                        false
+                    }
                 }
-            }
-            setOnFocusChangeListener { _, hasFocus ->
-                onInputFocusChanged?.invoke(hasFocus)
-            }
-        }
-
-        // Send to Other Pane Button (Cross-pane Dispatch)
-        btnSendToOther.apply {
-            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
-            setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(R.drawable.ic_pane_dispatch)
-            contentDescription = "在对侧视口打开"
-            tooltipText = "在对侧视口打开"
-            setOnClickListener {
-                val currentUrl = webView.url ?: urlInput.text.toString()
-                if (currentUrl.isNotEmpty()) {
-                    onSendUrlToOtherPaneRequested?.invoke(currentUrl)
-                }
-            }
-        }
-
-        // Close Pane Button
-        btnClosePane.apply {
-            layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
-            setBackgroundColor(Color.TRANSPARENT)
-            setImageResource(R.drawable.ic_pane_close)
-            contentDescription = "关闭此分屏"
-            tooltipText = "关闭此分屏"
-            visibility = View.GONE
-            setOnClickListener { onClosePaneRequested?.invoke() }
-        }
-
-        toolbar.addView(btnBack)
-        toolbar.addView(btnForward)
-        toolbar.addView(urlInput)
-        toolbar.addView(btnSendToOther)
-        toolbar.addView(btnClosePane)
-
-        addView(toolbar)
-    }
-
-    private fun initProgressBar() {
-        progressBar.apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(2f))
-            max = 100
-            progress = 0
-            visibility = GONE
-        }
-        addView(progressBar)
-    }
-
-    private fun initWebView() {
-        webView.apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
-
-            onProgressChangedListener = { progress ->
-                if (progress in 1..99) {
-                    progressBar.visibility = VISIBLE
-                    progressBar.progress = progress
-                } else {
-                    progressBar.visibility = GONE
+                setOnFocusChangeListener { _, hasFocus ->
+                    onInputFocusChanged?.invoke(hasFocus)
                 }
             }
 
-            onPageStartedListener = { url ->
-                urlInput.setText(url)
+            // Send to Other Pane Button (Cross-pane Dispatch)
+            btnSendToOther.apply {
+                layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
+                setBackgroundColor(Color.TRANSPARENT)
+                setImageResource(R.drawable.ic_pane_dispatch)
+                contentDescription = "在对侧视口打开"
+                tooltipText = "在对侧视口打开"
+                setOnClickListener {
+                    val currentUrl = webView.url ?: urlInput.text.toString()
+                    if (currentUrl.isNotEmpty()) {
+                        onSendUrlToOtherPaneRequested?.invoke(currentUrl)
+                    }
+                }
             }
 
-            onPageFinishedListener = { url ->
-                urlInput.setText(url)
+            // Close Pane Button
+            btnClosePane.apply {
+                layoutParams = LayoutParams(dpToPx(36f), dpToPx(36f))
+                setBackgroundColor(Color.TRANSPARENT)
+                setImageResource(R.drawable.ic_pane_close)
+                contentDescription = "关闭此分屏"
+                tooltipText = "关闭此分屏"
+                visibility = View.GONE
+                setOnClickListener { onClosePaneRequested?.invoke() }
             }
 
-            onInputFocusListener = { isFocused ->
-                onInputFocusChanged?.invoke(isFocused)
-            }
+            toolbar.addView(btnBack)
+            toolbar.addView(btnForward)
+            toolbar.addView(urlInput)
+            toolbar.addView(btnSendToOther)
+            toolbar.addView(btnClosePane)
+
+            addView(toolbar)
         }
-        addView(webView)
-    }
 
-    fun loadUrl(url: String) {
-        webView.loadUrlSafely(url)
-    }
+        private fun initProgressBar() {
+            progressBar.apply {
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(2f))
+                max = 100
+                progress = 0
+                visibility = GONE
+            }
+            addView(progressBar)
+        }
 
-    private fun hideKeyboard() {
-        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-        imm?.hideSoftInputFromWindow(urlInput.windowToken, 0)
+        private fun initWebView() {
+            webView.apply {
+                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
+
+                onProgressChangedListener = { progress ->
+                    if (progress in 1..99) {
+                        progressBar.visibility = VISIBLE
+                        progressBar.progress = progress
+                    } else {
+                        progressBar.visibility = GONE
+                    }
+                }
+
+                onPageStartedListener = { url ->
+                    urlInput.setText(url)
+                }
+
+                onPageFinishedListener = { url ->
+                    urlInput.setText(url)
+                }
+
+                onInputFocusListener = { isFocused ->
+                    onInputFocusChanged?.invoke(isFocused)
+                }
+            }
+            addView(webView)
+        }
+
+        fun loadUrl(url: String) {
+            webView.loadUrlSafely(url)
+        }
+
+        private fun hideKeyboard() {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(urlInput.windowToken, 0)
+        }
     }
-}

@@ -21,14 +21,25 @@ import java.nio.charset.StandardCharsets
  * Implemented using pure Kotlin string parsing to guarantee seamless pure JVM execution and zero Android stub issues.
  */
 object UrlTargetUnwrapper {
-
     const val MAX_URL_LENGTH = 2048
     const val MAX_RECURSION_DEPTH = 2
 
-    private val TARGET_PARAM_KEYS = setOf(
-        "target", "url", "dest", "destination", "redirect", "redirect_url",
-        "redirect_uri", "to", "link", "jump", "goto", "continue", "next"
-    )
+    private val TARGET_PARAM_KEYS =
+        setOf(
+            "target",
+            "url",
+            "dest",
+            "destination",
+            "redirect",
+            "redirect_url",
+            "redirect_uri",
+            "to",
+            "link",
+            "jump",
+            "goto",
+            "continue",
+            "next",
+        )
 
     /**
      * Attempts to extract a genuine destination URL from query parameters of an ad / trampoline URL.
@@ -36,11 +47,12 @@ object UrlTargetUnwrapper {
      * @param rawUrl The candidate redirection or trampoline URL
      * @return Decoded valid HTTP/HTTPS destination URL, or null if no valid target found
      */
-    fun extractTargetUrl(rawUrl: String): String? {
-        return extractInternal(rawUrl.trim(), depth = 0)
-    }
+    fun extractTargetUrl(rawUrl: String): String? = extractInternal(rawUrl.trim(), depth = 0)
 
-    private fun extractInternal(url: String, depth: Int): String? {
+    private fun extractInternal(
+        url: String,
+        depth: Int,
+    ): String? {
         if (depth > MAX_RECURSION_DEPTH || url.length > MAX_URL_LENGTH) {
             return null
         }
@@ -118,7 +130,10 @@ object UrlTargetUnwrapper {
      * 2. If cross-origin, truncates to Origin only (e.g. "https://example.com/").
      * 3. If same-origin, preserves the full current document URL.
      */
-    fun buildSafeReferer(currentDocUrl: String?, targetUrl: String): String? {
+    fun buildSafeReferer(
+        currentDocUrl: String?,
+        targetUrl: String,
+    ): String? {
         if (currentDocUrl.isNullOrBlank()) return null
         if (!isValidWebUrl(currentDocUrl) || !isValidWebUrl(targetUrl)) return null
 
@@ -130,7 +145,8 @@ object UrlTargetUnwrapper {
             return null
         }
 
-        val isSameOrigin = currentOrigin.scheme == targetOrigin.scheme &&
+        val isSameOrigin =
+            currentOrigin.scheme == targetOrigin.scheme &&
                 currentOrigin.host == targetOrigin.host &&
                 currentOrigin.port == targetOrigin.port
 
@@ -139,16 +155,21 @@ object UrlTargetUnwrapper {
             currentDocUrl
         } else {
             // Cross origin: send Origin only (scheme://authority/)
-            val authority = if (currentOrigin.port != defaultPort(currentOrigin.scheme)) {
-                "${currentOrigin.host}:${currentOrigin.port}"
-            } else {
-                currentOrigin.host
-            }
+            val authority =
+                if (currentOrigin.port != defaultPort(currentOrigin.scheme)) {
+                    "${currentOrigin.host}:${currentOrigin.port}"
+                } else {
+                    currentOrigin.host
+                }
             "${currentOrigin.scheme}://$authority/"
         }
     }
 
-    internal data class OriginInfo(val scheme: String, val host: String, val port: Int)
+    internal data class OriginInfo(
+        val scheme: String,
+        val host: String,
+        val port: Int,
+    )
 
     internal fun extractOrigin(url: String): OriginInfo? {
         val trimmed = url.trim()
@@ -162,11 +183,12 @@ object UrlTargetUnwrapper {
 
         val colonIdx = hostAndPort.indexOf(':')
         val host = if (colonIdx == -1) hostAndPort.lowercase() else hostAndPort.substring(0, colonIdx).lowercase()
-        val port = if (colonIdx != -1) {
-            hostAndPort.substring(colonIdx + 1).toIntOrNull() ?: defaultPort(scheme)
-        } else {
-            defaultPort(scheme)
-        }
+        val port =
+            if (colonIdx != -1) {
+                hostAndPort.substring(colonIdx + 1).toIntOrNull() ?: defaultPort(scheme)
+            } else {
+                defaultPort(scheme)
+            }
         return OriginInfo(scheme, host, port)
     }
 

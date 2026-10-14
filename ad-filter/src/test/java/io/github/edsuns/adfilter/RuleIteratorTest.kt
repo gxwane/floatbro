@@ -23,7 +23,6 @@ import org.junit.Test
  * and boundary/negative assertions.
  */
 class RuleIteratorTest {
-
     @Test
     fun `scenario - empty RuleIterator has zero size and no next element`() {
         val iterator = RuleIterator()

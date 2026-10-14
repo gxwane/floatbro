@@ -20,7 +20,6 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 class FloatApplication : Application() {
-
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {

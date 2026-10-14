@@ -19,7 +19,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThemeTokensTest {
-
     @Test
     fun testAccessibilityTouchTargetTokens() {
         // WCAG 2.2 and Material 3 require minimum 48dp touch target
@@ -38,18 +37,18 @@ class ThemeTokensTest {
         // Light theme background should have high luminance
         assertTrue(
             "Light background luminance should be > 0.8",
-            FloatBroLightColorScheme.background.luminance() > 0.8f
+            FloatBroLightColorScheme.background.luminance() > 0.8f,
         )
         // Dark theme background should have low luminance
         assertTrue(
             "Dark background luminance should be < 0.2",
-            FloatBroDarkColorScheme.background.luminance() < 0.2f
+            FloatBroDarkColorScheme.background.luminance() < 0.2f,
         )
 
         // Dark theme onBackground should have high contrast with background
         assertTrue(
             "Dark theme onBackground luminance should be > 0.8",
-            FloatBroDarkColorScheme.onBackground.luminance() > 0.8f
+            FloatBroDarkColorScheme.onBackground.luminance() > 0.8f,
         )
     }
 

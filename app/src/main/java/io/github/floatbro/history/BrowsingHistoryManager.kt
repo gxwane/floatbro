@@ -26,18 +26,20 @@ data class HistoryItem(
     val id: String = UUID.randomUUID().toString(),
     val url: String,
     val title: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
 )
 
 /**
  * Centralized manager for persistent browsing history across in-app tabs and floating windows.
  */
-class BrowsingHistoryManager(context: Context? = null) {
-
-    private val prefs: SharedPreferences? = context?.applicationContext?.getSharedPreferences(
-        PREFS_NAME,
-        Context.MODE_PRIVATE
-    )
+class BrowsingHistoryManager(
+    context: Context? = null,
+) {
+    private val prefs: SharedPreferences? =
+        context?.applicationContext?.getSharedPreferences(
+            PREFS_NAME,
+            Context.MODE_PRIVATE,
+        )
 
     private val inMemoryHistory = mutableListOf<HistoryItem>()
     private val _historyFlow = MutableStateFlow<List<HistoryItem>>(emptyList())
@@ -48,30 +50,35 @@ class BrowsingHistoryManager(context: Context? = null) {
     }
 
     @Synchronized
-    fun recordVisit(url: String, title: String) {
+    fun recordVisit(
+        url: String,
+        title: String,
+    ) {
         val trimmedUrl = url.trim()
         if (trimmedUrl.isBlank() || trimmedUrl == "about:blank" || trimmedUrl == "about:home") {
             return
         }
 
-        val displayTitle = title.trim().ifBlank {
-            try {
-                java.net.URI(trimmedUrl).host ?: trimmedUrl
-            } catch (_: Exception) {
-                trimmedUrl
+        val displayTitle =
+            title.trim().ifBlank {
+                try {
+                    java.net.URI(trimmedUrl).host ?: trimmedUrl
+                } catch (_: Exception) {
+                    trimmedUrl
+                }
             }
-        }
 
         // Deduplicate existing entry with the same URL
         inMemoryHistory.removeAll { it.url == trimmedUrl }
 
         // Prepend as most recent
-        val item = HistoryItem(
-            id = UUID.randomUUID().toString(),
-            url = trimmedUrl,
-            title = displayTitle,
-            timestamp = System.currentTimeMillis()
-        )
+        val item =
+            HistoryItem(
+                id = UUID.randomUUID().toString(),
+                url = trimmedUrl,
+                title = displayTitle,
+                timestamp = System.currentTimeMillis(),
+            )
         inMemoryHistory.add(0, item)
 
         // Cap to max entries
@@ -84,9 +91,7 @@ class BrowsingHistoryManager(context: Context? = null) {
     }
 
     @Synchronized
-    fun getHistory(): List<HistoryItem> {
-        return inMemoryHistory.toList()
-    }
+    fun getHistory(): List<HistoryItem> = inMemoryHistory.toList()
 
     @Synchronized
     fun removeHistory(id: String) {
@@ -139,19 +144,19 @@ class BrowsingHistoryManager(context: Context? = null) {
         return list
     }
 
-    private fun escapeJson(str: String): String {
-        return str.replace("\\", "\\\\")
+    private fun escapeJson(str: String): String =
+        str
+            .replace("\\", "\\\\")
             .replace("\"", "\\\"")
             .replace("\n", "\\n")
             .replace("\r", "\\r")
-    }
 
-    private fun unescapeJson(str: String): String {
-        return str.replace("\\\"", "\"")
+    private fun unescapeJson(str: String): String =
+        str
+            .replace("\\\"", "\"")
             .replace("\\n", "\n")
             .replace("\\r", "\r")
             .replace("\\\\", "\\")
-    }
 
     @Synchronized
     private fun loadFromDisk() {
@@ -180,12 +185,11 @@ class BrowsingHistoryManager(context: Context? = null) {
         @Volatile
         private var instance: BrowsingHistoryManager? = null
 
-        fun getInstance(context: Context): BrowsingHistoryManager {
-            return instance ?: synchronized(this) {
+        fun getInstance(context: Context): BrowsingHistoryManager =
+            instance ?: synchronized(this) {
                 instance ?: BrowsingHistoryManager(context.applicationContext).also {
                     instance = it
                 }
             }
-        }
     }
 }

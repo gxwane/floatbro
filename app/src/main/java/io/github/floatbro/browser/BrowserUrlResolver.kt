@@ -11,10 +11,7 @@
 
 package io.github.floatbro.browser
 
-import android.net.Uri
-
 object BrowserUrlResolver {
-
     /**
      * Resolves raw text into a fully qualified URL, applying domain heuristics
      * or routing to the configured search engine.
@@ -22,7 +19,7 @@ object BrowserUrlResolver {
     fun resolve(
         input: String,
         engine: SearchEngine = SearchEngine.BING,
-        customSearchUrl: String? = null
+        customSearchUrl: String? = null,
     ): String {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return ""
@@ -38,30 +35,33 @@ object BrowserUrlResolver {
         }
 
         // Domain heuristic: contains dot, no spaces, not starting/ending with dot
-        val isDomainLike = trimmed.contains(".") &&
-            !trimmed.contains(" ") &&
-            !trimmed.endsWith(".") &&
-            !trimmed.startsWith(".") &&
-            trimmed.indexOf(".") < trimmed.length - 1
+        val isDomainLike =
+            trimmed.contains(".") &&
+                !trimmed.contains(" ") &&
+                !trimmed.endsWith(".") &&
+                !trimmed.startsWith(".") &&
+                trimmed.indexOf(".") < trimmed.length - 1
 
         if (isDomainLike) {
             return "https://$trimmed"
         }
 
-        val encodedQuery = try {
-            java.net.URLEncoder.encode(trimmed, "UTF-8")
-        } catch (_: Exception) {
-            trimmed
-        }
-        val template = if (engine == SearchEngine.CUSTOM && !customSearchUrl.isNullOrBlank()) {
-            if (customSearchUrl.contains("%s")) {
-                customSearchUrl
-            } else {
-                "${customSearchUrl}%s"
+        val encodedQuery =
+            try {
+                java.net.URLEncoder.encode(trimmed, "UTF-8")
+            } catch (_: Exception) {
+                trimmed
             }
-        } else {
-            engine.searchUrlTemplate
-        }
+        val template =
+            if (engine == SearchEngine.CUSTOM && !customSearchUrl.isNullOrBlank()) {
+                if (customSearchUrl.contains("%s")) {
+                    customSearchUrl
+                } else {
+                    "$customSearchUrl%s"
+                }
+            } else {
+                engine.searchUrlTemplate
+            }
 
         return String.format(template, encodedQuery)
     }

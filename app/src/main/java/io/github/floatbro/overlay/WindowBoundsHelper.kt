@@ -26,7 +26,7 @@ object WindowBoundsHelper {
         minWidth: Int,
         maxWidth: Int,
         minHeight: Int,
-        maxHeight: Int
+        maxHeight: Int,
     ): Pair<Int, Int> {
         val safeMaxWidth = maxWidth.coerceAtLeast(minWidth)
         val safeMaxHeight = maxHeight.coerceAtLeast(minHeight)
@@ -35,23 +35,35 @@ object WindowBoundsHelper {
         return clampedWidth to clampedHeight
     }
 
-    data class WindowBounds(val x: Int, val y: Int, val width: Int, val height: Int)
-
-    /**
-     * Determines whether two window rectangles overlap in screen space.
-     * Touching borders without strictly intersecting area return false.
-     */
-    fun isOverlapping(a: WindowBounds, b: WindowBounds): Boolean {
-        return isOverlapping(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height)
-    }
+    data class WindowBounds(
+        val x: Int,
+        val y: Int,
+        val width: Int,
+        val height: Int,
+    )
 
     /**
      * Determines whether two window rectangles overlap in screen space.
      * Touching borders without strictly intersecting area return false.
      */
     fun isOverlapping(
-        x1: Int, y1: Int, w1: Int, h1: Int,
-        x2: Int, y2: Int, w2: Int, h2: Int
+        a: WindowBounds,
+        b: WindowBounds,
+    ): Boolean = isOverlapping(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height)
+
+    /**
+     * Determines whether two window rectangles overlap in screen space.
+     * Touching borders without strictly intersecting area return false.
+     */
+    fun isOverlapping(
+        x1: Int,
+        y1: Int,
+        w1: Int,
+        h1: Int,
+        x2: Int,
+        y2: Int,
+        w2: Int,
+        h2: Int,
     ): Boolean {
         if (w1 <= 0 || h1 <= 0 || w2 <= 0 || h2 <= 0) return false
         val r1 = x1 + w1
@@ -62,4 +74,3 @@ object WindowBoundsHelper {
         return x1 < r2 && r1 > x2 && y1 < b2 && b1 > y2
     }
 }
-

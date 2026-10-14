@@ -34,8 +34,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,20 +50,56 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 sealed interface MarkdownBlock {
-    data class Heading(val level: Int, val text: String) : MarkdownBlock
-    data class Paragraph(val text: String) : MarkdownBlock
-    data class BulletItem(val level: Int, val text: String) : MarkdownBlock
-    data class NumberedItem(val number: String, val text: String) : MarkdownBlock
-    data class Quote(val text: String) : MarkdownBlock
-    data class CodeBlock(val language: String, val code: String) : MarkdownBlock
+    data class Heading(
+        val level: Int,
+        val text: String,
+    ) : MarkdownBlock
+
+    data class Paragraph(
+        val text: String,
+    ) : MarkdownBlock
+
+    data class BulletItem(
+        val level: Int,
+        val text: String,
+    ) : MarkdownBlock
+
+    data class NumberedItem(
+        val number: String,
+        val text: String,
+    ) : MarkdownBlock
+
+    data class Quote(
+        val text: String,
+    ) : MarkdownBlock
+
+    data class CodeBlock(
+        val language: String,
+        val code: String,
+    ) : MarkdownBlock
 }
 
 sealed interface InlineSpan {
-    data class Plain(val text: String) : InlineSpan
-    data class Bold(val text: String) : InlineSpan
-    data class Italic(val text: String) : InlineSpan
-    data class Code(val text: String) : InlineSpan
-    data class Link(val text: String, val url: String) : InlineSpan
+    data class Plain(
+        val text: String,
+    ) : InlineSpan
+
+    data class Bold(
+        val text: String,
+    ) : InlineSpan
+
+    data class Italic(
+        val text: String,
+    ) : InlineSpan
+
+    data class Code(
+        val text: String,
+    ) : InlineSpan
+
+    data class Link(
+        val text: String,
+        val url: String,
+    ) : InlineSpan
 }
 
 object MarkdownParser {
@@ -179,7 +215,7 @@ private val CodeBorder = Color(0xFFCBD5E1)
 fun MarkdownContent(
     markdown: String,
     modifier: Modifier = Modifier,
-    initialExpanded: Boolean = false
+    initialExpanded: Boolean = false,
 ) {
     val isDark = isSystemInDarkTheme()
     val blocks = remember(markdown) { MarkdownParser.parseBlocks(markdown) }
@@ -191,18 +227,20 @@ fun MarkdownContent(
     val borderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .animateContentSize(),
         shape = RoundedCornerShape(10.dp),
         color = containerColor,
-        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             for (block in visibleBlocks) {
                 RenderBlock(block)
@@ -210,18 +248,19 @@ fun MarkdownContent(
 
             if (isLong) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isExpanded = !isExpanded }
-                        .padding(vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { isExpanded = !isExpanded }
+                            .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = if (isExpanded) "收起日志 ↑" else "展开完整更新说明 (${blocks.size} 项) ↓",
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = BrandBlue
+                        color = BrandBlue,
                     )
                 }
             }
@@ -234,20 +273,21 @@ private fun RenderBlock(block: MarkdownBlock) {
     val isDark = isSystemInDarkTheme()
     when (block) {
         is MarkdownBlock.Heading -> {
-            val (fontSize, topPadding) = when (block.level) {
-                1 -> 15.sp to 6.dp
-                2 -> 14.sp to 5.dp
-                3 -> 13.sp to 4.dp
-                4 -> 12.5.sp to 3.dp
-                5 -> 12.sp to 2.dp
-                else -> 11.5.sp to 2.dp
-            }
+            val (fontSize, topPadding) =
+                when (block.level) {
+                    1 -> 15.sp to 6.dp
+                    2 -> 14.sp to 5.dp
+                    3 -> 13.sp to 4.dp
+                    4 -> 12.5.sp to 3.dp
+                    5 -> 12.sp to 2.dp
+                    else -> 11.5.sp to 2.dp
+                }
             Spacer(modifier = Modifier.height(topPadding))
             Text(
                 text = block.text,
                 fontSize = fontSize,
                 fontWeight = FontWeight.Bold,
-                color = if (isDark) Color(0xFFF8FAFC) else Slate800
+                color = if (isDark) Color(0xFFF8FAFC) else Slate800,
             )
         }
         is MarkdownBlock.Paragraph -> {
@@ -255,16 +295,18 @@ private fun RenderBlock(block: MarkdownBlock) {
         }
         is MarkdownBlock.BulletItem -> {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = (block.level * 12).dp),
-                verticalAlignment = Alignment.Top
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = (block.level * 12).dp),
+                verticalAlignment = Alignment.Top,
             ) {
                 Box(
-                    modifier = Modifier
-                        .padding(top = 7.dp, end = 8.dp)
-                        .size(5.dp)
-                        .background(BrandBlue, CircleShape)
+                    modifier =
+                        Modifier
+                            .padding(top = 7.dp, end = 8.dp)
+                            .size(5.dp)
+                            .background(BrandBlue, CircleShape),
                 )
                 Box(modifier = Modifier.weight(1f)) {
                     RenderInlineText(block.text)
@@ -274,14 +316,14 @@ private fun RenderBlock(block: MarkdownBlock) {
         is MarkdownBlock.NumberedItem -> {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.Top,
             ) {
                 Text(
                     text = "${block.number}.",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = BrandBlue,
-                    modifier = Modifier.padding(end = 6.dp)
+                    modifier = Modifier.padding(end = 6.dp),
                 )
                 Box(modifier = Modifier.weight(1f)) {
                     RenderInlineText(block.text)
@@ -292,24 +334,26 @@ private fun RenderBlock(block: MarkdownBlock) {
             val quoteBg = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
             val quoteText = if (isDark) Color(0xFFCBD5E1) else Slate700
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(quoteBg, RoundedCornerShape(4.dp))
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(quoteBg, RoundedCornerShape(4.dp))
+                        .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier
-                        .width(3.dp)
-                        .height(20.dp)
-                        .background(Slate500, RoundedCornerShape(2.dp))
+                    modifier =
+                        Modifier
+                            .width(3.dp)
+                            .height(20.dp)
+                            .background(Slate500, RoundedCornerShape(2.dp)),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = block.text,
                     fontSize = 11.5.sp,
                     fontStyle = FontStyle.Italic,
-                    color = quoteText
+                    color = quoteText,
                 )
             }
         }
@@ -317,7 +361,7 @@ private fun RenderBlock(block: MarkdownBlock) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF0F172A)
+                color = Color(0xFF0F172A),
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     if (block.language.isNotBlank()) {
@@ -326,14 +370,14 @@ private fun RenderBlock(block: MarkdownBlock) {
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF94A3B8),
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            modifier = Modifier.padding(bottom = 4.dp),
                         )
                     }
                     Text(
                         text = block.code.trimEnd(),
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
-                        color = Color(0xFFE2E8F0)
+                        color = Color(0xFFE2E8F0),
                     )
                 }
             }
@@ -352,66 +396,72 @@ private fun RenderInlineText(text: String) {
     val codeBg = if (isDark) Color(0xFF0F172A) else CodeBackground
     val codeColor = if (isDark) Color(0xFF93C5FD) else Color(0xFF0F172A)
 
-    val annotatedString = buildAnnotatedString {
-        for (span in spans) {
-            when (span) {
-                is InlineSpan.Plain -> append(span.text)
-                is InlineSpan.Bold -> {
-                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = boldColor))
-                    append(span.text)
-                    pop()
-                }
-                is InlineSpan.Italic -> {
-                    pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
-                    append(span.text)
-                    pop()
-                }
-                is InlineSpan.Code -> {
-                    pushStyle(
-                        SpanStyle(
-                            fontFamily = FontFamily.Monospace,
-                            background = codeBg,
-                            color = codeColor,
-                            fontSize = 11.sp
+    val annotatedString =
+        buildAnnotatedString {
+            for (span in spans) {
+                when (span) {
+                    is InlineSpan.Plain -> append(span.text)
+                    is InlineSpan.Bold -> {
+                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = boldColor))
+                        append(span.text)
+                        pop()
+                    }
+                    is InlineSpan.Italic -> {
+                        pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
+                        append(span.text)
+                        pop()
+                    }
+                    is InlineSpan.Code -> {
+                        pushStyle(
+                            SpanStyle(
+                                fontFamily = FontFamily.Monospace,
+                                background = codeBg,
+                                color = codeColor,
+                                fontSize = 11.sp,
+                            ),
                         )
-                    )
-                    append(" ${span.text} ")
-                    pop()
-                }
-                is InlineSpan.Link -> {
-                    pushStringAnnotation(tag = "URL", annotation = span.url)
-                    pushStyle(
-                        SpanStyle(
-                            color = BrandBlue,
-                            textDecoration = TextDecoration.Underline,
-                            fontWeight = FontWeight.SemiBold
+                        append(" ${span.text} ")
+                        pop()
+                    }
+                    is InlineSpan.Link -> {
+                        pushStringAnnotation(tag = "URL", annotation = span.url)
+                        pushStyle(
+                            SpanStyle(
+                                color = BrandBlue,
+                                textDecoration = TextDecoration.Underline,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
                         )
-                    )
-                    append(span.text)
-                    pop()
-                    pop()
+                        append(span.text)
+                        pop()
+                        pop()
+                    }
                 }
             }
         }
-    }
 
     ClickableText(
         text = annotatedString,
-        style = androidx.compose.ui.text.TextStyle(
-            fontSize = 12.sp,
-            color = normalColor,
-            lineHeight = 18.sp
-        ),
+        style =
+            androidx.compose.ui.text.TextStyle(
+                fontSize = 12.sp,
+                color = normalColor,
+                lineHeight = 18.sp,
+            ),
         onClick = { offset ->
-            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
-                .firstOrNull()?.let { range ->
+            annotatedString
+                .getStringAnnotations(tag = "URL", start = offset, end = offset)
+                .firstOrNull()
+                ?.let { range ->
                     try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(range.item)).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
+                        val intent =
+                            Intent(Intent.ACTION_VIEW, Uri.parse(range.item)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
                         context.startActivity(intent)
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                 }
-        }
+        },
     )
 }

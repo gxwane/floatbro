@@ -24,7 +24,6 @@ import org.junit.Test
  * Unit Tests for BrowserPreferences Click-to-Focus settings.
  */
 class BrowserPreferencesClickToFocusTest {
-
     private val inMemoryPrefs = HashMap<String, Any?>()
     private val mockContext = mockk<Context>()
     private val mockPrefs = mockk<SharedPreferences>()

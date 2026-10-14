@@ -17,15 +17,24 @@ data class Filter(
     val checksum: String = "",
 ) {
     val id by lazy { url.sha1 }
+
     fun hasDownloaded() = updateTime > 0
 }
 
 enum class DownloadState {
-    ENQUEUED, DOWNLOADING, INSTALLING, SUCCESS, FAILED, CANCELLED, NONE;
+    ENQUEUED,
+    DOWNLOADING,
+    INSTALLING,
+    SUCCESS,
+    FAILED,
+    CANCELLED,
+    NONE,
+    ;
 
     val isRunning
-        get() = when (this) {
-            ENQUEUED, DOWNLOADING, INSTALLING -> true
-            else -> false
-        }
+        get() =
+            when (this) {
+                ENQUEUED, DOWNLOADING, INSTALLING -> true
+                else -> false
+            }
 }

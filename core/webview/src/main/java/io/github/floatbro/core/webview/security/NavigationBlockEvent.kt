@@ -19,5 +19,5 @@ data class NavigationBlockEvent(
     val cleanRedirectUrl: String?,
     val targetHost: String,
     val isAutoForwarded: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
 )

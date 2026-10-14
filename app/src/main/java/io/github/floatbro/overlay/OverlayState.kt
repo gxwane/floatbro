@@ -28,7 +28,7 @@ enum class OverlayMode {
     /**
      * Completely hidden from the screen.
      */
-    HIDDEN
+    HIDDEN,
 }
 
 /**
@@ -38,7 +38,7 @@ data class WindowBounds(
     var x: Int = 80,
     var y: Int = 160,
     var width: Int = 960,
-    var height: Int = 1280
+    var height: Int = 1280,
 )
 
 /**
@@ -46,5 +46,5 @@ data class WindowBounds(
  */
 data class BubblePosition(
     var x: Int = 0,
-    var y: Int = 300
+    var y: Int = 300,
 )

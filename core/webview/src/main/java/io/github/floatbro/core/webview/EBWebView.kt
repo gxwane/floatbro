@@ -11,9 +11,9 @@
 
 package io.github.floatbro.core.webview
 
-import android.graphics.Bitmap
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.AttributeSet
 import android.view.View
 import android.view.inputmethod.InputMethodManager
@@ -33,191 +33,201 @@ import io.github.floatbro.core.webview.security.NavigationSecurityGuard
 import timber.log.Timber
 
 @SuppressLint("SetJavaScriptEnabled")
-open class EBWebView @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-    defStyleAttr: Int = 0
-) : WebView(context, attrs, defStyleAttr) {
+open class EBWebView
+    @JvmOverloads
+    constructor(
+        context: Context,
+        attrs: AttributeSet? = null,
+        defStyleAttr: Int = 0,
+    ) : WebView(context, attrs, defStyleAttr) {
+        var onProgressChangedListener: ((Int) -> Unit)? = null
+        var onTitleChangedListener: ((String) -> Unit)? = null
+        var onReceivedIconListener: ((Bitmap) -> Unit)? = null
+        var onInputFocusListener: ((Boolean) -> Unit)? = null
+        var onPageStartedListener: ((String) -> Unit)? = null
+        var onPageFinishedListener: ((String) -> Unit)? = null
+        var onPageCommitVisibleListener: ((String) -> Unit)? = null
+        var onShowCustomViewListener: ((View, android.webkit.WebChromeClient.CustomViewCallback) -> Unit)? = null
+        var onHideCustomViewListener: (() -> Unit)? = null
+        var onNavigationBlockedListener: ((NavigationBlockEvent) -> Unit)? = null
 
-    var onProgressChangedListener: ((Int) -> Unit)? = null
-    var onTitleChangedListener: ((String) -> Unit)? = null
-    var onReceivedIconListener: ((Bitmap) -> Unit)? = null
-    var onInputFocusListener: ((Boolean) -> Unit)? = null
-    var onPageStartedListener: ((String) -> Unit)? = null
-    var onPageFinishedListener: ((String) -> Unit)? = null
-    var onPageCommitVisibleListener: ((String) -> Unit)? = null
-    var onShowCustomViewListener: ((View, android.webkit.WebChromeClient.CustomViewCallback) -> Unit)? = null
-    var onHideCustomViewListener: (() -> Unit)? = null
-    var onNavigationBlockedListener: ((NavigationBlockEvent) -> Unit)? = null
-
-    private class NavigationBridge {
-        @android.webkit.JavascriptInterface
-        fun notifyPaginationClicked() {
-            NavigationSecurityGuard.notifyPaginationClicked()
-        }
-    }
-    private val navigationBridge = NavigationBridge()
-
-    private val inputFocusBridge = InputFocusBridge { isFocused ->
-        post {
-            onInputFocusListener?.invoke(isFocused)
-            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            if (isFocused) {
-                requestFocus()
-                imm?.showSoftInput(this, 0)
-            } else {
-                imm?.hideSoftInputFromWindow(windowToken, 0)
+        private class NavigationBridge {
+            @android.webkit.JavascriptInterface
+            fun notifyPaginationClicked() {
+                NavigationSecurityGuard.notifyPaginationClicked()
             }
         }
-    }
 
-    init {
-        val isDebuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        WebView.setWebContentsDebuggingEnabled(isDebuggable)
-        configureSettings()
-        setupClients()
+        private val navigationBridge = NavigationBridge()
 
-        // Set up AdFilter hooks
-        try {
-            AdFilter.get().setupWebView(this)
-        } catch (e: Exception) {
-            Timber.w(e, "AdFilter not initialized yet, skipping setupWebView")
-        }
-
-        // Register DocumentStart stealth polyfill if supported by Chromium WebView
-        try {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                val prefs = BrowserPreferences.getInstance(context)
-                if (prefs.userAgentMode == UserAgentMode.DEFAULT) {
-                    WebViewCompat.addDocumentStartJavaScript(
-                        this,
-                        FloatWebViewClient.STEALTH_POLYFILL_JS,
-                        setOf("*")
-                    )
+        private val inputFocusBridge =
+            InputFocusBridge { isFocused ->
+                post {
+                    onInputFocusListener?.invoke(isFocused)
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    if (isFocused) {
+                        requestFocus()
+                        imm?.showSoftInput(this, 0)
+                    } else {
+                        imm?.hideSoftInputFromWindow(windowToken, 0)
+                    }
                 }
             }
-        } catch (e: Exception) {
-            Timber.w(e, "DOCUMENT_START_SCRIPT registration skipped")
-        }
-    }
 
-    private fun configureSettings() {
-        isFocusable = true
-        isFocusableInTouchMode = true
+        init {
+            val isDebuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            WebView.setWebContentsDebuggingEnabled(isDebuggable)
+            configureSettings()
+            setupClients()
 
-        settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            databaseEnabled = true
-            useWideViewPort = true
-            loadWithOverviewMode = true
-            setSupportZoom(true)
-            builtInZoomControls = true
-            displayZoomControls = false
-            mediaPlaybackRequiresUserGesture = false
-            // Tighten window opening: prohibit scripts from opening windows/popunders without genuine user gesture
-            javaScriptCanOpenWindowsAutomatically = false
-
-            // Dynamic modern User-Agent powered by BrowserPreferences
-            val defaultSystemUa = try {
-                WebSettings.getDefaultUserAgent(context)
-            } catch (_: Exception) {
-                "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+            // Set up AdFilter hooks
+            try {
+                AdFilter.get().setupWebView(this)
+            } catch (e: Exception) {
+                Timber.w(e, "AdFilter not initialized yet, skipping setupWebView")
             }
-            userAgentString = BrowserPreferences.getInstance(context).resolveUserAgent(defaultSystemUa)
 
-            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            cacheMode = WebSettings.LOAD_DEFAULT
-            allowFileAccess = false
-            allowContentAccess = false
+            // Register DocumentStart stealth polyfill if supported by Chromium WebView
+            try {
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                    val prefs = BrowserPreferences.getInstance(context)
+                    if (prefs.userAgentMode == UserAgentMode.DEFAULT) {
+                        WebViewCompat.addDocumentStartJavaScript(
+                            this,
+                            FloatWebViewClient.STEALTH_POLYFILL_JS,
+                            setOf("*"),
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "DOCUMENT_START_SCRIPT registration skipped")
+            }
         }
 
-        // Configure cookies (enable cross-domain third-party cookies for services like AcFun/Bilibili)
-        try {
-            val cookieManager = CookieManager.getInstance()
-            cookieManager.setAcceptCookie(true)
-            cookieManager.setAcceptThirdPartyCookies(this, true)
-        } catch (e: Exception) {
-            Timber.w(e, "Failed to configure CookieManager in EBWebView")
+        private fun configureSettings() {
+            isFocusable = true
+            isFocusableInTouchMode = true
+
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                setSupportZoom(true)
+                builtInZoomControls = true
+                displayZoomControls = false
+                mediaPlaybackRequiresUserGesture = false
+                // Tighten window opening: prohibit scripts from opening windows/popunders without genuine user gesture
+                javaScriptCanOpenWindowsAutomatically = false
+
+                // Dynamic modern User-Agent powered by BrowserPreferences
+                val defaultSystemUa =
+                    try {
+                        WebSettings.getDefaultUserAgent(context)
+                    } catch (_: Exception) {
+                        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+                    }
+                userAgentString = BrowserPreferences.getInstance(context).resolveUserAgent(defaultSystemUa)
+
+                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                cacheMode = WebSettings.LOAD_DEFAULT
+                allowFileAccess = false
+                allowContentAccess = false
+            }
+
+            // Configure cookies (enable cross-domain third-party cookies for services like AcFun/Bilibili)
+            try {
+                val cookieManager = CookieManager.getInstance()
+                cookieManager.setAcceptCookie(true)
+                cookieManager.setAcceptThirdPartyCookies(this, true)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to configure CookieManager in EBWebView")
+            }
+
+            // Hardware acceleration
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
+            // Align background color with current theme to eliminate default pure white flash while preserving subpixel text AA
+            updateThemeBackgroundColor()
+
+            // Inject JS bridge for soft keyboard focus detection
+            addJavascriptInterface(inputFocusBridge, InputFocusBridge.INTERFACE_NAME)
+
+            // Inject JS bridge for pagination click tracking and hijack defense
+            addJavascriptInterface(navigationBridge, "FloatBroNavBridge")
         }
 
-        // Hardware acceleration
-        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        private fun setupClients() {
+            webViewClient =
+                FloatWebViewClient(
+                    onPageStartedCallback = { url -> onPageStartedListener?.invoke(url) },
+                    onPageFinishedCallback = { url -> onPageFinishedListener?.invoke(url) },
+                    onTitleUpdated = { title -> onTitleChangedListener?.invoke(title) },
+                    onPageCommitVisibleCallback = { url -> onPageCommitVisibleListener?.invoke(url) },
+                    onNavigationBlockedCallback = { event -> onNavigationBlockedListener?.invoke(event) },
+                )
 
-        // Align background color with current theme to eliminate default pure white flash while preserving subpixel text AA
-        updateThemeBackgroundColor()
+            webChromeClient =
+                FloatWebChromeClient(
+                    onProgressChangedCallback = { progress -> onProgressChangedListener?.invoke(progress) },
+                    onTitleReceivedCallback = { title -> onTitleChangedListener?.invoke(title) },
+                    onIconReceivedCallback = { icon -> onReceivedIconListener?.invoke(icon) },
+                ).apply {
+                    onShowCustomViewCallback = { view, callback -> onShowCustomViewListener?.invoke(view, callback) }
+                    onHideCustomViewCallback = { onHideCustomViewListener?.invoke() }
+                }
+        }
 
-        // Inject JS bridge for soft keyboard focus detection
-        addJavascriptInterface(inputFocusBridge, InputFocusBridge.INTERFACE_NAME)
+        fun loadUrlSafely(url: String) {
+            val targetUrl =
+                when {
+                    url.startsWith("http://") || url.startsWith("https://") -> url
+                    url.startsWith("www.") -> "https://$url"
+                    url.contains(".") && !url.contains(" ") -> "https://$url"
+                    else -> "https://www.bing.com/search?q=${java.net.URLEncoder.encode(url, "UTF-8")}"
+                }
+            val headers =
+                mapOf(
+                    "Sec-CH-UA-Mobile" to "?1",
+                    "Sec-CH-UA-Platform" to "\"Android\"",
+                )
+            loadUrl(targetUrl, headers)
+        }
 
-        // Inject JS bridge for pagination click tracking and hijack defense
-        addJavascriptInterface(navigationBridge, "FloatBroNavBridge")
-    }
+        /**
+         * Clears all external callbacks to prevent Activity leaks during instance transfer.
+         */
+        fun detachAllListeners() {
+            onProgressChangedListener = null
+            onTitleChangedListener = null
+            onReceivedIconListener = null
+            onInputFocusListener = null
+            onPageStartedListener = null
+            onPageFinishedListener = null
+            onPageCommitVisibleListener = null
+            onShowCustomViewListener = null
+            onHideCustomViewListener = null
+        }
 
-    private fun setupClients() {
-        webViewClient = FloatWebViewClient(
-            onPageStartedCallback = { url -> onPageStartedListener?.invoke(url) },
-            onPageFinishedCallback = { url -> onPageFinishedListener?.invoke(url) },
-            onTitleUpdated = { title -> onTitleChangedListener?.invoke(title) },
-            onPageCommitVisibleCallback = { url -> onPageCommitVisibleListener?.invoke(url) },
-            onNavigationBlockedCallback = { event -> onNavigationBlockedListener?.invoke(event) }
-        )
+        /**
+         * Updates the base Context via MutableContextWrapper without re-creating the WebView.
+         */
+        fun updateBaseContext(newContext: Context) {
+            (context as? android.content.MutableContextWrapper)?.baseContext = newContext
+            updateThemeBackgroundColor()
+        }
 
-        webChromeClient = FloatWebChromeClient(
-            onProgressChangedCallback = { progress -> onProgressChangedListener?.invoke(progress) },
-            onTitleReceivedCallback = { title -> onTitleChangedListener?.invoke(title) },
-            onIconReceivedCallback = { icon -> onReceivedIconListener?.invoke(icon) }
-        ).apply {
-            onShowCustomViewCallback = { view, callback -> onShowCustomViewListener?.invoke(view, callback) }
-            onHideCustomViewCallback = { onHideCustomViewListener?.invoke() }
+        /**
+         * Dynamically synchronizes background color with the current theme surface,
+         * ensuring that no 0xFFFFFFFF white flash is exposed during Surface re-attachment,
+         * while retaining an opaque canvas to preserve LCD subpixel text anti-aliasing.
+         */
+        fun updateThemeBackgroundColor() {
+            val isDarkMode =
+                (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val themeBgColor = if (isDarkMode) 0xFF0F172A.toInt() else 0xFFFFFFFF.toInt()
+            setBackgroundColor(themeBgColor)
         }
     }
-
-    fun loadUrlSafely(url: String) {
-        val targetUrl = when {
-            url.startsWith("http://") || url.startsWith("https://") -> url
-            url.startsWith("www.") -> "https://$url"
-            url.contains(".") && !url.contains(" ") -> "https://$url"
-            else -> "https://www.bing.com/search?q=${java.net.URLEncoder.encode(url, "UTF-8")}"
-        }
-        val headers = mapOf(
-            "Sec-CH-UA-Mobile" to "?1",
-            "Sec-CH-UA-Platform" to "\"Android\""
-        )
-        loadUrl(targetUrl, headers)
-    }
-
-    /**
-     * Clears all external callbacks to prevent Activity leaks during instance transfer.
-     */
-    fun detachAllListeners() {
-        onProgressChangedListener = null
-        onTitleChangedListener = null
-        onReceivedIconListener = null
-        onInputFocusListener = null
-        onPageStartedListener = null
-        onPageFinishedListener = null
-        onPageCommitVisibleListener = null
-        onShowCustomViewListener = null
-        onHideCustomViewListener = null
-    }
-
-    /**
-     * Updates the base Context via MutableContextWrapper without re-creating the WebView.
-     */
-    fun updateBaseContext(newContext: Context) {
-        (context as? android.content.MutableContextWrapper)?.baseContext = newContext
-        updateThemeBackgroundColor()
-    }
-
-    /**
-     * Dynamically synchronizes background color with the current theme surface,
-     * ensuring that no 0xFFFFFFFF white flash is exposed during Surface re-attachment,
-     * while retaining an opaque canvas to preserve LCD subpixel text anti-aliasing.
-     */
-    fun updateThemeBackgroundColor() {
-        val isDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val themeBgColor = if (isDarkMode) 0xFF0F172A.toInt() else 0xFFFFFFFF.toInt()
-        setBackgroundColor(themeBgColor)
-    }
-}

@@ -9,5 +9,5 @@ data class FilterResult(
     val rule: String?,
     val resourceUrl: String,
     val resourceResponse: WebResourceResponse?,
-    val shouldBlock: Boolean = rule != null
+    val shouldBlock: Boolean = rule != null,
 )

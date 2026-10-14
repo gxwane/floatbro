@@ -45,10 +45,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Run Lint & Syntax Check
+      - name: Run Static Code Analysis & Style Check
         run: |
           chmod +x ./gradlew
-          ./gradlew lintDebug --continue
+          ./gradlew spotlessCheck detekt lintDebug --continue
 
   build-debug:
     name: Assemble & Test Verification
@@ -91,6 +91,13 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew testDebugUnitTest --continue
+
+      - name: Verify Release R8 Minification
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:minifyReleaseWithR8 \
+            -Dorg.gradle.parallel=true \
+            -Dorg.gradle.caching=true
 
       - name: Assemble Debug APK
         run: |

@@ -20,7 +20,6 @@ import android.net.Uri
 import android.webkit.WebResourceRequest
 import java.util.*
 
-
 /**
  * Modified by Edsuns@qq.com.
  *
@@ -28,8 +27,9 @@ import java.util.*
  *
  * Reference: [github.com/duckduckgo/Android/releases/tag/5.38.1](https://github.com/duckduckgo/Android/releases/tag/5.38.1)
  */
-enum class ResourceType(val filterOption: Int) {
-
+enum class ResourceType(
+    val filterOption: Int,
+) {
     UNKNOWN(0),
     SCRIPT(1),
     IMAGE(2),
@@ -37,7 +37,8 @@ enum class ResourceType(val filterOption: Int) {
     XMLHTTPREQUEST(0x10),
     SUBDOCUMENT(0x40),
     FONT(0x80000),
-    MEDIA(0x100000);
+    MEDIA(0x100000),
+    ;
 
     companion object {
         /**
@@ -60,7 +61,6 @@ enum class ResourceType(val filterOption: Int) {
 }
 
 private object HeadersResourceTypeDetector {
-
     private const val HEADER_REQUESTED_WITH = "X-Requested-With"
     private const val HEADER_REQUESTED_WITH_XMLHTTPREQUEST = "XMLHttpRequest"
 
@@ -103,8 +103,9 @@ private object HeadersResourceTypeDetector {
         if (firstMIME.contains("font/")) {
             return ResourceType.FONT
         }
-        if (firstMIME.contains("audio/") || firstMIME.contains("video/")
-            || firstMIME.contains("application/ogg")
+        if (firstMIME.contains("audio/") ||
+            firstMIME.contains("video/") ||
+            firstMIME.contains("application/ogg")
         ) {
             return ResourceType.MEDIA
         }
@@ -113,28 +114,109 @@ private object HeadersResourceTypeDetector {
 }
 
 private object UrlResourceTypeDetector {
-
     private val EXTENSIONS_JS = arrayOf("js")
     private val EXTENSIONS_CSS = arrayOf("css")
     private val EXTENSIONS_FONT = arrayOf("ttf", "woff", "woff2")
     private val EXTENSIONS_HTML = arrayOf("htm", "html")
 
     // listed https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
-    private val EXTENSIONS_IMAGE = arrayOf(
-        "png", "jpg", "jpe", "jpeg", "bmp", "gif", "apng", "cur", "jfif",
-        "ico", "pjpeg", "pjp", "svg", "tif", "tiff", "webp"
-    )
+    private val EXTENSIONS_IMAGE =
+        arrayOf(
+            "png",
+            "jpg",
+            "jpe",
+            "jpeg",
+            "bmp",
+            "gif",
+            "apng",
+            "cur",
+            "jfif",
+            "ico",
+            "pjpeg",
+            "pjp",
+            "svg",
+            "tif",
+            "tiff",
+            "webp",
+        )
 
     // video files listed here https://en.wikipedia.org/wiki/Video_file_format
     // audio files listed here https://en.wikipedia.org/wiki/Audio_file_format
-    private val EXTENSIONS_MEDIA = arrayOf(
-        "webm", "mkv", "flv", "vob", "ogv", "drc", "mng", "avi", "mov", "gifv", "qt", "wmv", "yuv",
-        "rm", "rmvb", "asf", "amv", "mp4", "m4p", "mp2", "mpe", "mpv", "mpg", "mpeg", "m2v", "m4v",
-        "svi", "3gp", "3g2", "mxf", "roq", "nsv", "8svx", "aa", "aac", "aax", "act", "aiff", "alac",
-        "amr", "ape", "au", "awb", "cda", "dct", "dss", "dvf", "flac", "gsm", "iklax", "ivs", "m4a",
-        "m4b", "mmf", "mogg", "mp3", "mpc", "msv", "nmf", "oga", "ogg", "opus", "ra", "raw", "rf64",
-        "sln", "tta", "voc", "vox", "wav", "wma", "wv"
-    )
+    private val EXTENSIONS_MEDIA =
+        arrayOf(
+            "webm",
+            "mkv",
+            "flv",
+            "vob",
+            "ogv",
+            "drc",
+            "mng",
+            "avi",
+            "mov",
+            "gifv",
+            "qt",
+            "wmv",
+            "yuv",
+            "rm",
+            "rmvb",
+            "asf",
+            "amv",
+            "mp4",
+            "m4p",
+            "mp2",
+            "mpe",
+            "mpv",
+            "mpg",
+            "mpeg",
+            "m2v",
+            "m4v",
+            "svi",
+            "3gp",
+            "3g2",
+            "mxf",
+            "roq",
+            "nsv",
+            "8svx",
+            "aa",
+            "aac",
+            "aax",
+            "act",
+            "aiff",
+            "alac",
+            "amr",
+            "ape",
+            "au",
+            "awb",
+            "cda",
+            "dct",
+            "dss",
+            "dvf",
+            "flac",
+            "gsm",
+            "iklax",
+            "ivs",
+            "m4a",
+            "m4b",
+            "mmf",
+            "mogg",
+            "mp3",
+            "mpc",
+            "msv",
+            "nmf",
+            "oga",
+            "ogg",
+            "opus",
+            "ra",
+            "raw",
+            "rf64",
+            "sln",
+            "tta",
+            "voc",
+            "vox",
+            "wav",
+            "wma",
+            "wv",
+        )
 
     private val extensionTypeMap: MutableMap<String, ResourceType> = HashMap<String, ResourceType>()
 
@@ -147,7 +229,10 @@ private object UrlResourceTypeDetector {
         mapExtensions(EXTENSIONS_MEDIA, ResourceType.MEDIA)
     }
 
-    private fun mapExtensions(extensions: Array<String>, contentType: ResourceType) {
+    private fun mapExtensions(
+        extensions: Array<String>,
+        contentType: ResourceType,
+    ) {
         for (extension in extensions) {
             // all comparisons are in lower case, force that the extensions are in lower case
             extensionTypeMap[extension.lowercase(Locale.ROOT)] = contentType

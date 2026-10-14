@@ -20,7 +20,6 @@ import java.util.concurrent.ConcurrentHashMap
  * single-use atomic bypass tokens, and pagination-contextual hijack detection.
  */
 object NavigationSecurityGuard {
-
     private const val PAGINATION_WINDOW_TTL_MS = 1500L
     private const val DEFAULT_BYPASS_TOKEN_TTL_MS = 10_000L
 
@@ -31,39 +30,85 @@ object NavigationSecurityGuard {
     private val bypassTokens = ConcurrentHashMap<String, Long>()
 
     // Compound public suffixes (multi-level TLDs)
-    private val COMPOUND_PUBLIC_SUFFIXES = listOf(
-        // China
-        ".com.cn", ".net.cn", ".org.cn", ".edu.cn", ".gov.cn", ".mil.cn",
-        // Hong Kong / Taiwan
-        ".edu.hk", ".com.hk", ".org.hk", ".gov.hk",
-        ".com.tw", ".org.tw", ".idv.tw", ".edu.tw",
-        // Japan
-        ".co.jp", ".ne.jp", ".or.jp", ".ac.jp", ".go.jp",
-        // United Kingdom
-        ".co.uk", ".org.uk", ".me.uk", ".ltd.uk", ".plc.uk",
-        // Australia
-        ".com.au", ".net.au", ".org.au",
-        // Common shared hosting domains
-        ".github.io", ".gitlab.io", ".workers.dev", ".pages.dev", ".vercel.app"
-    )
+    private val COMPOUND_PUBLIC_SUFFIXES =
+        listOf(
+            // China
+            ".com.cn",
+            ".net.cn",
+            ".org.cn",
+            ".edu.cn",
+            ".gov.cn",
+            ".mil.cn",
+            // Hong Kong / Taiwan
+            ".edu.hk",
+            ".com.hk",
+            ".org.hk",
+            ".gov.hk",
+            ".com.tw",
+            ".org.tw",
+            ".idv.tw",
+            ".edu.tw",
+            // Japan
+            ".co.jp",
+            ".ne.jp",
+            ".or.jp",
+            ".ac.jp",
+            ".go.jp",
+            // United Kingdom
+            ".co.uk",
+            ".org.uk",
+            ".me.uk",
+            ".ltd.uk",
+            ".plc.uk",
+            // Australia
+            ".com.au",
+            ".net.au",
+            ".org.au",
+            // Common shared hosting domains
+            ".github.io",
+            ".gitlab.io",
+            ".workers.dev",
+            ".pages.dev",
+            ".vercel.app",
+        )
 
     // Dimension 1: Search engine and shortlink hub root domains
-    private val SEARCH_AND_HUB_DOMAINS = setOf(
-        "baidu.com", "bing.com", "google.com", "sogou.com", "so.com", "sm.cn",
-        "duckduckgo.com", "t.cn", "url.cn", "zhihu.com", "qq.com", "weibo.com",
-        "bilibili.com"
-    )
+    private val SEARCH_AND_HUB_DOMAINS =
+        setOf(
+            "baidu.com",
+            "bing.com",
+            "google.com",
+            "sogou.com",
+            "so.com",
+            "sm.cn",
+            "duckduckgo.com",
+            "t.cn",
+            "url.cn",
+            "zhihu.com",
+            "qq.com",
+            "weibo.com",
+            "bilibili.com",
+        )
 
     // Dimension 2: OAuth 2.0 social authentication hosts
-    private val OAUTH_AUTH_HOSTS = setOf(
-        "open.weixin.qq.com", "graph.qq.com", "accounts.google.com",
-        "appleid.apple.com", "passport.weibo.com", "account.aliyun.com"
-    )
+    private val OAUTH_AUTH_HOSTS =
+        setOf(
+            "open.weixin.qq.com",
+            "graph.qq.com",
+            "accounts.google.com",
+            "appleid.apple.com",
+            "passport.weibo.com",
+            "account.aliyun.com",
+        )
 
     // Dimension 3: Mobile payment gateway root domains
-    private val PAYMENT_DOMAINS = setOf(
-        "alipay.com", "tenpay.com", "unionpay.com", "paypal.com"
-    )
+    private val PAYMENT_DOMAINS =
+        setOf(
+            "alipay.com",
+            "tenpay.com",
+            "unionpay.com",
+            "paypal.com",
+        )
 
     /**
      * Called by JS bridge when a user clicks on an identified pagination navigation element.
@@ -76,14 +121,16 @@ object NavigationSecurityGuard {
     /**
      * Checks if a user action in a pagination context occurred recently (within 1500ms).
      */
-    fun isPaginationContextActive(): Boolean {
-        return System.currentTimeMillis() - lastPaginationClickTime <= PAGINATION_WINDOW_TTL_MS
-    }
+    fun isPaginationContextActive(): Boolean = System.currentTimeMillis() - lastPaginationClickTime <= PAGINATION_WINDOW_TTL_MS
 
     /**
      * Issues a single-use bypass token valid for 10 seconds.
      */
-    fun issueBypassToken(sourceHost: String, targetHost: String, durationMs: Long = DEFAULT_BYPASS_TOKEN_TTL_MS) {
+    fun issueBypassToken(
+        sourceHost: String,
+        targetHost: String,
+        durationMs: Long = DEFAULT_BYPASS_TOKEN_TTL_MS,
+    ) {
         val sEtld = extractEtldPlusOne(sourceHost)
         val tEtld = extractEtldPlusOne(targetHost)
         if (sEtld.isBlank() || tEtld.isBlank()) return
@@ -96,7 +143,10 @@ object NavigationSecurityGuard {
     /**
      * Consumes a bypass token atomically (Single-Use: remove immediately on probe).
      */
-    fun consumeBypassToken(sourceHost: String, targetHost: String): Boolean {
+    fun consumeBypassToken(
+        sourceHost: String,
+        targetHost: String,
+    ): Boolean {
         val sEtld = extractEtldPlusOne(sourceHost)
         val tEtld = extractEtldPlusOne(targetHost)
         if (sEtld.isBlank() || tEtld.isBlank()) return false
@@ -115,7 +165,10 @@ object NavigationSecurityGuard {
      * Evaluates the four-dimensional exemption matrix.
      * Returns true if the navigation is an exempted legitimate transition.
      */
-    fun isExempted(currentDocUrl: String?, targetUrl: String): Boolean {
+    fun isExempted(
+        currentDocUrl: String?,
+        targetUrl: String,
+    ): Boolean {
         val targetHost = extractHost(targetUrl) ?: return false
         val targetEtld = extractEtldPlusOne(targetHost)
 
@@ -134,7 +187,8 @@ object NavigationSecurityGuard {
 
         // Dimension 1: Search engine hubs & shortlinks
         if (SEARCH_AND_HUB_DOMAINS.contains(currentEtld.lowercase()) ||
-            SEARCH_AND_HUB_DOMAINS.contains(targetEtld.lowercase())) {
+            SEARCH_AND_HUB_DOMAINS.contains(targetEtld.lowercase())
+        ) {
             return true
         }
 
@@ -163,7 +217,11 @@ object NavigationSecurityGuard {
      * (1) It occurs within the active pagination click window (isPaginationContextActive()); OR
      * (2) It contains clear rogue ad/hijack fingerprints (e.g. baiduboxapp pseudo-host, rogue jump params).
      */
-    fun shouldAuditNavigation(currentDocUrl: String?, targetUrl: String, isRedirect: Boolean): Boolean {
+    fun shouldAuditNavigation(
+        currentDocUrl: String?,
+        targetUrl: String,
+        isRedirect: Boolean,
+    ): Boolean {
         // 1. If exempted by matrix (search, oauth, payment, same-domain, bypass token), do NOT audit
         if (isExempted(currentDocUrl, targetUrl)) {
             return false
@@ -193,7 +251,12 @@ object NavigationSecurityGuard {
      * Extracts eTLD+1 from a hostname using Public Suffix List rules.
      */
     fun extractEtldPlusOne(host: String): String {
-        val cleanHost = host.trim().lowercase().removePrefix(".").removeSuffix(".")
+        val cleanHost =
+            host
+                .trim()
+                .lowercase()
+                .removePrefix(".")
+                .removeSuffix(".")
         if (cleanHost.isBlank()) return ""
 
         // Check if host matches any compound suffix

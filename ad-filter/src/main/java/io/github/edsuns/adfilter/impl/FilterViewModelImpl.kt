@@ -21,7 +21,6 @@ internal class FilterViewModelImpl(
     private val filterDataLoader: FilterDataLoader,
     binaryDataStore: BinaryDataStore,
 ) : FilterViewModel {
-
     internal val sharedPreferences: FilterSharedPreferences =
         FilterSharedPreferences(context)
 
@@ -48,11 +47,15 @@ internal class FilterViewModelImpl(
                 Json.decodeFromString(sharedPreferences.filterMap)
             } catch (_: Exception) {
                 emptyMap()
-            }
+            },
         )
 
     override val filters: StateFlow<Map<String, Filter>> = _filterMap.asStateFlow()
-    override fun updateFilterByFilterId(id: String, filter: Filter) {
+
+    override fun updateFilterByFilterId(
+        id: String,
+        filter: Filter,
+    ) {
         _filterMap.update { it + (id to filter) }
         saveFilterMap()
     }
@@ -62,7 +65,10 @@ internal class FilterViewModelImpl(
      * No-op if the filter has been removed in the meantime (e.g. a download
      * finishing after [removeFilter]). Called from the updater's IO threads.
      */
-    private fun updateFilter(id: String, transform: (Filter) -> Filter) {
+    private fun updateFilter(
+        id: String,
+        transform: (Filter) -> Filter,
+    ) {
         var changed = false
         _filterMap.update { map ->
             val current = map[id] ?: return@update map
@@ -89,7 +95,6 @@ internal class FilterViewModelImpl(
         _filterMap.value = filters.value.toMutableMap()
     }
 
-
     init {
         // Downloads do not survive the process. A filter still flagged as running was
         // interrupted by process death rather than by a real failure, so pick it up
@@ -106,7 +111,10 @@ internal class FilterViewModelImpl(
         }
     }
 
-    override fun addFilter(name: String, url: String): Filter {
+    override fun addFilter(
+        name: String,
+        url: String,
+    ): Filter {
         val newFilter = Filter(url, name)
         _filterMap.value = filters.value.toMutableMap().apply { set(newFilter.id, newFilter) }
         updateFilterByFilterId(newFilter.id, newFilter)
@@ -120,14 +128,19 @@ internal class FilterViewModelImpl(
         flushFilter()
     }
 
-    override fun setFilterEnabled(id: String, enabled: Boolean, post: Boolean) {
+    override fun setFilterEnabled(
+        id: String,
+        enabled: Boolean,
+        post: Boolean,
+    ) {
         filters.value[id]?.let {
             val enableMask = enabled && it.hasDownloaded()
             if (it.isEnabled != enableMask) {
-                if (enableMask)
+                if (enableMask) {
                     enableFilter(it)
-                else
+                } else {
                     disableFilter(it)
+                }
 
                 _filterMap.value = filters.value.toMutableMap()
                 saveFilterMap()
@@ -149,7 +162,10 @@ internal class FilterViewModelImpl(
         updateEnabledFilterCount()
     }
 
-    override fun renameFilter(id: String, name: String) {
+    override fun renameFilter(
+        id: String,
+        name: String,
+    ) {
         filters.value[id]?.let {
             val updatedFilter = it.copy(name = name)
             updateFilterByFilterId(id, updatedFilter)

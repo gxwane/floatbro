@@ -9,9 +9,8 @@ import timber.log.Timber
  */
 internal class FilterDataLoader(
     val detector: Detector,
-    private val binaryDataStore: BinaryDataStore
+    private val binaryDataStore: BinaryDataStore,
 ) {
-
     fun load(id: String) {
         if (binaryDataStore.hasData(id)) {
             try {

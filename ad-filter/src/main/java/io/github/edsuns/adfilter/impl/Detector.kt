@@ -13,19 +13,31 @@ import java.util.concurrent.CopyOnWriteArrayList
 internal interface Detector {
     val clients: List<Client>
     var customFilterClient: Client?
+
     fun addClient(client: Client)
+
     fun removeClient(id: String)
+
     fun clearAllClient()
-    fun shouldBlock(url: String, documentUrl: String, resourceType: ResourceType): String?
+
+    fun shouldBlock(
+        url: String,
+        documentUrl: String,
+        resourceType: ResourceType,
+    ): String?
+
     fun getElementHidingSelectors(documentUrl: String): String
+
     fun getCustomElementHidingSelectors(documentUrl: String): String
+
     fun getExtendedCssSelectors(documentUrl: String): List<String>
+
     fun getCssRules(documentUrl: String): List<String>
+
     fun getScriptlets(documentUrl: String): List<String>
 }
 
 internal class DetectorImpl : Detector {
-
     override val clients = CopyOnWriteArrayList<Client>()
 
     // null means disabled
@@ -70,12 +82,12 @@ internal class DetectorImpl : Detector {
     override fun shouldBlock(
         url: String,
         documentUrl: String,
-        resourceType: ResourceType
+        resourceType: ResourceType,
     ): String? {
         // custom filter have a higher priority, match it first
         customFilterClient?.matches(url, documentUrl, resourceType)?.let {
             if (it.hasException) {
-                return null// don't block exception
+                return null // don't block exception
             }
             if (it.shouldBlock) {
                 return it.matchedRule
@@ -86,7 +98,7 @@ internal class DetectorImpl : Detector {
         for (client in clients) {
             val match: MatchResult = client.matches(url, documentUrl, resourceType)
             if (match.hasException) {
-                return null// don't block exception
+                return null // don't block exception
             }
             if (match.shouldBlock) {
                 shouldBlock = match
@@ -109,9 +121,7 @@ internal class DetectorImpl : Detector {
         return builder.toString()
     }
 
-    override fun getCustomElementHidingSelectors(documentUrl: String): String {
-        return customFilterClient?.getElementHidingSelectors(documentUrl) ?: ""
-    }
+    override fun getCustomElementHidingSelectors(documentUrl: String): String = customFilterClient?.getElementHidingSelectors(documentUrl) ?: ""
 
     private fun getRulesIntoList(transform: (client: Client) -> Array<String>?): List<String> {
         val result = ArrayList<String>()
@@ -127,13 +137,9 @@ internal class DetectorImpl : Detector {
         return result
     }
 
-    override fun getExtendedCssSelectors(documentUrl: String): List<String> =
-        getRulesIntoList { it.getExtendedCssSelectors(documentUrl) }
+    override fun getExtendedCssSelectors(documentUrl: String): List<String> = getRulesIntoList { it.getExtendedCssSelectors(documentUrl) }
 
-    override fun getCssRules(documentUrl: String): List<String> =
-        getRulesIntoList { it.getCssRules(documentUrl) }
+    override fun getCssRules(documentUrl: String): List<String> = getRulesIntoList { it.getCssRules(documentUrl) }
 
-    override fun getScriptlets(documentUrl: String): List<String> =
-        getRulesIntoList { it.getScriptlets(documentUrl) }
-
+    override fun getScriptlets(documentUrl: String): List<String> = getRulesIntoList { it.getScriptlets(documentUrl) }
 }

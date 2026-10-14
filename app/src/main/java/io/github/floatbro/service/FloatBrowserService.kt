@@ -24,7 +24,6 @@ import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import io.github.floatbro.R
 import io.github.floatbro.overlay.FloatingWindowManager
-import io.github.floatbro.overlay.OverlayMode
 import timber.log.Timber
 
 /**
@@ -32,7 +31,6 @@ import timber.log.Timber
  * Coordinates FloatingWindowManager, intent actions, and notification controls.
  */
 class FloatBrowserService : LifecycleService() {
-
     companion object {
         const val CHANNEL_ID = "floatbro_overlay_channel"
         const val NOTIFICATION_ID = 1001
@@ -50,19 +48,24 @@ class FloatBrowserService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        overlayManager = FloatingWindowManager(this).apply {
-            onAllSessionsClosed = {
-                Timber.d("All floating sessions closed, stopping FloatBrowserService")
-                ServiceCompat.stopForeground(this@FloatBrowserService, ServiceCompat.STOP_FOREGROUND_REMOVE)
-                stopSelf()
+        overlayManager =
+            FloatingWindowManager(this).apply {
+                onAllSessionsClosed = {
+                    Timber.d("All floating sessions closed, stopping FloatBrowserService")
+                    ServiceCompat.stopForeground(this@FloatBrowserService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
-        }
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildForegroundNotification())
         Timber.d("FloatBrowserService created and initialized FloatingWindowManager")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         super.onStartCommand(intent, flags, startId)
         // Ensure foreground notification contract is satisfied upon any startForegroundService invocation
         startForeground(NOTIFICATION_ID, buildForegroundNotification())
@@ -137,30 +140,34 @@ class FloatBrowserService : LifecycleService() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.notification_channel_name),
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = getString(R.string.notification_channel_desc)
-            }
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    getString(R.string.notification_channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = getString(R.string.notification_channel_desc)
+                }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
     }
 
     private fun buildForegroundNotification(): Notification {
-        val showIntent = Intent(this, FloatBrowserService::class.java).apply {
-            action = ACTION_SHOW
-        }
-        val showPendingIntent = PendingIntent.getService(
-            this,
-            1,
-            showIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val showIntent =
+            Intent(this, FloatBrowserService::class.java).apply {
+                action = ACTION_SHOW
+            }
+        val showPendingIntent =
+            PendingIntent.getService(
+                this,
+                1,
+                showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat
+            .Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.floating_service_running))
             .setSmallIcon(R.drawable.ic_bubble_logo)
             .setContentIntent(showPendingIntent)

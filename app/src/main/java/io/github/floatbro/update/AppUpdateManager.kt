@@ -37,13 +37,13 @@ data class ReleaseInfo(
     val isPrerelease: Boolean,
     val downloadUrl: String,
     val apkFileName: String,
-    val apkSizeBytes: Long
+    val apkSizeBytes: Long,
 )
 
 data class UpdateCandidates(
     val currentVersion: String,
     val stable: ReleaseInfo?,
-    val prerelease: ReleaseInfo?
+    val prerelease: ReleaseInfo?,
 )
 
 data class DownloadProgress(
@@ -51,25 +51,28 @@ data class DownloadProgress(
     val status: Int,
     val bytesDownloaded: Long,
     val totalBytes: Long,
-    val percent: Int
+    val percent: Int,
 )
 
-class AppUpdateManager(private val context: Context) {
+class AppUpdateManager(
+    private val context: Context,
+) {
     private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     private val ioExecutor = Executors.newSingleThreadExecutor()
 
     val currentVersion: String
-        get() = try {
-            BuildConfig.VERSION_NAME
-        } catch (_: Exception) {
-            "1.0.0"
-        }
+        get() =
+            try {
+                BuildConfig.VERSION_NAME
+            } catch (_: Exception) {
+                "1.0.0"
+            }
 
     fun fetchReleasesAsync(
         repoOwner: String = DEFAULT_REPO_OWNER,
         repoName: String = DEFAULT_REPO_NAME,
         onSuccess: (UpdateCandidates) -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
     ) {
         ioExecutor.execute {
             try {
@@ -87,7 +90,7 @@ class AppUpdateManager(private val context: Context) {
 
     fun fetchReleasesSync(
         repoOwner: String = DEFAULT_REPO_OWNER,
-        repoName: String = DEFAULT_REPO_NAME
+        repoName: String = DEFAULT_REPO_NAME,
     ): UpdateCandidates {
         val apiUrl = "https://api.github.com/repos/$repoOwner/$repoName/releases?per_page=15"
         var stableRelease: ReleaseInfo? = null
@@ -143,16 +146,17 @@ class AppUpdateManager(private val context: Context) {
                         apkName = "FloatBro-$tagName.apk"
                     }
 
-                    val release = ReleaseInfo(
-                        tagName = tagName,
-                        name = name,
-                        body = body,
-                        publishedAt = publishedAt,
-                        isPrerelease = isPrerelease,
-                        downloadUrl = apkUrl,
-                        apkFileName = apkName,
-                        apkSizeBytes = apkSize
-                    )
+                    val release =
+                        ReleaseInfo(
+                            tagName = tagName,
+                            name = name,
+                            body = body,
+                            publishedAt = publishedAt,
+                            isPrerelease = isPrerelease,
+                            downloadUrl = apkUrl,
+                            apkFileName = apkName,
+                            apkSizeBytes = apkSize,
+                        )
 
                     if (isPrerelease && prereleaseRelease == null) {
                         prereleaseRelease = release
@@ -175,7 +179,7 @@ class AppUpdateManager(private val context: Context) {
         return UpdateCandidates(
             currentVersion = currentVersion,
             stable = stableRelease,
-            prerelease = prereleaseRelease
+            prerelease = prereleaseRelease,
         )
     }
 
@@ -189,18 +193,20 @@ class AppUpdateManager(private val context: Context) {
             destFile.delete()
         }
 
-        val request = DownloadManager.Request(uri)
-            .setTitle("FloatBro ${release.tagName}")
-            .setDescription("正在下载新版本安装包...")
-            .setMimeType("application/vnd.android.package-archive")
-            .setAllowedOverMetered(true)
-            .setAllowedOverRoaming(false)
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalFilesDir(
-                context,
-                Environment.DIRECTORY_DOWNLOADS,
-                "updates/${release.apkFileName}"
-            )
+        val request =
+            DownloadManager
+                .Request(uri)
+                .setTitle("FloatBro ${release.tagName}")
+                .setDescription("正在下载新版本安装包...")
+                .setMimeType("application/vnd.android.package-archive")
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(false)
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalFilesDir(
+                    context,
+                    Environment.DIRECTORY_DOWNLOADS,
+                    "updates/${release.apkFileName}",
+                )
 
         return downloadManager.enqueue(request)
     }
@@ -220,46 +226,48 @@ class AppUpdateManager(private val context: Context) {
     fun cancelDownload(downloadId: Long) {
         try {
             downloadManager.remove(downloadId)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
-    fun getDownloadedFile(release: ReleaseInfo): File {
-        return File(getUpdateDirectory(), release.apkFileName)
-    }
+    fun getDownloadedFile(release: ReleaseInfo): File = File(getUpdateDirectory(), release.apkFileName)
 
-    fun canInstallPackages(): Boolean {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+    fun canInstallPackages(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
             context.packageManager.canRequestPackageInstalls()
-    }
 
     fun openInstallPermissionSettings(activity: Activity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${activity.packageName}")
-            )
+            val intent =
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${activity.packageName}"),
+                )
             activity.startActivity(intent)
         }
     }
 
     fun installApk(file: File) {
         if (!file.exists()) return
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val uri =
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+        val intent =
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
         context.startActivity(intent)
     }
 
     private fun getUpdateDirectory(): File {
-        val base = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-            ?: File(context.filesDir, "downloads")
+        val base =
+            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                ?: File(context.filesDir, "downloads")
         return File(base, "updates")
     }
 
@@ -267,15 +275,17 @@ class AppUpdateManager(private val context: Context) {
         const val DEFAULT_REPO_OWNER = "gxwane"
         const val DEFAULT_REPO_NAME = "floatbro"
 
-        fun isNewerVersion(remoteTag: String, currentVersion: String): Boolean {
-            return compareSemVer(remoteTag, currentVersion) > 0
-        }
+        fun isNewerVersion(
+            remoteTag: String,
+            currentVersion: String,
+        ): Boolean = compareSemVer(remoteTag, currentVersion) > 0
 
-        private fun cleanVersion(tag: String): String {
-            return tag.trim().removePrefix("v").removePrefix("V")
-        }
+        private fun cleanVersion(tag: String): String = tag.trim().removePrefix("v").removePrefix("V")
 
-        fun compareSemVer(v1: String, v2: String): Int {
+        fun compareSemVer(
+            v1: String,
+            v2: String,
+        ): Int {
             val (core1, pre1) = parseVersion(v1)
             val (core2, pre2) = parseVersion(v2)
 
@@ -318,18 +328,22 @@ class AppUpdateManager(private val context: Context) {
             val clean = cleanVersion(ver)
             val dashIndex = clean.indexOf('-')
             val plusIndex = clean.indexOf('+')
-            val splitIndex = when {
-                dashIndex != -1 && plusIndex != -1 -> minOf(dashIndex, plusIndex)
-                dashIndex != -1 -> dashIndex
-                plusIndex != -1 -> plusIndex
-                else -> -1
-            }
+            val splitIndex =
+                when {
+                    dashIndex != -1 && plusIndex != -1 -> minOf(dashIndex, plusIndex)
+                    dashIndex != -1 -> dashIndex
+                    plusIndex != -1 -> plusIndex
+                    else -> -1
+                }
 
             val coreStr = if (splitIndex != -1) clean.substring(0, splitIndex) else clean
-            val preStr = if (dashIndex != -1) {
-                val end = if (plusIndex != -1 && plusIndex > dashIndex) plusIndex else clean.length
-                clean.substring(dashIndex + 1, end)
-            } else null
+            val preStr =
+                if (dashIndex != -1) {
+                    val end = if (plusIndex != -1 && plusIndex > dashIndex) plusIndex else clean.length
+                    clean.substring(dashIndex + 1, end)
+                } else {
+                    null
+                }
 
             val coreParts = coreStr.split(".").mapNotNull { it.toIntOrNull() }
             return Pair(coreParts, preStr)

@@ -20,7 +20,6 @@ import org.junit.Test
  * Pure JVM Unit Tests for Floating Session models, max limits, and bounds clamping.
  */
 class FloatingSessionLifecycleTest {
-
     @Test
     fun `scenario - max concurrent session constant is 3`() {
         assertEquals(3, FloatingWindowManager.MAX_CONCURRENT_SESSIONS)
@@ -56,10 +55,17 @@ class FloatingSessionLifecycleTest {
         val windowBH = 600
 
         // Non-overlapping side-by-side: Window A at x=50, Window B at x=500
-        val isOverlapping = WindowBoundsHelper.isOverlapping(
-            x1 = 50, y1 = 100, w1 = windowAW, h1 = windowAH,
-            x2 = 500, y2 = 100, w2 = windowBW, h2 = windowBH
-        )
+        val isOverlapping =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 50,
+                y1 = 100,
+                w1 = windowAW,
+                h1 = windowAH,
+                x2 = 500,
+                y2 = 100,
+                w2 = windowBW,
+                h2 = windowBH,
+            )
         assertFalse("Side-by-side windows must have zero overlap", isOverlapping)
     }
 
@@ -69,11 +75,17 @@ class FloatingSessionLifecycleTest {
         val windowH = 700
 
         // Cascading with 50px offset: Window A at (100, 100), Window B at (150, 150)
-        val isOverlapping = WindowBoundsHelper.isOverlapping(
-            x1 = 100, y1 = 100, w1 = windowW, h1 = windowH,
-            x2 = 150, y2 = 150, w2 = windowW, h2 = windowH
-        )
+        val isOverlapping =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 100,
+                y1 = 100,
+                w1 = windowW,
+                h1 = windowH,
+                x2 = 150,
+                y2 = 150,
+                w2 = windowW,
+                h2 = windowH,
+            )
         assertTrue("Cascading windows with overlapping bounds must report overlap", isOverlapping)
     }
 }
-

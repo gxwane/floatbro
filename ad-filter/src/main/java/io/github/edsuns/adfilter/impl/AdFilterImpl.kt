@@ -19,8 +19,9 @@ import java.util.WeakHashMap
 /**
  * Created by Edsuns@qq.com on 2021/7/29.
  */
-internal class AdFilterImpl(appContext: Context) : AdFilter {
-
+internal class AdFilterImpl(
+    appContext: Context,
+) : AdFilter {
     init {
         // Injected-JS sources live in module assets; wire up the loader before
         // anything can touch ElementHiding/Scriptlet/ScriptInjection.
@@ -69,11 +70,12 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
         viewModel.updateEnabledFilterCount()
     }
 
-    override fun isRulePackEnabled(id: String): Boolean {
-        return defaultRulesInstaller.isPackEnabled(id)
-    }
+    override fun isRulePackEnabled(id: String): Boolean = defaultRulesInstaller.isPackEnabled(id)
 
-    override fun setRulePackEnabled(id: String, enabled: Boolean) {
+    override fun setRulePackEnabled(
+        id: String,
+        enabled: Boolean,
+    ) {
         defaultRulesInstaller.setPackEnabled(id, enabled)
         if (enabled) {
             defaultRulesInstaller.ensureInstalled(id)
@@ -84,13 +86,14 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
         viewModel.updateEnabledFilterCount()
     }
 
-    override fun getRulePackCount(id: String): Int {
-        return defaultRulesInstaller.getRuleCount(id)
-    }
+    override fun getRulePackCount(id: String): Int = defaultRulesInstaller.getRuleCount(id)
 
     override fun getMainFrameUrl(webView: WebView): String? = mainFrameUrls[webView]
 
-    override fun setMainFrameUrl(webView: WebView, url: String) {
+    override fun setMainFrameUrl(
+        webView: WebView,
+        url: String,
+    ) {
         mainFrameUrls[webView] = url
     }
 
@@ -113,10 +116,11 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
             return FilterResult(null, url, null)
         }
 
-        val documentUrl = mainFrameUrls[webView]
-            ?: request.requestHeaders?.get("Referer")
-            ?: request.requestHeaders?.get("referer")
-            ?: return FilterResult(null, url, null)
+        val documentUrl =
+            mainFrameUrls[webView]
+                ?: request.requestHeaders?.get("Referer")
+                ?: request.requestHeaders?.get("referer")
+                ?: return FilterResult(null, url, null)
 
         val resourceType = ResourceType.from(request)
 
@@ -143,15 +147,17 @@ internal class AdFilterImpl(appContext: Context) : AdFilter {
         }
     }
 
-    private fun ResourceType.isVisibleResource(): Boolean =
-        this === ResourceType.IMAGE || this === ResourceType.MEDIA || this === ResourceType.SUBDOCUMENT
+    private fun ResourceType.isVisibleResource(): Boolean = this === ResourceType.IMAGE || this === ResourceType.MEDIA || this === ResourceType.SUBDOCUMENT
 
     override fun setupWebView(webView: WebView) {
         webView.addJavascriptInterface(elementHiding, ScriptInjection.bridgeNameFor(elementHiding))
         webView.addJavascriptInterface(scriptlet, ScriptInjection.bridgeNameFor(scriptlet))
     }
 
-    override fun performScript(webView: WebView?, url: String?) {
+    override fun performScript(
+        webView: WebView?,
+        url: String?,
+    ) {
         if (webView != null && !url.isNullOrEmpty()) {
             mainFrameUrls[webView] = url
         }

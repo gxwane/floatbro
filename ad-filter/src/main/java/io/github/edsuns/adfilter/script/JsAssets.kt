@@ -19,7 +19,11 @@ internal object JsAssets {
     }
 
     @Synchronized
-    fun load(name: String): String = cache.getOrPut(name) {
-        appContext.assets.open("adfilter/$name").bufferedReader().use { it.readText() }
-    }
+    fun load(name: String): String =
+        cache.getOrPut(name) {
+            appContext.assets
+                .open("adfilter/$name")
+                .bufferedReader()
+                .use { it.readText() }
+        }
 }

@@ -15,8 +15,9 @@ import java.util.zip.CRC32
  * header, any torn or bit-rotted file is detected and discarded here, before
  * native code ever sees it.
  */
-internal class BinaryDataStore(private val dir: File) {
-
+internal class BinaryDataStore(
+    private val dir: File,
+) {
     init {
         if (!dir.exists() && !dir.mkdirs()) {
             Timber.v("BinaryDataStore: failed to create store dirs")
@@ -45,11 +46,16 @@ internal class BinaryDataStore(private val dir: File) {
         return bytes.copyOfRange(HEADER_SIZE, bytes.size)
     }
 
-    fun saveData(name: String, byteArray: ByteArray) {
-        val header = ByteBuffer.allocate(HEADER_SIZE)
-            .put(MAGIC)
-            .putInt(byteArray.size)
-            .putLong(CRC32().apply { update(byteArray) }.value)
+    fun saveData(
+        name: String,
+        byteArray: ByteArray,
+    ) {
+        val header =
+            ByteBuffer
+                .allocate(HEADER_SIZE)
+                .put(MAGIC)
+                .putInt(byteArray.size)
+                .putLong(CRC32().apply { update(byteArray) }.value)
         val tmp = File(dir, "$name.tmp")
         tmp.writeBytes(header.array() + byteArray)
         if (!tmp.renameTo(File(dir, name))) {
@@ -65,8 +71,10 @@ internal class BinaryDataStore(private val dir: File) {
         File(dir, name).delete()
     }
 
-    private fun crc32(bytes: ByteArray, offset: Int): Long =
-        CRC32().apply { update(bytes, offset, bytes.size - offset) }.value
+    private fun crc32(
+        bytes: ByteArray,
+        offset: Int,
+    ): Long = CRC32().apply { update(bytes, offset, bytes.size - offset) }.value
 
     companion object {
         private val MAGIC = byteArrayOf(0x45, 0x42, 0x44, 0x53, 0x31) // "EBDS1"

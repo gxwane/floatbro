@@ -16,8 +16,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.ViewGroup
-import java.util.concurrent.ConcurrentHashMap
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Thread-safe singleton bridge for seamless state transfer between in-app tabs
@@ -27,12 +27,11 @@ import timber.log.Timber
  * as well as Bundle-based fallback state transfer.
  */
 object TabOverlayStateBridge {
-
     private data class StoredState(
         val bundle: Bundle,
         val fallbackUrl: String,
         val fallbackTitle: String,
-        val timestamp: Long = SystemClock.uptimeMillis()
+        val timestamp: Long = SystemClock.uptimeMillis(),
     )
 
     private val storage = ConcurrentHashMap<String, StoredState>()
@@ -48,7 +47,10 @@ object TabOverlayStateBridge {
      * Stores an active EBWebView instance for zero-reload transfer between Window hierarchies.
      * Automatically detaches external listeners and unlinks from parent container.
      */
-    fun putWebView(id: String, webView: EBWebView) {
+    fun putWebView(
+        id: String,
+        webView: EBWebView,
+    ) {
         // 1. Detach external listeners to break implicit activity references
         webView.detachAllListeners()
         // 2. Ensure detached from current parent
@@ -57,22 +59,23 @@ object TabOverlayStateBridge {
         Timber.d("TabOverlayStateBridge: Stored active EBWebView instance for session $id")
 
         // 3. Schedule 15s safety orphan cleanup on the main looper
-        val timeoutTask = Runnable {
-            webViewRegistry.remove(id)?.let { orphan ->
-                Timber.w("TabOverlayStateBridge: Cleaning expired orphaned WebView for $id")
-                try {
-                    (orphan.parent as? ViewGroup)?.removeView(orphan)
-                    orphan.stopLoading()
-                    orphan.loadUrl("about:blank")
-                    orphan.clearHistory()
-                    orphan.removeAllViews()
-                    orphan.destroy()
-                } catch (e: Throwable) {
-                    Timber.e(e, "Error destroying orphaned WebView")
+        val timeoutTask =
+            Runnable {
+                webViewRegistry.remove(id)?.let { orphan ->
+                    Timber.w("TabOverlayStateBridge: Cleaning expired orphaned WebView for $id")
+                    try {
+                        (orphan.parent as? ViewGroup)?.removeView(orphan)
+                        orphan.stopLoading()
+                        orphan.loadUrl("about:blank")
+                        orphan.clearHistory()
+                        orphan.removeAllViews()
+                        orphan.destroy()
+                    } catch (e: Throwable) {
+                        Timber.e(e, "Error destroying orphaned WebView")
+                    }
                 }
+                timeoutRunnables.remove(id)
             }
-            timeoutRunnables.remove(id)
-        }
         timeoutRunnables[id] = timeoutTask
         mainHandler.postDelayed(timeoutTask, 15_000L)
     }
@@ -90,7 +93,12 @@ object TabOverlayStateBridge {
         return wv
     }
 
-    fun putState(id: String, bundle: Bundle, fallbackUrl: String, fallbackTitle: String) {
+    fun putState(
+        id: String,
+        bundle: Bundle,
+        fallbackUrl: String,
+        fallbackTitle: String,
+    ) {
         cleanExpired()
         storage[id] = StoredState(bundle, fallbackUrl, fallbackTitle)
         Timber.d("TabOverlayStateBridge: Stored state for session $id (url: $fallbackUrl)")
@@ -111,26 +119,28 @@ object TabOverlayStateBridge {
     /**
      * Retrieves stored fallback URL if available.
      */
-    fun getFallbackUrl(id: String): String? {
-        return storage[id]?.fallbackUrl
-    }
+    fun getFallbackUrl(id: String): String? = storage[id]?.fallbackUrl
 
     /**
      * Stores a transient snapshot Bitmap for cross-window visual continuity.
      * Manages replacement recycling and schedules a 10s watchdog cleanup.
      */
-    fun putSnapshot(id: String, bitmap: android.graphics.Bitmap) {
+    fun putSnapshot(
+        id: String,
+        bitmap: android.graphics.Bitmap,
+    ) {
         // Discard prior snapshot reference if replaced to allow GC
         snapshotRegistry.remove(id)
         snapshotRegistry[id] = bitmap
         Timber.d("TabOverlayStateBridge: Stored transient snapshot for session $id")
 
-        val timeoutTask = Runnable {
-            snapshotRegistry.remove(id)?.let {
-                Timber.w("TabOverlayStateBridge: Cleaned expired snapshot reference for $id")
+        val timeoutTask =
+            Runnable {
+                snapshotRegistry.remove(id)?.let {
+                    Timber.w("TabOverlayStateBridge: Cleaned expired snapshot reference for $id")
+                }
+                snapshotTimeoutTasks.remove(id)
             }
-            snapshotTimeoutTasks.remove(id)
-        }
         snapshotTimeoutTasks[id] = timeoutTask
         mainHandler.postDelayed(timeoutTask, 10_000L)
     }
@@ -173,7 +183,10 @@ object TabOverlayStateBridge {
     /**
      * Registers a one-shot callback for when the target WebView completes its first frame commit.
      */
-    fun registerCommitListener(id: String, callback: () -> Unit) {
+    fun registerCommitListener(
+        id: String,
+        callback: () -> Unit,
+    ) {
         commitListeners[id] = callback
     }
 

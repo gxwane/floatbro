@@ -18,7 +18,7 @@ import io.github.floatbro.core.webview.twopane.TwoPaneLayout
  * split orientation, and cross-pane dispatching.
  */
 class PaneController(
-    private val layout: TwoPaneLayout
+    private val layout: TwoPaneLayout,
 ) {
     fun toggleSecondPane() {
         layout.isSecondPaneVisible = !layout.isSecondPaneVisible
@@ -29,11 +29,12 @@ class PaneController(
     }
 
     fun toggleOrientation() {
-        layout.splitOrientation = if (layout.splitOrientation == TwoPaneLayout.Orientation.HORIZONTAL) {
-            TwoPaneLayout.Orientation.VERTICAL
-        } else {
-            TwoPaneLayout.Orientation.HORIZONTAL
-        }
+        layout.splitOrientation =
+            if (layout.splitOrientation == TwoPaneLayout.Orientation.HORIZONTAL) {
+                TwoPaneLayout.Orientation.VERTICAL
+            } else {
+                TwoPaneLayout.Orientation.HORIZONTAL
+            }
     }
 
     fun swapPanes() {

@@ -21,7 +21,6 @@ import org.junit.Test
  * Validates smooth diagonal resizing constraints: min/max bounds and aspect ratio boundaries (0.45 ~ 2.20).
  */
 class WindowBoundsHelperTest {
-
     private val minWidth = 300
     private val maxWidth = 1080
     private val minHeight = 400
@@ -34,14 +33,15 @@ class WindowBoundsHelperTest {
         val rawHeight = 800
 
         // WHEN: Clamping dimensions
-        val (w, h) = WindowBoundsHelper.clampDimensions(
-            rawWidth = rawWidth,
-            rawHeight = rawHeight,
-            minWidth = minWidth,
-            maxWidth = maxWidth,
-            minHeight = minHeight,
-            maxHeight = maxHeight
-        )
+        val (w, h) =
+            WindowBoundsHelper.clampDimensions(
+                rawWidth = rawWidth,
+                rawHeight = rawHeight,
+                minWidth = minWidth,
+                maxWidth = maxWidth,
+                minHeight = minHeight,
+                maxHeight = maxHeight,
+            )
 
         // THEN: Dimensions are preserved exactly
         assertEquals(600, w)
@@ -55,14 +55,15 @@ class WindowBoundsHelperTest {
         val rawHeight = 400
 
         // WHEN: Clamping dimensions
-        val (w, h) = WindowBoundsHelper.clampDimensions(
-            rawWidth = rawWidth,
-            rawHeight = rawHeight,
-            minWidth = minWidth,
-            maxWidth = maxWidth,
-            minHeight = minHeight,
-            maxHeight = maxHeight
-        )
+        val (w, h) =
+            WindowBoundsHelper.clampDimensions(
+                rawWidth = rawWidth,
+                rawHeight = rawHeight,
+                minWidth = minWidth,
+                maxWidth = maxWidth,
+                minHeight = minHeight,
+                maxHeight = maxHeight,
+            )
 
         // THEN: Width is clamped to minWidth, AND height is free to clamp to minHeight without being blocked by ratio
         assertEquals(300, w)
@@ -76,14 +77,15 @@ class WindowBoundsHelperTest {
         val rawHeight = 250
 
         // WHEN: Clamping dimensions
-        val (w, h) = WindowBoundsHelper.clampDimensions(
-            rawWidth = rawWidth,
-            rawHeight = rawHeight,
-            minWidth = minWidth,
-            maxWidth = maxWidth,
-            minHeight = minHeight,
-            maxHeight = maxHeight
-        )
+        val (w, h) =
+            WindowBoundsHelper.clampDimensions(
+                rawWidth = rawWidth,
+                rawHeight = rawHeight,
+                minWidth = minWidth,
+                maxWidth = maxWidth,
+                minHeight = minHeight,
+                maxHeight = maxHeight,
+            )
 
         // THEN: Height is clamped to minHeight, AND width is free to clamp to minWidth
         assertEquals(300, w)
@@ -97,14 +99,15 @@ class WindowBoundsHelperTest {
         val rawHeight = 200
 
         // WHEN: Clamping dimensions
-        val (w, h) = WindowBoundsHelper.clampDimensions(
-            rawWidth = rawWidth,
-            rawHeight = rawHeight,
-            minWidth = minWidth,
-            maxWidth = maxWidth,
-            minHeight = minHeight,
-            maxHeight = maxHeight
-        )
+        val (w, h) =
+            WindowBoundsHelper.clampDimensions(
+                rawWidth = rawWidth,
+                rawHeight = rawHeight,
+                minWidth = minWidth,
+                maxWidth = maxWidth,
+                minHeight = minHeight,
+                maxHeight = maxHeight,
+            )
 
         // THEN: Respects minWidth and minHeight independently
         assertEquals(minWidth, w)
@@ -120,14 +123,15 @@ class WindowBoundsHelperTest {
         val rawHeight = 800
 
         // WHEN: Clamping dimensions
-        val (w, h) = WindowBoundsHelper.clampDimensions(
-            rawWidth = rawWidth,
-            rawHeight = rawHeight,
-            minWidth = minWidth,
-            maxWidth = 1500,
-            minHeight = landscapeMinHeight,
-            maxHeight = landscapeMaxHeight
-        )
+        val (w, h) =
+            WindowBoundsHelper.clampDimensions(
+                rawWidth = rawWidth,
+                rawHeight = rawHeight,
+                minWidth = minWidth,
+                maxWidth = 1500,
+                minHeight = landscapeMinHeight,
+                maxHeight = landscapeMaxHeight,
+            )
 
         // THEN: Resulting height is clamped to landscapeMaxHeight and ratio is bounded
         assertTrue("Height must be <= landscapeMaxHeight", h <= landscapeMaxHeight)
@@ -138,14 +142,15 @@ class WindowBoundsHelperTest {
     @Test
     fun `scenario - degenerate bounds where max is less than min never throws empty range exception`() {
         // GIVEN: Degenerate inputs where maxWidth < minWidth due to extreme rotation/insets
-        val (w, h) = WindowBoundsHelper.clampDimensions(
-            rawWidth = 500,
-            rawHeight = 500,
-            minWidth = 600,
-            maxWidth = 400,
-            minHeight = 800,
-            maxHeight = 600
-        )
+        val (w, h) =
+            WindowBoundsHelper.clampDimensions(
+                rawWidth = 500,
+                rawHeight = 500,
+                minWidth = 600,
+                maxWidth = 400,
+                minHeight = 800,
+                maxHeight = 600,
+            )
 
         // THEN: Clamps to minWidth and minHeight safely without throwing IllegalArgumentException
         assertEquals(600, w)
@@ -156,10 +161,17 @@ class WindowBoundsHelperTest {
     fun `scenario - side-by-side non-overlapping windows return false`() {
         // Window A: x=0, y=100, w=400, h=600 -> right=400, bottom=700
         // Window B: x=450, y=100, w=400, h=600 -> left=450
-        val overlaps = WindowBoundsHelper.isOverlapping(
-            x1 = 0, y1 = 100, w1 = 400, h1 = 600,
-            x2 = 450, y2 = 100, w2 = 400, h2 = 600
-        )
+        val overlaps =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 0,
+                y1 = 100,
+                w1 = 400,
+                h1 = 600,
+                x2 = 450,
+                y2 = 100,
+                w2 = 400,
+                h2 = 600,
+            )
         assertFalse("Side-by-side separated windows must not overlap", overlaps)
     }
 
@@ -167,10 +179,17 @@ class WindowBoundsHelperTest {
     fun `scenario - partially overlapping windows return true`() {
         // Window A: x=100, y=100, w=400, h=600
         // Window B: x=300, y=200, w=400, h=600
-        val overlaps = WindowBoundsHelper.isOverlapping(
-            x1 = 100, y1 = 100, w1 = 400, h1 = 600,
-            x2 = 300, y2 = 200, w2 = 400, h2 = 600
-        )
+        val overlaps =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 100,
+                y1 = 100,
+                w1 = 400,
+                h1 = 600,
+                x2 = 300,
+                y2 = 200,
+                w2 = 400,
+                h2 = 600,
+            )
         assertTrue("Partially overlapping windows must report overlap", overlaps)
     }
 
@@ -178,10 +197,17 @@ class WindowBoundsHelperTest {
     fun `scenario - touching edges with zero pixel intersection return false`() {
         // Window A: x=0, y=0, w=300, h=300 -> right=300
         // Window B: x=300, y=0, w=300, h=300 -> left=300
-        val overlaps = WindowBoundsHelper.isOverlapping(
-            x1 = 0, y1 = 0, w1 = 300, h1 = 300,
-            x2 = 300, y2 = 0, w2 = 300, h2 = 300
-        )
+        val overlaps =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 0,
+                y1 = 0,
+                w1 = 300,
+                h1 = 300,
+                x2 = 300,
+                y2 = 0,
+                w2 = 300,
+                h2 = 300,
+            )
         assertFalse("Touching borders without area overlap must not be considered overlapping", overlaps)
     }
 
@@ -205,21 +231,34 @@ class WindowBoundsHelperTest {
     @Test
     fun `scenario - vertically separated windows return false`() {
         // Window A: y: 0..300, Window B: y: 350..650
-        val overlaps = WindowBoundsHelper.isOverlapping(
-            x1 = 100, y1 = 0, w1 = 400, h1 = 300,
-            x2 = 100, y2 = 350, w2 = 400, h2 = 300
-        )
+        val overlaps =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 100,
+                y1 = 0,
+                w1 = 400,
+                h1 = 300,
+                x2 = 100,
+                y2 = 350,
+                w2 = 400,
+                h2 = 300,
+            )
         assertFalse("Vertically separated windows must not overlap", overlaps)
     }
 
     @Test
     fun `scenario - fully contained window returns true`() {
         // Window A: 0..800, 0..800. Window B: 100..400, 100..400
-        val overlaps = WindowBoundsHelper.isOverlapping(
-            x1 = 0, y1 = 0, w1 = 800, h1 = 800,
-            x2 = 100, y2 = 100, w2 = 300, h2 = 300
-        )
+        val overlaps =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 0,
+                y1 = 0,
+                w1 = 800,
+                h1 = 800,
+                x2 = 100,
+                y2 = 100,
+                w2 = 300,
+                h2 = 300,
+            )
         assertTrue("Fully contained window must report overlap", overlaps)
     }
 }
-

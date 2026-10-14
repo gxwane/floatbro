@@ -15,7 +15,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class BrowserUrlResolverTest {
-
     @Test
     fun testEmptyInputReturnsEmpty() {
         assertEquals("", BrowserUrlResolver.resolve(""))

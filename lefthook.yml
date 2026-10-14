@@ -1,0 +1,9 @@
+# Lefthook Git pre-commit configuration for FloatBro
+# Cross-platform support: Windows, Linux, macOS
+
+pre-commit:
+  parallel: false
+  commands:
+    spotless:
+      glob: "*.{kt,kts}"
+      run: ./gradlew spotlessCheck --daemon
