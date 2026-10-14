@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.spotless)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.license) apply false
 }
 
 spotless {
@@ -76,4 +77,10 @@ tasks.register("installGitHooks") {
             println("No .git/hooks directory found; skipped Git hook installation.")
         }
     }
+}
+
+tasks.register("licenseReport") {
+    group = "reporting"
+    description = "Generates open source license reports for the application"
+    dependsOn(":app:licenseReleaseReport")
 }

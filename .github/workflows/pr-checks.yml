@@ -45,6 +45,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Verify No Secrets or Private Keys
+        run: |
+          echo "Scanning tracked files for accidental secrets or private keys..."
+          if git ls-files | grep -E '\.(jks|keystore|p12|key|pem|credentials)$'; then
+            echo "ERROR: Found forbidden credential file(s) in repository!"
+            exit 1
+          fi
+          echo "Secret scan passed successfully."
+
       - name: Run Static Code Analysis & Style Check
         run: |
           chmod +x ./gradlew

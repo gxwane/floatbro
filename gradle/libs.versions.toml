@@ -56,6 +56,9 @@ archCoreTesting = "2.2.0"
 slackComposeLint = "1.5.5"
 archunit = "1.4.1"
 
+# --- 开源合规与许可证审计 (Phase 4) ---
+license = "0.9.91"
+
 [libraries]
 # AndroidX 核心基础
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -129,3 +132,5 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+license = { id = "com.jaredsburrows.license", version.ref = "license" }
+

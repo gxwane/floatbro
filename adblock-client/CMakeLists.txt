@@ -47,3 +47,15 @@ target_compile_options(
     -Werror=return-type
 )
 
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy)
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--config-file=${CMAKE_CURRENT_SOURCE_DIR}/../.clang-tidy")
+        message(STATUS "Clang-tidy enabled: ${CLANG_TIDY_EXE}")
+    else()
+        message(WARNING "ENABLE_CLANG_TIDY was requested, but clang-tidy executable was not found.")
+    endif()
+endif()
+
+

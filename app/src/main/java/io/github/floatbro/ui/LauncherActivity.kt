@@ -500,7 +500,7 @@ class LauncherActivity : ComponentActivity() {
 
                                             if (!isDetached) {
                                                 if (totalDragY < tearThresholdPx) {
-                                                    // Phase 1: Touch, Lift & Tension (0 - 44dp)
+                                                    // 1. 触摸上拉阻尼与弹性形变阶段 (0 - 44dp)
                                                     val progress = (totalDragY / tearThresholdPx).coerceIn(0f, 1f)
                                                     val yResistance = totalDragY * (1f - (totalDragY / maxTearDistancePx).coerceIn(0f, 0.4f))
                                                     val xResistance = totalDragX * 0.6f
@@ -511,7 +511,7 @@ class LauncherActivity : ComponentActivity() {
                                                         cardScaleAnim.snapTo(1.0f + 0.04f * progress)
                                                     }
                                                 } else {
-                                                    // Phase 2: Detachment Threshold Crossed!
+                                                    // 2. 突破撕脱阈值，切换为独立悬浮卡片并采集快照
                                                     isDetached = true
                                                     val sourceWv = activeWebViews[draggedTab?.id]
                                                     if (sourceWv != null && snapshotBitmap == null && !isCapturingSnapshot) {
@@ -556,7 +556,7 @@ class LauncherActivity : ComponentActivity() {
                                                     }
                                                 }
                                             } else {
-                                                // Phase 2: Detached Free 2D Tracking with aerodynamic tilt
+                                                // 3. 撕脱后自由 2D 拖拽跟随与动态倾斜计算
                                                 val targetTilt = (delta.x * 0.4f).coerceIn(-7f, 7f)
                                                 coroutineScope.launch {
                                                     dragOffsetAnim.snapTo(dragOffsetAnim.value + delta)
@@ -573,7 +573,7 @@ class LauncherActivity : ComponentActivity() {
                                             val isCommitted = totalDragY >= tearThresholdPx && isDetached && hasPermission
 
                                             if (isCommitted) {
-                                                // Phase 3A: Commit & Handover!
+                                                // 4A. 手势释放确认：无缝移交至系统全局悬浮窗
                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                                     view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                                                 } else {
@@ -642,7 +642,7 @@ class LauncherActivity : ComponentActivity() {
                                                     isCommittingOrCancelling = false
                                                 }
                                             } else {
-                                                // Phase 3B: Cancel & Snapback with Physics Spring!
+                                                // 4B. 手势释放取消：未达阈值，物理弹簧动画回弹复位
                                                 if (totalDragY >= tearThresholdPx && isDetached && !hasPermission) {
                                                     showPermissionRationaleDialog = true
                                                 }
@@ -1386,7 +1386,7 @@ fun DraggedTabOverlay(
             ),
     ) {
         if (!isDetached) {
-            // Phase 1: Lifted Tab Pill appearance
+            // 标签拖起初始态（胶囊胶带样式）
             Row(
                 modifier =
                     Modifier
@@ -1430,7 +1430,7 @@ fun DraggedTabOverlay(
                 )
             }
         } else {
-            // Phase 2 & 3: Floating Window Preview Card (Glassmorphism)
+            // 标签撕脱完成态（毛玻璃悬浮预览卡片）
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header Bar (44dp aligned to standard)
                 Row(

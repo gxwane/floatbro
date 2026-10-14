@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.license)
 }
 
 android {
@@ -68,6 +69,21 @@ android {
         ignoreTestSources = true
         baseline = file("lint-baseline.xml")
     }
+}
+
+composeCompiler {
+    if (project.findProperty("floatbro.enableComposeMetrics") == "true") {
+        metricsDestination.set(layout.buildDirectory.dir("compose_metrics"))
+        reportsDestination.set(layout.buildDirectory.dir("compose_reports"))
+    }
+}
+
+licenseReport {
+    generateCsvReport = false
+    generateHtmlReport = true
+    generateJsonReport = true
+    copyHtmlReportToAssets = false
+    copyJsonReportToAssets = false
 }
 
 dependencies {

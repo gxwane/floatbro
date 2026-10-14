@@ -4,6 +4,9 @@
 pre-commit:
   parallel: false
   commands:
+    secrets-audit:
+      glob: "*.{jks,keystore,p12,key,pem}"
+      run: echo "ERROR: Committing private keys, keystores, or certificates is strictly prohibited!" && exit 1
     spotless:
       glob: "*.{kt,kts}"
       run: ./gradlew spotlessCheck --daemon
