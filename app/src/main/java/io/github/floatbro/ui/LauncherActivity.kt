@@ -53,6 +53,9 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import kotlin.coroutines.resume
 import android.view.PixelCopy
 import android.graphics.Rect
@@ -417,28 +420,37 @@ class LauncherActivity : ComponentActivity() {
                                     rootLayoutCoordinates = rootLayoutCoordinates,
                                     onSelectTab = { activeTabId = it },
                                     onCloseTab = { tabId ->
+                                        // 1. Immediately update UI state so Compose dismisses the tab card with 0ms latency
                                         val closed = tabs.find { it.id == tabId }
+                                        tabs.removeAll { it.id == tabId }
+                                        if (activeTabId == tabId) {
+                                            activeTabId = "home"
+                                        }
+
+                                        // 2. Record recently closed and visit history safely
                                         if (closed != null && closed.url != "about:home" && closed.url != "about:blank" && closed.url.isNotBlank()) {
-                                            BrowsingHistoryManager.getInstance(this@LauncherActivity).recordVisit(closed.url, closed.title)
                                             if (!recentClosedTabs.any { it.url == closed.url }) {
                                                 recentClosedTabs.add(0, closed)
                                                 if (recentClosedTabs.size > 5) {
                                                     recentClosedTabs.removeAt(recentClosedTabs.lastIndex)
                                                 }
                                             }
+                                            lifecycleScope.launch(Dispatchers.IO) {
+                                                BrowsingHistoryManager.getInstance(applicationContext).recordVisit(closed.url, closed.title)
+                                            }
                                         }
+
+                                        // 3. Clean up detached WebView asynchronously without about:blank IPC contention
                                         activeWebViews.remove(tabId)?.let { wv ->
                                             try {
                                                 wv.stopLoading()
-                                                wv.loadUrl("about:blank")
-                                                wv.clearHistory()
                                                 wv.removeAllViews()
-                                                wv.destroy()
+                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                    try {
+                                                        wv.destroy()
+                                                    } catch (_: Exception) {}
+                                                }
                                             } catch (_: Exception) {}
-                                        }
-                                        tabs.removeAll { it.id == tabId }
-                                        if (activeTabId == tabId) {
-                                            activeTabId = "home"
                                         }
                                     },
                                     onNewTab = {

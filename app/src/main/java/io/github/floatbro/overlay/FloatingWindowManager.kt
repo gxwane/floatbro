@@ -18,6 +18,7 @@ import android.os.Build
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import io.github.floatbro.R
@@ -540,6 +541,8 @@ class FloatingWindowManager(private val context: Context) {
      * Completely destroys a floating session and its views.
      */
     fun closeSession(session: FloatingSession, preserveWebView: Boolean = false) {
+        // Immediate zero-latency visual hide to eliminate perceived lag
+        session.windowView.visibility = View.GONE
         focusMutex.releaseFocus(session)
 
         // 1. Remove bubble
@@ -573,15 +576,20 @@ class FloatingWindowManager(private val context: Context) {
 
         // 4. Destroy WebView clean sequence (only if not preserved for docking)
         if (!preserveWebView) {
+            val wv = window.webView
             try {
-                (window.webView.parent as? ViewGroup)?.removeView(window.webView)
-                window.webView.stopLoading()
-                window.webView.loadUrl("about:blank")
-                window.webView.clearHistory()
-                window.webView.removeAllViews()
-                window.webView.destroy()
+                (wv.parent as? ViewGroup)?.removeView(wv)
+                wv.stopLoading()
+                wv.removeAllViews()
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    try {
+                        wv.destroy()
+                    } catch (e: Exception) {
+                        Timber.w(e, "Error destroying WebView asynchronously for session ${session.id}")
+                    }
+                }
             } catch (e: Exception) {
-                Timber.w(e, "Error destroying WebView for session ${session.id}")
+                Timber.w(e, "Error cleaning up WebView on close for session ${session.id}")
             }
         }
 

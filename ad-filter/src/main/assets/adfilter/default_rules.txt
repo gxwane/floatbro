@@ -2706,6 +2706,11 @@
 ##iframe[class*="mobilead"]
 ##iframe[id*="mobilead"]
 m.piquge.com##div[style*="position: fixed"]
+! Fullscreen invisible click trap overlays
+##div[style*="position: fixed"][style*="z-index: 214748364"][style*="opacity: 0"]
+##div[style*="position: fixed"][style*="z-index: 214748364"][style*="opacity:0"]
+##div[style*="position: fixed"][style*="z-index: 999999"][style*="opacity: 0"]
+##a[style*="position: fixed"][style*="z-index: 214748364"][style*="opacity: 0"]
 m.piquge.com##div[style*="position:fixed"]
 m.piquge.com##div[style*="z-index:"]
 m.piquge.com##iframe

@@ -16,6 +16,8 @@
     var targetStack = [];
     var overlayEl = null;
     var tempStyleEl = null;
+    var iframeShieldStyleEl = null;
+    var origWindowOpen = null;
 
     var ATOMIC_CLASS_REGEX = /^(flex|grid|block|inline|w-|h-|p-|m-|text-|bg-|border-|shadow-|justify-|items-|col-|row-|relative|absolute|fixed|overflow-|z-)/i;
     var DYNAMIC_HASH_REGEX = /(\d{5,}|[a-f0-9]{8,}|^css-|^jsx-|^__[a-zA-Z0-9]{3,})/i;
@@ -183,8 +185,8 @@
         var dy = Math.abs(t.clientY - startY);
         var dt = Date.now() - startTime;
 
-        // Disambiguate tap vs scroll (TouchSlop = 10px, dt < 350ms)
-        if (dx < TOUCH_SLOP && dy < TOUCH_SLOP && dt < 350) {
+        // Disambiguate tap vs scroll (TouchSlop = 10px, dt < 450ms)
+        if (dx < TOUCH_SLOP && dy < TOUCH_SLOP && dt < 450) {
             e.preventDefault();
             e.stopPropagation();
             selectAt(t.clientX, t.clientY);
@@ -198,6 +200,22 @@
     }
 
     function selectAt(x, y) {
+        // 1. Geometric bounding box scan for iframe, embed, object
+        // Overcomes W3C hit-test bypass caused by pointer-events: none proxy shield
+        var frames = document.querySelectorAll('iframe, embed, object');
+        for (var i = 0; i < frames.length; i++) {
+            var f = frames[i];
+            var rect = f.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0 &&
+                x >= rect.left && x <= rect.right &&
+                y >= rect.top && y <= rect.bottom) {
+                targetStack = [f];
+                updateOverlay(f);
+                return;
+            }
+        }
+
+        // 2. Standard elementFromPoint lookup
         if (overlayEl) overlayEl.style.display = 'none';
         var target = document.elementFromPoint(x, y);
         if (overlayEl) overlayEl.style.display = 'block';
@@ -207,9 +225,7 @@
         }
 
         // Elevate iframe
-        if (target.tagName.toLowerCase() === 'iframe') {
-            // Already iframe
-        } else {
+        if (target.tagName.toLowerCase() !== 'iframe') {
             var closestIframe = target.closest('iframe');
             if (closestIframe) {
                 target = closestIframe;
@@ -228,6 +244,24 @@
             isZapperActive = true;
             this.isActive = true;
             targetStack = [];
+
+            // 1. Install Iframe proxy shield to prevent iframe internal link activation
+            if (!iframeShieldStyleEl) {
+                iframeShieldStyleEl = document.createElement('style');
+                iframeShieldStyleEl.id = '__floatbro_zapper_iframe_shield__';
+                iframeShieldStyleEl.textContent = 'iframe, embed, object { pointer-events: none !important; }';
+                (document.head || document.documentElement).appendChild(iframeShieldStyleEl);
+            }
+
+            // 2. Neutralize window.open during zapper session
+            if (!origWindowOpen && window.open) {
+                origWindowOpen = window.open;
+                window.open = function() {
+                    console.warn('[FloatBro Zapper] Blocked window.open attempt in Zapper mode');
+                    return null;
+                };
+            }
+
             window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
             window.addEventListener('touchend', onTouchEnd, { capture: true, passive: false });
             window.addEventListener('click', onClick, { capture: true });
@@ -329,6 +363,18 @@
             if (overlayEl && overlayEl.parentNode) {
                 overlayEl.parentNode.removeChild(overlayEl);
                 overlayEl = null;
+            }
+
+            // Restore window.open
+            if (origWindowOpen) {
+                window.open = origWindowOpen;
+                origWindowOpen = null;
+            }
+
+            // Remove iframe proxy shield
+            if (iframeShieldStyleEl && iframeShieldStyleEl.parentNode) {
+                iframeShieldStyleEl.parentNode.removeChild(iframeShieldStyleEl);
+                iframeShieldStyleEl = null;
             }
 
             // NOTE: Do NOT remove tempStyleEl or data-floatbro-zap-temp attribute!

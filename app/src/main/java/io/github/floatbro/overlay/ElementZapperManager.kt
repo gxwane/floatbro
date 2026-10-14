@@ -25,6 +25,7 @@ import android.widget.TextView
 import android.widget.Toast
 import io.github.edsuns.adfilter.AdFilter
 import io.github.floatbro.core.webview.EBWebView
+import io.github.floatbro.core.webview.client.FloatWebViewClient
 import org.json.JSONObject
 import timber.log.Timber
 
@@ -52,6 +53,8 @@ class ElementZapperManager(
         }
 
         isZapperActive = true
+        // Freeze native navigation to prevent rogue links or ad scripts from navigating away
+        (webView.webViewClient as? FloatWebViewClient)?.isNavigationFrozen = true
 
         // 1. Inject element_zapper.js
         try {
@@ -62,6 +65,7 @@ class ElementZapperManager(
         } catch (e: Exception) {
             Timber.e(e, "Failed to load and inject element_zapper.js")
             Toast.makeText(context, "加载元素消除器失败", Toast.LENGTH_SHORT).show()
+            (webView.webViewClient as? FloatWebViewClient)?.isNavigationFrozen = false
             isZapperActive = false
             return
         }
@@ -74,6 +78,7 @@ class ElementZapperManager(
     fun exitZapperMode(quietly: Boolean = true) {
         if (!isZapperActive) return
         isZapperActive = false
+        (webView.webViewClient as? FloatWebViewClient)?.isNavigationFrozen = false
 
         try {
             webView.evaluateJavascript("window.__FloatBroZapper ? window.__FloatBroZapper.exit() : '{}'", null)

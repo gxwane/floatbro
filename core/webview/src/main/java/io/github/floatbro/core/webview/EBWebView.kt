@@ -104,7 +104,8 @@ open class EBWebView @JvmOverloads constructor(
             builtInZoomControls = true
             displayZoomControls = false
             mediaPlaybackRequiresUserGesture = false
-            javaScriptCanOpenWindowsAutomatically = true
+            // Tighten window opening: prohibit scripts from opening windows/popunders without genuine user gesture
+            javaScriptCanOpenWindowsAutomatically = false
 
             // Dynamic modern User-Agent powered by BrowserPreferences
             val defaultSystemUa = try {

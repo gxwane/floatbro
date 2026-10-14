@@ -530,11 +530,13 @@ class FloatingWindowView(
             onDockRequested?.invoke(currentUrl, currentTitle)
         }
 
-        btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗") {
+        btnClose = createHeaderButton(R.drawable.ic_close, "关闭浮窗", widthDp = 36f) {
+            // Immediate zero-latency visual hide to eliminate perceived lag
+            visibility = GONE
             exitFullscreenVideo(notifyCallback = true)
             onCloseRequested?.invoke()
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(4f)
+            (layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(2f)
         }
 
         header.addView(btnBack)
@@ -548,11 +550,16 @@ class FloatingWindowView(
         return header
     }
 
-    private fun createHeaderButton(drawableRes: Int, tooltip: String, onClick: () -> Unit): ImageButton {
+    private fun createHeaderButton(
+        drawableRes: Int,
+        tooltip: String,
+        widthDp: Float = 28f,
+        onClick: () -> Unit
+    ): ImageButton {
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val iconTint = if (isDarkMode) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
         return ImageButton(context).apply {
-            val btnWidth = dpToPx(28f)
+            val btnWidth = dpToPx(widthDp)
             layoutParams = LinearLayout.LayoutParams(btnWidth, LinearLayout.LayoutParams.MATCH_PARENT).apply {
                 marginStart = dpToPx(1f)
             }

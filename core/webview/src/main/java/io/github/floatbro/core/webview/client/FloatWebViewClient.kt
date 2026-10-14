@@ -32,6 +32,12 @@ class FloatWebViewClient(
     private val onPageCommitVisibleCallback: ((url: String) -> Unit)? = null
 ) : WebViewClient() {
 
+    /**
+     * When true (e.g. during Element Zapper mode), physically freezes all navigation
+     * to prevent rogue ad scripts or clicked links from navigating the page away.
+     */
+    var isNavigationFrozen: Boolean = false
+
     override fun shouldInterceptRequest(
         view: WebView,
         request: WebResourceRequest
@@ -90,6 +96,11 @@ class FloatWebViewClient(
     }
 
     private fun handleUrlOverride(view: WebView, url: String): Boolean {
+        if (isNavigationFrozen) {
+            Timber.w("Navigation Freeze active: Blocked navigation attempt to %s", url)
+            return true
+        }
+
         val uri = try {
             android.net.Uri.parse(url)
         } catch (_: Exception) {
