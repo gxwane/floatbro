@@ -5,6 +5,21 @@
 
 ## [Unreleased]
 
+## [0.1.4-beta] - 2026-10-14
+
+### Added
+- **“下一页恶意掉包 / 广告洗流量”四位一体纵深防御体系**：
+  - **DOM 翻页脱敏器 (`pagination_sanitizer.js`)**：在捕获阶段拦截并剥离翻页按钮上的恶意 `touchstart`/内联 `onclick` 广告替换；正文与评论区硬排除；对 `/123/45.html` 自动推导并挂载下一页自愈链接；
+  - **内核 PSL 四维豁免守卫 (`NavigationSecurityGuard.kt`)**：支持多级顶级域名（如 `.com.cn`, `.co.jp`）识别，建立 1500ms 翻页点击时间窗与广告指纹防御上下文，严防全网误杀；搜索引擎、社交登录与移动支付免检放行；单次消费即焚 Token；
+  - **智能反解直达器 (`UrlTargetUnwrapper.kt`)**：智能反解中间跳转页与 Base64 真实目标链接，限制最大深度防死循环，依据 W3C 规范安全降级 Referer（跨域截断至 Origin，HTTPS->HTTP 严禁降级）；
+  - **小窗极简微胶囊与自愈交互**：悬浮窗拦截伪装外链时顶栏微胶囊变异为 `[🛡️ 已拦截 | ↻ 重试 | ↗ 放行]`，极小尺寸自适应隐藏右侧按钮防挤压，自动直达绿光反馈，采用 In-Window 卡片彻底杜绝 `BadTokenException`。
+- **页面关闭 0ms 瞬间响应性能优化**：
+  - 彻底消灭悬浮窗叉掉页面时的卡顿感：关闭按钮触控热区由 28dp 扩充至 36dp；点击首行立即触发 `window.visibility = View.GONE` 实现 0ms 视觉消隐；移除高延迟的 `loadUrl("about:blank")` 异步 IPC 冲突；后台异步平滑释放 WebView 与 Session 资源。
+- **元素标记器 (Element Zapper) 与隐形点击劫持深度加固**：
+  - Zapper 激活时开启原生内核级「全局导航冻结 (Navigation Freeze)」，坚决阻断选元素时的流氓跳转；
+  - 注入 Iframe 代理盾，支持跨域 `<iframe>` 广告容器直接选取消除；
+  - 严密拦截全屏透明点击劫持蒙版（Invisible Full-Screen Click Trap）与非法后台弹窗。
+
 ## [0.1.3-beta] - 2026-10-14
 
 ### Added
