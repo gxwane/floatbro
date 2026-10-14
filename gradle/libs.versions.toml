@@ -5,7 +5,7 @@ kotlin = "2.1.21"
 ksp = "2.1.20-1.0.32"
 
 # --- Kotlin 协程与序列化 ---
-coroutines = "1.10.2"
+coroutines = "1.11.0"
 kotlinxSerializationJson = "1.6.3"
 
 # --- Jetpack Compose & Material 3 (FloatBro 现代化悬浮 UI) ---
