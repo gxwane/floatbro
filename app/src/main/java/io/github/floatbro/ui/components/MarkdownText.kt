@@ -13,9 +13,10 @@ package io.github.floatbro.ui.components
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,15 +24,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,14 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -71,8 +67,12 @@ sealed interface InlineSpan {
 }
 
 object MarkdownParser {
+    private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.*)""")
+    private val NUMBERED_ITEM_REGEX = Regex("""^(\d+)\.\s+(.*)""")
+    private val INLINE_REGEX = Regex("""(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))""")
 
     fun parseBlocks(markdown: String): List<MarkdownBlock> {
+        if (markdown.isBlank()) return emptyList()
         val lines = markdown.lines()
         val blocks = mutableListOf<MarkdownBlock>()
         var inCodeBlock = false
@@ -102,17 +102,22 @@ object MarkdownParser {
             val stripped = line.trim()
             if (stripped.isEmpty()) continue
 
+            val headingMatch = HEADING_REGEX.matchEntire(stripped)
+            val numberedMatch = NUMBERED_ITEM_REGEX.matchEntire(stripped)
+
             when {
-                stripped.startsWith("### ") -> blocks.add(MarkdownBlock.Heading(3, stripped.removePrefix("### ").trim()))
-                stripped.startsWith("## ") -> blocks.add(MarkdownBlock.Heading(2, stripped.removePrefix("## ").trim()))
-                stripped.startsWith("# ") -> blocks.add(MarkdownBlock.Heading(1, stripped.removePrefix("# ").trim()))
+                headingMatch != null -> {
+                    val level = headingMatch.groupValues[1].length
+                    val text = headingMatch.groupValues[2].trim()
+                    blocks.add(MarkdownBlock.Heading(level, text))
+                }
                 stripped.startsWith("- ") || stripped.startsWith("* ") || stripped.startsWith("+ ") -> {
                     val indent = (line.length - line.trimStart().length) / 2
                     blocks.add(MarkdownBlock.BulletItem(indent, stripped.substring(2).trim()))
                 }
-                stripped.matches(Regex("""^\d+\.\s+.*""")) -> {
-                    val num = stripped.substringBefore(".")
-                    val content = stripped.substringAfter(".").trim()
+                numberedMatch != null -> {
+                    val num = numberedMatch.groupValues[1]
+                    val content = numberedMatch.groupValues[2].trim()
                     blocks.add(MarkdownBlock.NumberedItem(num, content))
                 }
                 stripped.startsWith("> ") -> blocks.add(MarkdownBlock.Quote(stripped.removePrefix("> ").trim()))
@@ -128,11 +133,11 @@ object MarkdownParser {
     }
 
     fun parseInline(text: String): List<InlineSpan> {
+        if (text.isEmpty()) return emptyList()
         val result = mutableListOf<InlineSpan>()
-        val regex = Regex("""(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))""")
         var currentIndex = 0
 
-        for (match in regex.findAll(text)) {
+        for (match in INLINE_REGEX.findAll(text)) {
             val matchRange = match.range
             if (matchRange.first > currentIndex) {
                 result.add(InlineSpan.Plain(text.substring(currentIndex, matchRange.first)))
@@ -176,16 +181,22 @@ fun MarkdownContent(
     modifier: Modifier = Modifier,
     initialExpanded: Boolean = false
 ) {
+    val isDark = isSystemInDarkTheme()
     val blocks = remember(markdown) { MarkdownParser.parseBlocks(markdown) }
     var isExpanded by remember(markdown) { androidx.compose.runtime.mutableStateOf(initialExpanded) }
     val isLong = blocks.size > 5
     val visibleBlocks = if (isLong && !isExpanded) blocks.take(4) else blocks
 
+    val containerColor = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC)
+    val borderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
+
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(),
         shape = RoundedCornerShape(10.dp),
-        color = Color(0xFFF8FAFC),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+        color = containerColor,
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {
         Column(
             modifier = Modifier
@@ -220,19 +231,23 @@ fun MarkdownContent(
 
 @Composable
 private fun RenderBlock(block: MarkdownBlock) {
+    val isDark = isSystemInDarkTheme()
     when (block) {
         is MarkdownBlock.Heading -> {
             val (fontSize, topPadding) = when (block.level) {
                 1 -> 15.sp to 6.dp
-                2 -> 13.5.sp to 4.dp
-                else -> 12.5.sp to 2.dp
+                2 -> 14.sp to 5.dp
+                3 -> 13.sp to 4.dp
+                4 -> 12.5.sp to 3.dp
+                5 -> 12.sp to 2.dp
+                else -> 11.5.sp to 2.dp
             }
             Spacer(modifier = Modifier.height(topPadding))
             Text(
                 text = block.text,
                 fontSize = fontSize,
                 fontWeight = FontWeight.Bold,
-                color = Slate800
+                color = if (isDark) Color(0xFFF8FAFC) else Slate800
             )
         }
         is MarkdownBlock.Paragraph -> {
@@ -274,10 +289,12 @@ private fun RenderBlock(block: MarkdownBlock) {
             }
         }
         is MarkdownBlock.Quote -> {
+            val quoteBg = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
+            val quoteText = if (isDark) Color(0xFFCBD5E1) else Slate700
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFF1F5F9), RoundedCornerShape(4.dp))
+                    .background(quoteBg, RoundedCornerShape(4.dp))
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -292,7 +309,7 @@ private fun RenderBlock(block: MarkdownBlock) {
                     text = block.text,
                     fontSize = 11.5.sp,
                     fontStyle = FontStyle.Italic,
-                    color = Slate700
+                    color = quoteText
                 )
             }
         }
@@ -326,15 +343,21 @@ private fun RenderBlock(block: MarkdownBlock) {
 
 @Composable
 private fun RenderInlineText(text: String) {
+    val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
     val spans = remember(text) { MarkdownParser.parseInline(text) }
+
+    val normalColor = if (isDark) Color(0xFFE2E8F0) else Slate700
+    val boldColor = if (isDark) Color(0xFFF8FAFC) else Slate800
+    val codeBg = if (isDark) Color(0xFF0F172A) else CodeBackground
+    val codeColor = if (isDark) Color(0xFF93C5FD) else Color(0xFF0F172A)
 
     val annotatedString = buildAnnotatedString {
         for (span in spans) {
             when (span) {
                 is InlineSpan.Plain -> append(span.text)
                 is InlineSpan.Bold -> {
-                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Slate800))
+                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = boldColor))
                     append(span.text)
                     pop()
                 }
@@ -347,8 +370,8 @@ private fun RenderInlineText(text: String) {
                     pushStyle(
                         SpanStyle(
                             fontFamily = FontFamily.Monospace,
-                            background = CodeBackground,
-                            color = Color(0xFF0F172A),
+                            background = codeBg,
+                            color = codeColor,
                             fontSize = 11.sp
                         )
                     )
@@ -376,7 +399,7 @@ private fun RenderInlineText(text: String) {
         text = annotatedString,
         style = androidx.compose.ui.text.TextStyle(
             fontSize = 12.sp,
-            color = Slate700,
+            color = normalColor,
             lineHeight = 18.sp
         ),
         onClick = { offset ->

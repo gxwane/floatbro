@@ -151,8 +151,16 @@ class FloatingWindowView(
     var isActiveWindow: Boolean = true
         private set
     private var isInterceptingForClickToFocus = false
+    var isReattachingForZOrder: Boolean = false
+    private var wasActiveAtOmnibarDown: Boolean = true
+
+    val isFullscreenVideoActive: Boolean
+        get() = customVideoView != null
 
     fun setActiveWindowState(isActive: Boolean) {
+        if (isActive) {
+            isInterceptingForClickToFocus = false
+        }
         if (isActiveWindow == isActive) return
         isActiveWindow = isActive
         updateWindowBorderState()
@@ -163,9 +171,9 @@ class FloatingWindowView(
         val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val windowBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
         val strokeColor = if (isActiveWindow) {
-            Color.parseColor("#2563EB")
+            FloatingWindowThemeColors.ActiveBorder
         } else {
-            if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#CBD5E1")
+            if (isDarkMode) FloatingWindowThemeColors.InactiveBorderDark else FloatingWindowThemeColors.InactiveBorderLight
         }
         val strokeWidth = if (isActiveWindow) dpToPx(1.5f) else dpToPx(1f)
 
@@ -175,6 +183,9 @@ class FloatingWindowView(
             setStroke(strokeWidth, strokeColor)
         }
         elevation = if (isActiveWindow) dpToPx(12f).toFloat() else dpToPx(4f).toFloat()
+        if (::headerView.isInitialized) {
+            headerView.alpha = if (isActiveWindow) 1.0f else 0.72f
+        }
     }
 
     init {
@@ -1228,6 +1239,7 @@ class FloatingWindowView(
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                wasActiveAtOmnibarDown = isActiveWindow
                 dragStartX = event.rawX
                 dragStartY = event.rawY
                 initialWindowX = layoutParams.x
@@ -1263,6 +1275,15 @@ class FloatingWindowView(
                 val distance = hypot(dx.toDouble(), dy.toDouble())
 
                 if (distance <= touchSlop) {
+                    if (!wasActiveAtOmnibarDown) {
+                        // First tap on inactive omnibar only focused the window; do NOT enter edit mode
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            performHapticFeedback(HapticFeedbackConstants.GESTURE_START)
+                        } else {
+                            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        }
+                        return true
+                    }
                     // Tap without drag -> Enter Omnibar Edit Mode!
                     enterEditMode()
                     return true
@@ -1284,6 +1305,7 @@ class FloatingWindowView(
         }
         val wasActive = isActiveWindow
         if (ev.action == MotionEvent.ACTION_DOWN) {
+            isInterceptingForClickToFocus = false
             onBringToFrontRequested?.invoke()
             if (customVideoView != null) {
                 // Reclaim input focus for Back key / gesture to reliably exit video fullscreen
@@ -1313,9 +1335,6 @@ class FloatingWindowView(
             y > headerHeight && (x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize)
         }
         if (onOuterEdge) {
-            if (ev.action == MotionEvent.ACTION_DOWN) {
-                handleEdgeDragTouchEvent(ev)
-            }
             return true
         }
 
@@ -1459,6 +1478,11 @@ class FloatingWindowView(
                                 }
                             }
                         }
+                        addListener(object : android.animation.AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: android.animation.Animator) {
+                                onBringToFrontRequested?.invoke()
+                            }
+                        })
                         start()
                     }
                 } else {
@@ -1470,6 +1494,7 @@ class FloatingWindowView(
                             Timber.w(e, "Error updating window layout after snap")
                         }
                     }
+                    onBringToFrontRequested?.invoke()
                 }
                 true
             }
@@ -1573,14 +1598,22 @@ class FloatingWindowView(
         return super.dispatchKeyEvent(event)
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        isInterceptingForClickToFocus = false
+    }
+
     override fun onDetachedFromWindow() {
+        isInterceptingForClickToFocus = false
         moreMenuPopup?.dismiss()
         moreMenuPopup = null
-        if (::elementZapperManager.isInitialized) {
-            elementZapperManager.exitZapperMode(quietly = true)
+        if (!isReattachingForZOrder) {
+            if (::elementZapperManager.isInitialized) {
+                elementZapperManager.exitZapperMode(quietly = true)
+            }
+            restoreHeaderNormalState()
+            exitFullscreenVideo(notifyCallback = true)
         }
-        restoreHeaderNormalState()
-        exitFullscreenVideo(notifyCallback = true)
         super.onDetachedFromWindow()
     }
 }

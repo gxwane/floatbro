@@ -100,4 +100,46 @@ class MarkdownParserTest {
         val allBulletText = blocks.filterIsInstance<MarkdownBlock.BulletItem>().joinToString(" ") { it.text }
         assertTrue("Contains all 20 items", allBulletText.contains("Feature item #19"))
     }
+
+    @Test
+    fun `parses headings levels 1 through 6 accurately`() {
+        val markdown = """
+            # H1
+            ## H2
+            ### H3
+            #### H4
+            ##### H5
+            ###### H6
+        """.trimIndent()
+
+        val blocks = MarkdownParser.parseBlocks(markdown)
+        assertEquals(6, blocks.size)
+        for (i in 1..6) {
+            val block = blocks[i - 1]
+            assertTrue("Block $i should be a Heading", block is MarkdownBlock.Heading)
+            assertEquals(i, (block as MarkdownBlock.Heading).level)
+            assertEquals("H$i", block.text)
+        }
+    }
+
+    @Test
+    fun `handles empty and whitespace markdown cleanly`() {
+        assertTrue(MarkdownParser.parseBlocks("").isEmpty())
+        assertTrue(MarkdownParser.parseBlocks("   \n\n  \t  ").isEmpty())
+        assertTrue(MarkdownParser.parseInline("").isEmpty())
+    }
+
+    @Test
+    fun `handles unclosed code blocks safely`() {
+        val markdown = """
+            ```kotlin
+            val x = 42
+        """.trimIndent()
+        val blocks = MarkdownParser.parseBlocks(markdown)
+        assertEquals(1, blocks.size)
+        assertTrue(blocks[0] is MarkdownBlock.CodeBlock)
+        assertEquals("kotlin", (blocks[0] as MarkdownBlock.CodeBlock).language)
+        assertEquals("val x = 42", (blocks[0] as MarkdownBlock.CodeBlock).code.trim())
+    }
 }
+

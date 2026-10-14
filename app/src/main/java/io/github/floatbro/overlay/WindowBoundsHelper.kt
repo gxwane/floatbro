@@ -35,6 +35,16 @@ object WindowBoundsHelper {
         return clampedWidth to clampedHeight
     }
 
+    data class WindowBounds(val x: Int, val y: Int, val width: Int, val height: Int)
+
+    /**
+     * Determines whether two window rectangles overlap in screen space.
+     * Touching borders without strictly intersecting area return false.
+     */
+    fun isOverlapping(a: WindowBounds, b: WindowBounds): Boolean {
+        return isOverlapping(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height)
+    }
+
     /**
      * Determines whether two window rectangles overlap in screen space.
      * Touching borders without strictly intersecting area return false.

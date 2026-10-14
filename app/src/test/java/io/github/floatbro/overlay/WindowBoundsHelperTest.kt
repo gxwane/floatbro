@@ -12,6 +12,7 @@
 package io.github.floatbro.overlay
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -159,7 +160,7 @@ class WindowBoundsHelperTest {
             x1 = 0, y1 = 100, w1 = 400, h1 = 600,
             x2 = 450, y2 = 100, w2 = 400, h2 = 600
         )
-        org.junit.Assert.assertFalse("Side-by-side separated windows must not overlap", overlaps)
+        assertFalse("Side-by-side separated windows must not overlap", overlaps)
     }
 
     @Test
@@ -181,7 +182,44 @@ class WindowBoundsHelperTest {
             x1 = 0, y1 = 0, w1 = 300, h1 = 300,
             x2 = 300, y2 = 0, w2 = 300, h2 = 300
         )
-        org.junit.Assert.assertFalse("Touching borders without area overlap must not be considered overlapping", overlaps)
+        assertFalse("Touching borders without area overlap must not be considered overlapping", overlaps)
+    }
+
+    @Test
+    fun `scenario - WindowBounds object overload works identically`() {
+        val boundsA = WindowBoundsHelper.WindowBounds(x = 100, y = 100, width = 400, height = 500)
+        val boundsB = WindowBoundsHelper.WindowBounds(x = 200, y = 200, width = 400, height = 500)
+        val boundsC = WindowBoundsHelper.WindowBounds(x = 600, y = 100, width = 400, height = 500)
+
+        assertTrue(WindowBoundsHelper.isOverlapping(boundsA, boundsB))
+        assertFalse(WindowBoundsHelper.isOverlapping(boundsA, boundsC))
+    }
+
+    @Test
+    fun `scenario - zero or negative dimensions return false`() {
+        assertFalse(WindowBoundsHelper.isOverlapping(0, 0, 0, 100, 0, 0, 100, 100))
+        assertFalse(WindowBoundsHelper.isOverlapping(0, 0, 100, -50, 0, 0, 100, 100))
+        assertFalse(WindowBoundsHelper.isOverlapping(0, 0, 100, 100, 0, 0, -10, 100))
+    }
+
+    @Test
+    fun `scenario - vertically separated windows return false`() {
+        // Window A: y: 0..300, Window B: y: 350..650
+        val overlaps = WindowBoundsHelper.isOverlapping(
+            x1 = 100, y1 = 0, w1 = 400, h1 = 300,
+            x2 = 100, y2 = 350, w2 = 400, h2 = 300
+        )
+        assertFalse("Vertically separated windows must not overlap", overlaps)
+    }
+
+    @Test
+    fun `scenario - fully contained window returns true`() {
+        // Window A: 0..800, 0..800. Window B: 100..400, 100..400
+        val overlaps = WindowBoundsHelper.isOverlapping(
+            x1 = 0, y1 = 0, w1 = 800, h1 = 800,
+            x2 = 100, y2 = 100, w2 = 300, h2 = 300
+        )
+        assertTrue("Fully contained window must report overlap", overlaps)
     }
 }
 

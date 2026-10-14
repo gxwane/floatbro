@@ -92,6 +92,9 @@ object FloatingWindowThemeColors {
     const val DarkWindowBackground: Int = 0xFF1E293B.toInt()
     const val LightHeaderBackground: Int = 0xFFF1F5F9.toInt()
     const val DarkHeaderBackground: Int = 0xFF1E293B.toInt()
+    const val ActiveBorder: Int = 0xFF2563EB.toInt()
+    const val InactiveBorderLight: Int = 0xFFCBD5E1.toInt()
+    const val InactiveBorderDark: Int = 0xFF334155.toInt()
 }
 
 val FloatBroTypography = Typography(

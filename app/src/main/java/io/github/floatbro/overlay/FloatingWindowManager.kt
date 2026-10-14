@@ -359,6 +359,11 @@ class FloatingWindowManager(private val context: Context) {
             return
         }
 
+        if (session.windowView.isFullscreenVideoActive) {
+            // Window is in fullscreen video mode; do not re-add to WindowManager to preserve player surface
+            return
+        }
+
         // Spatial Overlap Check:
         // If this window does NOT geometrically overlap with any window above it, DO NOT touch WindowManager
         // and DO NOT reorder sessions! Physical Z-order in WindowManager hasn't changed.
@@ -372,6 +377,7 @@ class FloatingWindowManager(private val context: Context) {
         if (view.isAttachedToWindow && session.mode == OverlayMode.WINDOW) {
             view.post {
                 if (view.isAttachedToWindow && session.mode == OverlayMode.WINDOW && sessions.values.lastOrNull()?.id != session.id) {
+                    view.isReattachingForZOrder = true
                     try {
                         windowManager.removeViewImmediate(view)
                         windowManager.addView(view, session.windowParams)
@@ -380,6 +386,11 @@ class FloatingWindowManager(private val context: Context) {
                         Timber.d("Elevated overlapping session ${session.id} to front safely")
                     } catch (e: Exception) {
                         Timber.w(e, "Safe Z-order re-insertion failed for session ${session.id}")
+                        if (!view.isAttachedToWindow) {
+                            view.exitFullscreenVideo(notifyCallback = true)
+                        }
+                    } finally {
+                        view.isReattachingForZOrder = false
                     }
                 }
             }
@@ -588,6 +599,8 @@ class FloatingWindowManager(private val context: Context) {
             try {
                 windowManager.addView(window, session.windowParams)
                 session.mode = OverlayMode.WINDOW
+                sessions.remove(session.id)
+                sessions[session.id] = session
                 bringSessionToFront(session)
                 Timber.d("Restored session ${session.id} to window at ($targetWinX, $targetWinY)")
             } catch (e: Exception) {

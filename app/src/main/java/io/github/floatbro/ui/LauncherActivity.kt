@@ -2564,7 +2564,7 @@ fun AppUpdateCenterDialog(
                 Text("关闭", color = Slate600)
             }
         },
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp)
     )
 }
@@ -2577,11 +2577,29 @@ fun UpdateReleaseCard(
     currentVersion: String,
     onDownload: (ReleaseInfo) -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
+    val cardBg = if (isBeta) {
+        if (isDark) Color(0xFF451A03) else Color(0xFFFFFBEB)
+    } else {
+        if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFF8FAFC)
+    }
+    val cardBorder = if (isBeta) {
+        if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A)
+    } else {
+        if (isDark) Color(0xFF334155) else Slate200
+    }
+    val channelTextColor = if (isBeta) {
+        if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
+    } else {
+        if (isDark) Color(0xFFF8FAFC) else Slate900
+    }
+    val tagTextColor = if (isDark) Color(0xFFF8FAFC) else Slate800
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isBeta) Color(0xFFFFFBEB) else Color(0xFFF8FAFC)),
-        border = BorderStroke(1.dp, if (isBeta) Color(0xFFFDE68A) else Slate200)
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, cardBorder)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -2594,18 +2612,18 @@ fun UpdateReleaseCard(
                         text = channelName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.5.sp,
-                        color = if (isBeta) Color(0xFF92400E) else Slate900
+                        color = channelTextColor
                     )
                     if (isBeta) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFFEF3C7)
+                            color = if (isDark) Color(0xFF78350F) else Color(0xFFFEF3C7)
                         ) {
                             Text(
                                 text = "测试版",
                                 fontSize = 10.sp,
-                                color = Color(0xFFB45309),
+                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                             )
@@ -2630,7 +2648,7 @@ fun UpdateReleaseCard(
                     text = release.tagName,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Slate800
+                    color = tagTextColor
                 )
                 if (release.body.isNotBlank()) {
                     MarkdownContent(
