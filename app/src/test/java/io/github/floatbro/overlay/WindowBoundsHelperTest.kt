@@ -150,4 +150,38 @@ class WindowBoundsHelperTest {
         assertEquals(600, w)
         assertEquals(800, h)
     }
+
+    @Test
+    fun `scenario - side-by-side non-overlapping windows return false`() {
+        // Window A: x=0, y=100, w=400, h=600 -> right=400, bottom=700
+        // Window B: x=450, y=100, w=400, h=600 -> left=450
+        val overlaps = WindowBoundsHelper.isOverlapping(
+            x1 = 0, y1 = 100, w1 = 400, h1 = 600,
+            x2 = 450, y2 = 100, w2 = 400, h2 = 600
+        )
+        org.junit.Assert.assertFalse("Side-by-side separated windows must not overlap", overlaps)
+    }
+
+    @Test
+    fun `scenario - partially overlapping windows return true`() {
+        // Window A: x=100, y=100, w=400, h=600
+        // Window B: x=300, y=200, w=400, h=600
+        val overlaps = WindowBoundsHelper.isOverlapping(
+            x1 = 100, y1 = 100, w1 = 400, h1 = 600,
+            x2 = 300, y2 = 200, w2 = 400, h2 = 600
+        )
+        assertTrue("Partially overlapping windows must report overlap", overlaps)
+    }
+
+    @Test
+    fun `scenario - touching edges with zero pixel intersection return false`() {
+        // Window A: x=0, y=0, w=300, h=300 -> right=300
+        // Window B: x=300, y=0, w=300, h=300 -> left=300
+        val overlaps = WindowBoundsHelper.isOverlapping(
+            x1 = 0, y1 = 0, w1 = 300, h1 = 300,
+            x2 = 300, y2 = 0, w2 = 300, h2 = 300
+        )
+        org.junit.Assert.assertFalse("Touching borders without area overlap must not be considered overlapping", overlaps)
+    }
 }
+

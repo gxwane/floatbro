@@ -122,6 +122,14 @@ class BrowserPreferences(context: Context) {
         get() = prefs.getLong(KEY_LAST_DISMISSED_CLIPBOARD_TIMESTAMP, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_DISMISSED_CLIPBOARD_TIMESTAMP, value).apply()
 
+    /**
+     * When true (default), tapping on an inactive floating window's web content
+     * activates/focuses the window instead of passing the click to the webpage (preventing accidental navigation).
+     */
+    var isClickToFocusEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLICK_TO_FOCUS, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLICK_TO_FOCUS, value).apply()
+
     fun resolveUserAgent(defaultSystemUa: String? = null): String? {
         return when (userAgentMode) {
             UserAgentMode.DEFAULT -> defaultSystemUa
@@ -141,6 +149,7 @@ class BrowserPreferences(context: Context) {
         private const val KEY_ADBLOCK_WHITELIST = "adblock_whitelist"
         private const val KEY_LAST_DISMISSED_CLIPBOARD_URL = "last_dismissed_clipboard_url"
         private const val KEY_LAST_DISMISSED_CLIPBOARD_TIMESTAMP = "last_dismissed_clipboard_timestamp"
+        private const val KEY_CLICK_TO_FOCUS = "click_to_focus_enabled"
 
         @Volatile
         private var instance: BrowserPreferences? = null

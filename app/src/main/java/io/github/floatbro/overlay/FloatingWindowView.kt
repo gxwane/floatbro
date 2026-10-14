@@ -148,6 +148,35 @@ class FloatingWindowView(
             return if (isLandscape && !isTablet) dpToPx(WindowBoundsHelper.MIN_HEIGHT_LANDSCAPE_DP) else dpToPx(WindowBoundsHelper.MIN_HEIGHT_PORTRAIT_DP)
         }
 
+    var isActiveWindow: Boolean = true
+        private set
+    private var isInterceptingForClickToFocus = false
+
+    fun setActiveWindowState(isActive: Boolean) {
+        if (isActiveWindow == isActive) return
+        isActiveWindow = isActive
+        updateWindowBorderState()
+    }
+
+    private fun updateWindowBorderState() {
+        val cornerRadius = dpToPx(16f).toFloat()
+        val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val windowBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
+        val strokeColor = if (isActiveWindow) {
+            Color.parseColor("#2563EB")
+        } else {
+            if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#CBD5E1")
+        }
+        val strokeWidth = if (isActiveWindow) dpToPx(1.5f) else dpToPx(1f)
+
+        background = GradientDrawable().apply {
+            setColor(windowBg)
+            setCornerRadius(cornerRadius)
+            setStroke(strokeWidth, strokeColor)
+        }
+        elevation = if (isActiveWindow) dpToPx(12f).toFloat() else dpToPx(4f).toFloat()
+    }
+
     init {
         lifecycleContext.attachToView(this)
 
@@ -158,20 +187,11 @@ class FloatingWindowView(
             }
         }
         clipToOutline = true
-        elevation = dpToPx(12f).toFloat()
         isFocusable = true
         isFocusableInTouchMode = true
         descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
-        val isDarkMode = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val windowBg = if (isDarkMode) FloatingWindowThemeColors.DarkWindowBackground else FloatingWindowThemeColors.LightWindowBackground
-        val strokeColor = if (isDarkMode) Color.parseColor("#334155") else Color.parseColor("#CBD5E1")
-
-        background = GradientDrawable().apply {
-            setColor(windowBg)
-            setCornerRadius(cornerRadius)
-            setStroke(dpToPx(1f), strokeColor)
-        }
+        updateWindowBorderState()
 
         val mainLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -1116,6 +1136,7 @@ class FloatingWindowView(
         customVideoContainer.visibility = VISIBLE
         resizeHandleView?.visibility = VISIBLE
         resizeHandleView?.bringToFront()
+        setActiveWindowState(true)
         onInputFocusRequested?.invoke(true)
         requestFocus()
         Timber.d("Entered video fullscreen for session $sessionId")
@@ -1261,6 +1282,7 @@ class FloatingWindowView(
         if (isResizing) {
             return false
         }
+        val wasActive = isActiveWindow
         if (ev.action == MotionEvent.ACTION_DOWN) {
             onBringToFrontRequested?.invoke()
             if (customVideoView != null) {
@@ -1274,6 +1296,7 @@ class FloatingWindowView(
         val y = ev.y
         val edgeSize = dpToPx(16f)
         val resizeSize = dpToPx(48f)
+        val headerHeight = dpToPx(44f)
 
         // Bottom-right corner reserved for diagonal resizing
         val inResizeCorner = x >= width - resizeSize && y >= height - resizeSize
@@ -1287,7 +1310,6 @@ class FloatingWindowView(
             // In video fullscreen: allow top and side edges to drag the window; do not intercept bottom edge to protect player progress bar
             (y <= edgeSize || x <= edgeSize || x >= width - edgeSize)
         } else {
-            val headerHeight = dpToPx(44f)
             y > headerHeight && (x <= edgeSize || x >= width - edgeSize || y >= height - edgeSize)
         }
         if (onOuterEdge) {
@@ -1296,6 +1318,24 @@ class FloatingWindowView(
             }
             return true
         }
+
+        // Click-To-Focus on Inactive Window (Web Content Area)
+        if (!wasActive && customVideoView == null) {
+            val isClickToFocus = BrowserPreferences.getInstance(context).isClickToFocusEnabled
+            val isOverWebContent = y > headerHeight && !onOuterEdge
+            if (isClickToFocus && isOverWebContent) {
+                if (ev.action == MotionEvent.ACTION_DOWN) {
+                    isInterceptingForClickToFocus = true
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        performHapticFeedback(HapticFeedbackConstants.GESTURE_START)
+                    } else {
+                        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
+                }
+                return true
+            }
+        }
+
         return super.onInterceptTouchEvent(ev)
     }
 
@@ -1307,6 +1347,14 @@ class FloatingWindowView(
             onInputFocusRequested?.invoke(false)
             return true
         }
+
+        if (isInterceptingForClickToFocus) {
+            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                isInterceptingForClickToFocus = false
+            }
+            return true
+        }
+
         return handleEdgeDragTouchEvent(event) || super.onTouchEvent(event)
     }
 

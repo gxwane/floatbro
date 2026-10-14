@@ -34,4 +34,22 @@ object WindowBoundsHelper {
         val clampedHeight = rawHeight.coerceIn(minHeight, safeMaxHeight)
         return clampedWidth to clampedHeight
     }
+
+    /**
+     * Determines whether two window rectangles overlap in screen space.
+     * Touching borders without strictly intersecting area return false.
+     */
+    fun isOverlapping(
+        x1: Int, y1: Int, w1: Int, h1: Int,
+        x2: Int, y2: Int, w2: Int, h2: Int
+    ): Boolean {
+        if (w1 <= 0 || h1 <= 0 || w2 <= 0 || h2 <= 0) return false
+        val r1 = x1 + w1
+        val b1 = y1 + h1
+        val r2 = x2 + w2
+        val b2 = y2 + h2
+
+        return x1 < r2 && r1 > x2 && y1 < b2 && b1 > y2
+    }
 }
+

@@ -58,6 +58,18 @@ class FloatingWindowManager(private val context: Context) {
     // Multi-session registry
     val sessions = LinkedHashMap<String, FloatingSession>()
 
+    var activeSessionId: String? = null
+        private set
+
+    fun updateActiveWindowStates() {
+        val windowSessions = sessions.values.filter { it.mode == OverlayMode.WINDOW }
+        val isSingleWindow = windowSessions.size <= 1
+        for (session in windowSessions) {
+            val isActive = isSingleWindow || (session.id == activeSessionId)
+            session.windowView.setActiveWindowState(isActive)
+        }
+    }
+
     private var dismissTargetView: BubbleDismissTargetView? = null
 
     val activeSessionCount: Int
@@ -296,6 +308,8 @@ class FloatingWindowManager(private val context: Context) {
         try {
             windowManager.addView(windowView, windowParams)
             sessions[targetId] = session
+            activeSessionId = targetId
+            updateActiveWindowStates()
             val loadTarget = url ?: "https://cn.bing.com"
 
             windowView.webView.onPageCommitVisibleListener = {
@@ -332,25 +346,66 @@ class FloatingWindowManager(private val context: Context) {
     }
 
     /**
-     * Brings the session window to the top of WindowManager via safe view re-insertion.
+     * Brings the session window to the top of WindowManager with spatial overlap bypass and safe deferred elevation.
      */
     fun bringSessionToFront(session: FloatingSession) {
         session.lastInteractedTimestamp = System.currentTimeMillis()
-        if (sessions.values.lastOrNull()?.id == session.id) {
-            // Already top-most window; do not re-insert to preserve active touch stream
+        activeSessionId = session.id
+        updateActiveWindowStates()
+
+        val windowSessions = sessions.values.filter { it.mode == OverlayMode.WINDOW }
+        if (windowSessions.size <= 1 || windowSessions.lastOrNull()?.id == session.id) {
+            // Already top-most window or single window; do not re-insert to preserve active touch stream
             return
         }
+
+        // Spatial Overlap Check:
+        // If this window does NOT geometrically overlap with any window above it, DO NOT touch WindowManager
+        // and DO NOT reorder sessions! Physical Z-order in WindowManager hasn't changed.
+        if (!isSessionOverlappingHigherWindows(session)) {
+            Timber.d("Activated session ${session.id} (no spatial overlap with higher windows, zero flicker)")
+            return
+        }
+
+        // For overlapping windows: defer elevation via post to never abort active InputChannel on ACTION_DOWN!
         val view = session.windowView
         if (view.isAttachedToWindow && session.mode == OverlayMode.WINDOW) {
-            try {
-                windowManager.removeViewImmediate(view)
-                windowManager.addView(view, session.windowParams)
-                sessions.remove(session.id)
-                sessions[session.id] = session
-                Timber.d("Elevated session ${session.id} to front")
-            } catch (e: Exception) {
-                Timber.w(e, "Safe Z-order re-insertion failed for session ${session.id}")
+            view.post {
+                if (view.isAttachedToWindow && session.mode == OverlayMode.WINDOW && sessions.values.lastOrNull()?.id != session.id) {
+                    try {
+                        windowManager.removeViewImmediate(view)
+                        windowManager.addView(view, session.windowParams)
+                        sessions.remove(session.id)
+                        sessions[session.id] = session
+                        Timber.d("Elevated overlapping session ${session.id} to front safely")
+                    } catch (e: Exception) {
+                        Timber.w(e, "Safe Z-order re-insertion failed for session ${session.id}")
+                    }
+                }
             }
+        }
+    }
+
+    /**
+     * Checks if this session intersects with any window currently placed higher in Z-order.
+     */
+    fun isSessionOverlappingHigherWindows(session: FloatingSession): Boolean {
+        val windowSessions = sessions.values.filter { it.mode == OverlayMode.WINDOW }
+        val sessionIndex = windowSessions.indexOfFirst { it.id == session.id }
+        if (sessionIndex == -1 || sessionIndex == windowSessions.size - 1) return false
+
+        val curX = session.windowParams.x
+        val curY = session.windowParams.y
+        val curW = session.windowParams.width
+        val curH = session.windowParams.height
+
+        val higherSessions = windowSessions.drop(sessionIndex + 1)
+        return higherSessions.any { higher ->
+            WindowBoundsHelper.isOverlapping(
+                x1 = curX, y1 = curY, w1 = curW, h1 = curH,
+                x2 = higher.windowParams.x, y2 = higher.windowParams.y,
+                w2 = higher.windowParams.width, h2 = higher.windowParams.height
+            )
         }
     }
 
@@ -470,6 +525,10 @@ class FloatingWindowManager(private val context: Context) {
                 bubbleStack.attachBubble(session)
                 windowManager.addView(bubble, session.bubbleParams)
                 session.mode = OverlayMode.BUBBLE
+                if (activeSessionId == session.id) {
+                    activeSessionId = sessions.values.lastOrNull { it.mode == OverlayMode.WINDOW }?.id
+                }
+                updateActiveWindowStates()
                 Timber.d("Minimized session ${session.id} to edge bubble at ($targetX, ${session.bubbleParams.y})")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to add bubble view for session ${session.id}")
@@ -595,6 +654,10 @@ class FloatingWindowManager(private val context: Context) {
 
         session.state = SessionLifecycleState.DETACHED
         val wasRemoved = sessions.remove(session.id) != null
+        if (activeSessionId == session.id) {
+            activeSessionId = sessions.values.lastOrNull { it.mode == OverlayMode.WINDOW }?.id
+        }
+        updateActiveWindowStates()
         if (wasRemoved && sessions.isEmpty()) {
             dismissTargetView?.hideTarget()
             onAllSessionsClosed?.invoke()

@@ -40,6 +40,7 @@ import io.github.floatbro.update.AppUpdateManager
 import io.github.floatbro.update.ReleaseInfo
 import io.github.floatbro.update.UpdateCandidates
 import io.github.floatbro.update.DownloadProgress
+import io.github.floatbro.ui.components.MarkdownContent
 import android.app.Activity
 import android.app.DownloadManager
 import android.content.res.Configuration
@@ -1519,6 +1520,7 @@ fun SettingsScreen(
     val browserPrefs = remember { BrowserPreferences.getInstance(context) }
     var userAgentMode by remember { mutableStateOf(browserPrefs.userAgentMode) }
     var searchEngine by remember { mutableStateOf(browserPrefs.searchEngine) }
+    var isClickToFocusEnabled by remember { mutableStateOf(browserPrefs.isClickToFocusEnabled) }
     var showFullHistoryDialog by remember { mutableStateOf(false) }
     var showUpdateCenterDialog by remember { mutableStateOf(false) }
 
@@ -1858,6 +1860,40 @@ fun SettingsScreen(
                                 color = BrandEmerald
                             )
                         }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = Slate100
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = "非活动浮窗点击仅激活焦点",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "开启后点击非活动悬浮网页首击仅切换聚焦与置顶，防止误触页面链接",
+                                fontSize = 11.5.sp,
+                                color = Slate500,
+                                lineHeight = 16.sp
+                            )
+                        }
+                        Switch(
+                            checked = isClickToFocusEnabled,
+                            onCheckedChange = { checked ->
+                                isClickToFocusEnabled = checked
+                                browserPrefs.isClickToFocusEnabled = checked
+                            }
+                        )
                     }
 
                     HorizontalDivider(
@@ -2597,10 +2633,8 @@ fun UpdateReleaseCard(
                     color = Slate800
                 )
                 if (release.body.isNotBlank()) {
-                    Text(
-                        text = release.body.take(160) + if (release.body.length > 160) "..." else "",
-                        fontSize = 11.5.sp,
-                        color = Slate600,
+                    MarkdownContent(
+                        markdown = release.body,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }

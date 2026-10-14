@@ -47,4 +47,33 @@ class FloatingSessionLifecycleTest {
         assertEquals("bilibili.com", clean1)
         assertEquals("cn.bing.com/search?q=test", clean2)
     }
+
+    @Test
+    fun `scenario - spatial overlap detection for side-by-side windows returns false`() {
+        val windowAW = 400
+        val windowAH = 600
+        val windowBW = 400
+        val windowBH = 600
+
+        // Non-overlapping side-by-side: Window A at x=50, Window B at x=500
+        val isOverlapping = WindowBoundsHelper.isOverlapping(
+            x1 = 50, y1 = 100, w1 = windowAW, h1 = windowAH,
+            x2 = 500, y2 = 100, w2 = windowBW, h2 = windowBH
+        )
+        assertFalse("Side-by-side windows must have zero overlap", isOverlapping)
+    }
+
+    @Test
+    fun `scenario - spatial overlap detection for cascading overlapping windows returns true`() {
+        val windowW = 500
+        val windowH = 700
+
+        // Cascading with 50px offset: Window A at (100, 100), Window B at (150, 150)
+        val isOverlapping = WindowBoundsHelper.isOverlapping(
+            x1 = 100, y1 = 100, w1 = windowW, h1 = windowH,
+            x2 = 150, y2 = 150, w2 = windowW, h2 = windowH
+        )
+        assertTrue("Cascading windows with overlapping bounds must report overlap", isOverlapping)
+    }
 }
+
