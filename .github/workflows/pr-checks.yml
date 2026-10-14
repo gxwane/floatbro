@@ -70,7 +70,7 @@ jobs:
       - name: Setup Android NDK & CMake
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: '27.0.12077973'
+          ndk-version: r27
           add-to-path: true
           link-to-sdk: true
 
