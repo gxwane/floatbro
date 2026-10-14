@@ -1,0 +1,1793 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.13.2" type="baseline" client="gradle" dependencies="true" name="AGP (8.13.2)" variant="all" version="8.13.2">
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 34 (current min is 30): `android.view.HapticFeedbackConstants#GESTURE_THRESHOLD_ACTIVATE`"
+        errorLine1="                                                            view.performHapticFeedback(HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE)"
+        errorLine2="                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="535"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="MissingOnRenderProcessGone"
+        message="WebViewClient should implement `onRenderProcessGone` to handle render process crashes or out-of-memory errors. Otherwise, the app will crash when the render process is shut down."
+        errorLine1=") : WebViewClient() {"
+        errorLine2="    ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/client/FloatWebViewClient.kt"
+            line="37"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingOnRenderProcessGone"
+        message="WebViewClient should implement `onRenderProcessGone` to handle render process crashes or out-of-memory errors. Otherwise, the app will crash when the render process is shut down."
+        errorLine1=") : WebViewClient() {"
+        errorLine2="    ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/client/FloatWebViewClient.kt"
+            line="37"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose.ui:ui than 1.7.8 is available: 1.12.1"
+        errorLine1="compose = &quot;1.7.8&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="12"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="Upgrade `androidx.compose.foundation` for keyboard and mouse support"
+        errorLine1="compose = &quot;1.7.8&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="12"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose.material3:material3 than 1.3.1 is available: 1.4.0"
+        errorLine1="composeMaterial3 = &quot;1.3.1&quot;"
+        errorLine2="                   ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="13"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.9.1 is available: 1.9.3"
+        errorLine1="activityCompose = &quot;1.9.1&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="14"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.17.0"
+        errorLine1="coreKtx = &quot;1.16.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="18"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.9.4"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="25"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-ktx than 2.8.7 is available: 2.9.4"
+        errorLine1="lifecycle = &quot;2.8.7&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="25"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.android than 2.1.21 is available: 2.4.21"
+        errorLine1="kotlin = &quot;2.1.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="4"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.1.21 is available: 2.4.21"
+        errorLine1="kotlin = &quot;2.1.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="4"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.serialization than 2.1.21 is available: 2.4.21"
+        errorLine1="kotlin = &quot;2.1.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="4"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-serialization-json than 1.6.3 is available: 1.11.0"
+        errorLine1="kotlinxSerializationJson = &quot;1.6.3&quot;"
+        errorLine2="                           ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="9"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.0"
+        errorLine1="okhttp = &quot;4.12.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="30"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:okhttp-sse than 4.12.0 is available: 5.5.0"
+        errorLine1="okhttpSse = &quot;4.12.0&quot;"
+        errorLine2="            ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="31"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.insert-koin:koin-android than 3.5.6 is available: 4.2.2"
+        errorLine1="koin = &quot;3.5.6&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="37"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.insert-koin:koin-core than 3.5.6 is available: 4.2.2"
+        errorLine1="koin = &quot;3.5.6&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="37"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of sh.calvin.reorderable:reorderable than 2.3.3 is available: 3.1.0"
+        errorLine1="reorderable = &quot;2.3.3&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="41"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.google.accompanist:accompanist-drawablepainter than 0.31.0-alpha is available: 0.37.3"
+        errorLine1="accompanistDrawablepainter = &quot;0.31.0-alpha&quot;"
+        errorLine2="                             ~~~~~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="43"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        return Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.O ||"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/update/AppUpdateManager.kt"
+            line="231"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/update/AppUpdateManager.kt"
+            line="236"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/BubbleDismissTargetView.kt"
+            line="53"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/service/FloatBrowserService.kt"
+            line="139"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowManager.kt"
+            line="118"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="                                            val hasPermission = Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M || Settings.canDrawOverlays(this@LauncherActivity)"
+        errorLine2="                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="578"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `Build.VERSION.SDK_INT >= Build.VERSION_CODES.R` is never true here"
+        errorLine1="                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="583"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        hasOverlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="1014"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &amp;&amp; !Settings.canDrawOverlays(this)) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="1022"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &amp;&amp; !Settings.canDrawOverlays(this)) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="1040"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="1060"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 26. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
+        errorLine1="    var clipboardTimestamp by remember { mutableStateOf(0L) }"
+        errorLine2="                                         ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="2702"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var loadingProgress by remember { mutableStateOf(0) }"
+        errorLine2="                                      ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="3086"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="LaunchActivityFromNotification"
+        message="Notifications should only launch a `Service` from notification actions (`addAction`)"
+        errorLine1="            .setContentIntent(showPendingIntent)"
+        errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/service/FloatBrowserService.kt"
+            line="166"
+            column="14"/>
+        <location
+            file="src/main/java/io/github/floatbro/service/FloatBrowserService.kt"
+            line="156"
+            column="33"
+            message="This `Service` intent is launched from a notification; this is discouraged except as notification actions"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.dimen.home_logo_size` appears to be unused"
+        errorLine1="    &lt;dimen name=&quot;home_logo_size&quot;>56dp&lt;/dimen>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/dimens.xml"
+            line="4"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.dimen.home_content_max_width` appears to be unused"
+        errorLine1="    &lt;dimen name=&quot;home_content_max_width&quot;>640dp&lt;/dimen>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/dimens.xml"
+            line="5"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.dimen.settings_content_max_width` appears to be unused"
+        errorLine1="    &lt;dimen name=&quot;settings_content_max_width&quot;>680dp&lt;/dimen>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/dimens.xml"
+            line="6"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_fullscreen_exit` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_fullscreen_exit.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_menu` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_menu.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_refresh` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_refresh.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_rotate` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_rotate.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_shield_ssl` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_shield_ssl.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_split_pane` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_split_pane.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_swap` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_swap.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.tap_to_open_bubble` appears to be unused"
+        errorLine1="    &lt;string name=&quot;tap_to_open_bubble&quot;>点击唤起贴边小气泡&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="6"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/ic_brand_baidu.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/ic_brand_baidu.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/ic_brand_bilibili.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/ic_brand_bilibili.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/ic_brand_bing.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/ic_brand_bing.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/ic_brand_zhihu.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/ic_brand_zhihu.png"/>
+    </issue>
+
+    <issue
+        id="ViewConstructor"
+        message="Custom view `FloatingBubbleView` is missing constructor used by tools: `(Context)` or `(Context,AttributeSet)` or `(Context,AttributeSet,int)`"
+        errorLine1="class FloatingBubbleView("
+        errorLine2="      ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingBubbleView.kt"
+            line="38"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="ViewConstructor"
+        message="Custom view `FloatingWindowView` is missing constructor used by tools: `(Context)` or `(Context,AttributeSet)` or `(Context,AttributeSet,int)`"
+        errorLine1="class FloatingWindowView("
+        errorLine2="      ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="70"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val host = Uri.parse(this).host?.removePrefix(&quot;www.&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/edsuns/adblockclient/AdBlockClient.kt"
+            line="147"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val type = resourceType ?: ResourceType.from(Uri.parse(url)) ?: ResourceType.UNKNOWN"
+        errorLine2="                                                     ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/edsuns/adfilter/impl/AdFilterImpl.kt"
+            line="136"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val uri = Uri.parse(release.downloadUrl)"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/update/AppUpdateManager.kt"
+            line="183"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                Uri.parse(&quot;package:${activity.packageName}&quot;)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/update/AppUpdateManager.kt"
+            line="239"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(KEY_UA_MODE, value.name).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="55"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(KEY_CUSTOM_UA, value).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="59"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(KEY_SEARCH_ENGINE, value.name).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="63"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(KEY_CUSTOM_SEARCH_URL, value).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="67"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putBoolean(KEY_ADBLOCK_ENABLED, value).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="71"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putStringSet(KEY_ADBLOCK_WHITELIST, value).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="75"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putString(KEY_LAST_DISMISSED_CLIPBOARD_URL, value).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="119"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putLong(KEY_LAST_DISMISSED_CLIPBOARD_TIMESTAMP, value).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="123"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(value) = prefs.edit().putBoolean(KEY_CLICK_TO_FOCUS, value).apply()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/browser/BrowserPreferences.kt"
+            line="131"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(KEY_HISTORY_JSON, json).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/history/BrowsingHistoryManager.kt"
+            line="172"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setColor(Color.parseColor(&quot;#40EF4444&quot;)) // Semi-transparent red"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/BubbleDismissTargetView.kt"
+            line="70"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setStroke(dpToPx(1.5f), Color.parseColor(&quot;#EF4444&quot;))"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/BubbleDismissTargetView.kt"
+            line="71"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            backgroundDrawable.setColor(Color.parseColor(&quot;#DC2626&quot;)) // Solid deep red"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/BubbleDismissTargetView.kt"
+            line="129"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            backgroundDrawable.setColor(Color.parseColor(&quot;#40EF4444&quot;))"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/BubbleDismissTargetView.kt"
+            line="144"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            backgroundDrawable.setStroke(dpToPx(1.5f), Color.parseColor(&quot;#EF4444&quot;))"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/BubbleDismissTargetView.kt"
+            line="145"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                prefs.edit()"
+        errorLine2="                ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/edsuns/adfilter/impl/DefaultRulesInstaller.kt"
+            line="73"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putBoolean(pack.prefKey, enabled).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/edsuns/adfilter/impl/DefaultRulesInstaller.kt"
+            line="93"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setBackgroundColor(Color.parseColor(&quot;#EEEEEE&quot;))"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/DualPaneDemoActivity.kt"
+            line="33"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setBackgroundColor(Color.parseColor(&quot;#E0E0E0&quot;))"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/DualPaneDemoActivity.kt"
+            line="40"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val bgColor = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#FFFFFF&quot;)"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="96"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val bgColor = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#FFFFFF&quot;)"
+        errorLine2="                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="96"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val borderColor = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#CBD5E1&quot;)"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="97"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val borderColor = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#CBD5E1&quot;)"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="97"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val textColor = if (isDarkMode) Color.parseColor(&quot;#38BDF8&quot;) else Color.parseColor(&quot;#0284C7&quot;)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="98"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val textColor = if (isDarkMode) Color.parseColor(&quot;#38BDF8&quot;) else Color.parseColor(&quot;#0284C7&quot;)"
+        errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="98"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val saveColor = if (isDarkMode) Color.parseColor(&quot;#34D399&quot;) else Color.parseColor(&quot;#10B981&quot;)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="99"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val saveColor = if (isDarkMode) Color.parseColor(&quot;#34D399&quot;) else Color.parseColor(&quot;#10B981&quot;)"
+        errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="99"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val closeColor = if (isDarkMode) Color.parseColor(&quot;#94A3B8&quot;) else Color.parseColor(&quot;#64748B&quot;)"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="100"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val closeColor = if (isDarkMode) Color.parseColor(&quot;#94A3B8&quot;) else Color.parseColor(&quot;#64748B&quot;)"
+        errorLine2="                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="100"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val dividerColor = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="101"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val dividerColor = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="101"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    val host = Uri.parse(webView.url ?: &quot;&quot;).host?.lowercase() ?: &quot;&quot;"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/ElementZapperManager.kt"
+            line="230"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            mainFrameUrl?.let { android.net.Uri.parse(it).host?.lowercase() } ?: &quot;&quot;"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/client/FloatWebViewClient.kt"
+            line="79"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            android.net.Uri.parse(url)"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/client/FloatWebViewClient.kt"
+            line="109"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            val host = try { android.net.Uri.parse(url).host?.lowercase() ?: &quot;&quot; } catch (_: Exception) { &quot;&quot; }"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/client/FloatWebViewClient.kt"
+            line="190"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                android.net.Uri.parse(url).host?.endsWith(&quot;bing.com&quot;) == true"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/client/FloatWebViewClient.kt"
+            line="223"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                val host = android.net.Uri.parse(url).host?.lowercase() ?: &quot;&quot;"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/client/FloatWebViewClient.kt"
+            line="244"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setStroke(dpToPx(2f), Color.parseColor(&quot;#2563EB&quot;))"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingBubbleView.kt"
+            line="68"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setStroke(dpToPx(2f), Color.parseColor(&quot;#2563EB&quot;))"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingBubbleView.kt"
+            line="68"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            progressTintList = ColorStateList.valueOf(Color.parseColor(&quot;#2563EB&quot;))"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="221"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            progressTintList = ColorStateList.valueOf(Color.parseColor(&quot;#2563EB&quot;))"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="221"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val capsuleStroke = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#CBD5E1&quot;)"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="442"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val capsuleStroke = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#CBD5E1&quot;)"
+        errorLine2="                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="442"
+            column="78"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val textColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="443"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val textColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="443"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val cancelColor = if (isDarkMode) Color.parseColor(&quot;#60A5FA&quot;) else Color.parseColor(&quot;#2563EB&quot;)"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="444"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val cancelColor = if (isDarkMode) Color.parseColor(&quot;#60A5FA&quot;) else Color.parseColor(&quot;#2563EB&quot;)"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="444"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val iconTint = if (isDarkMode) Color.parseColor(&quot;#CBD5E1&quot;) else Color.parseColor(&quot;#475569&quot;)"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="537"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val iconTint = if (isDarkMode) Color.parseColor(&quot;#CBD5E1&quot;) else Color.parseColor(&quot;#475569&quot;)"
+        errorLine2="                                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="537"
+            column="81"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val iconTint = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="629"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val iconTint = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="629"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val bgColor = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#FFFFFF&quot;)"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="654"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val bgColor = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#FFFFFF&quot;)"
+        errorLine2="                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="654"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val borderColor = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#CBD5E1&quot;)"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="655"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val borderColor = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#CBD5E1&quot;)"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="655"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val textColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="656"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val textColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="656"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val dividerColor = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="657"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        val dividerColor = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="657"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Int.toDrawable` instead?"
+        errorLine1="            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="680"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            android.net.Uri.parse(currentUrl).host?.lowercase() ?: &quot;&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="720"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val activeColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="802"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val activeColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="802"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val disabledColor = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#94A3B8&quot;)"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="803"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val disabledColor = if (isDarkMode) Color.parseColor(&quot;#475569&quot;) else Color.parseColor(&quot;#94A3B8&quot;)"
+        errorLine2="                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="803"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val forwardBg = if (isDarkMode) Color.parseColor(&quot;#064E3B&quot;) else Color.parseColor(&quot;#F0FDF4&quot;)"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="828"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val forwardBg = if (isDarkMode) Color.parseColor(&quot;#064E3B&quot;) else Color.parseColor(&quot;#F0FDF4&quot;)"
+        errorLine2="                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="828"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val forwardStroke = if (isDarkMode) Color.parseColor(&quot;#047857&quot;) else Color.parseColor(&quot;#BBF7D0&quot;)"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="829"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val forwardStroke = if (isDarkMode) Color.parseColor(&quot;#047857&quot;) else Color.parseColor(&quot;#BBF7D0&quot;)"
+        errorLine2="                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="829"
+            column="86"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val forwardText = if (isDarkMode) Color.parseColor(&quot;#6EE7B7&quot;) else Color.parseColor(&quot;#15803D&quot;)"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="830"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val forwardText = if (isDarkMode) Color.parseColor(&quot;#6EE7B7&quot;) else Color.parseColor(&quot;#15803D&quot;)"
+        errorLine2="                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="830"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val blockedBg = if (isDarkMode) Color.parseColor(&quot;#451A03&quot;) else Color.parseColor(&quot;#FEF3C7&quot;)"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="848"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val blockedBg = if (isDarkMode) Color.parseColor(&quot;#451A03&quot;) else Color.parseColor(&quot;#FEF3C7&quot;)"
+        errorLine2="                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="848"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val blockedStroke = if (isDarkMode) Color.parseColor(&quot;#D97706&quot;) else Color.parseColor(&quot;#FCD34D&quot;)"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="849"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val blockedStroke = if (isDarkMode) Color.parseColor(&quot;#D97706&quot;) else Color.parseColor(&quot;#FCD34D&quot;)"
+        errorLine2="                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="849"
+            column="86"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val blockedText = if (isDarkMode) Color.parseColor(&quot;#FDE68A&quot;) else Color.parseColor(&quot;#B45309&quot;)"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="850"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                val blockedText = if (isDarkMode) Color.parseColor(&quot;#FDE68A&quot;) else Color.parseColor(&quot;#B45309&quot;)"
+        errorLine2="                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="850"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val cardBg = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#FFFFFF&quot;)"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="907"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val cardBg = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#FFFFFF&quot;)"
+        errorLine2="                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="907"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val cardStroke = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="908"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val cardStroke = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="908"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                setTextColor(if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;))"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="922"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                setTextColor(if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;))"
+        errorLine2="                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="922"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                    setTextColor(if (isDarkMode) Color.parseColor(&quot;#94A3B8&quot;) else Color.parseColor(&quot;#64748B&quot;))"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="937"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                    setTextColor(if (isDarkMode) Color.parseColor(&quot;#94A3B8&quot;) else Color.parseColor(&quot;#64748B&quot;))"
+        errorLine2="                                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="937"
+            column="83"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                    setTextColor(Color.parseColor(&quot;#2563EB&quot;))"
+        errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="950"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val capsuleBg = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#F1F5F9&quot;)"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="993"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val capsuleBg = if (isDarkMode) Color.parseColor(&quot;#1E293B&quot;) else Color.parseColor(&quot;#F1F5F9&quot;)"
+        errorLine2="                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="993"
+            column="78"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val capsuleStroke = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="994"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val capsuleStroke = if (isDarkMode) Color.parseColor(&quot;#334155&quot;) else Color.parseColor(&quot;#E2E8F0&quot;)"
+        errorLine2="                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="994"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val textColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="995"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            val textColor = if (isDarkMode) Color.parseColor(&quot;#F8FAFC&quot;) else Color.parseColor(&quot;#0F172A&quot;)"
+        errorLine2="                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/overlay/FloatingWindowView.kt"
+            line="995"
+            column="78"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            val bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565)"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="298"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        sp.edit().putString(&quot;pref_open_mode&quot;, openMode.name).apply()"
+        errorLine2="        ~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="1010"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                Uri.parse(&quot;package:$packageName&quot;)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="1025"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                        Uri.parse(currentWvUrl).host?.lowercase() ?: &quot;&quot;"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/LauncherActivity.kt"
+            line="3265"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(range.item)).apply {"
+        errorLine2="                                                                ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/components/MarkdownText.kt"
+            line="409"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension property `View.isVisible` instead?"
+        errorLine1="        get() = toolbar.visibility == View.VISIBLE"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/PaneContainer.kt"
+            line="54"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setBackgroundColor(Color.parseColor(&quot;#F8FAFC&quot;))"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/PaneContainer.kt"
+            line="86"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                setStroke(dpToPx(1f), Color.parseColor(&quot;#E2E8F0&quot;))"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/PaneContainer.kt"
+            line="117"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                setStroke(dpToPx(1f), Color.parseColor(&quot;#E2E8F0&quot;))"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/PaneContainer.kt"
+            line="117"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setTextColor(Color.parseColor(&quot;#0F172A&quot;))"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/PaneContainer.kt"
+            line="121"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setHintTextColor(Color.parseColor(&quot;#94A3B8&quot;))"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/PaneContainer.kt"
+            line="122"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        setBackgroundColor(Color.parseColor(&quot;#BDBDBD&quot;))"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/TwoPaneLayout.kt"
+            line="73"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        setBackgroundColor(Color.parseColor(&quot;#2196F3&quot;))"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/TwoPaneLayout.kt"
+            line="77"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setColor(Color.parseColor(&quot;#757575&quot;))"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/TwoPaneLayout.kt"
+            line="85"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="            setColor(Color.parseColor(&quot;#757575&quot;))"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/core/webview/twopane/TwoPaneLayout.kt"
+            line="85"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            text = &quot;50:50复位&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="src/main/java/io/github/floatbro/ui/DualPaneDemoActivity.kt"
+            line="60"
+            column="21"/>
+    </issue>
+
+</issues>

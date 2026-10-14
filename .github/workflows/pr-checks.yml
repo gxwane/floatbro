@@ -48,7 +48,7 @@ jobs:
       - name: Run Lint & Syntax Check
         run: |
           chmod +x ./gradlew
-          ./gradlew lintDebug --continue || true
+          ./gradlew lintDebug --continue
 
   build-debug:
     name: Assemble & Test Verification

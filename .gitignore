@@ -22,9 +22,8 @@ build/
 captures/
 .navigation/
 
-# Android Lint reports and baselines
+# Android Lint reports
 lint-results*
-lint-baseline*.xml
 **/build/reports/lint-results*
 
 # Jetpack Compose Compiler Metrics & Reports

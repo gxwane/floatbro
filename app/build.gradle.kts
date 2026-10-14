@@ -61,6 +61,13 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    lint {
+        abortOnError = true
+        checkDependencies = true
+        ignoreTestSources = true
+        baseline = file("lint-baseline.xml")
+    }
 }
 
 dependencies {

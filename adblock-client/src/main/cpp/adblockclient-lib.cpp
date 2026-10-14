@@ -33,7 +33,7 @@ JNICALL
 Java_io_github_edsuns_adblockclient_AdBlockClient_createClient(JNIEnv *env,
                                                                jobject) {
     auto *client = new AdBlockClient();
-    return (long) client;
+    return reinterpret_cast<jlong>(client);
 }
 
 extern "C"
@@ -93,7 +93,7 @@ Java_io_github_edsuns_adblockclient_AdBlockClient_loadBasicData(JNIEnv *env,
     auto *client = (AdBlockClient *) clientPointer;
     client->parse(dataChars, preserveRules);
 
-    return (long) dataChars;
+    return reinterpret_cast<jlong>(dataChars);
 }
 
 extern "C"
@@ -123,7 +123,7 @@ Java_io_github_edsuns_adblockclient_AdBlockClient_loadProcessedData(JNIEnv *env,
 
     // We cannot delete dataChars here as adblock keeps a ptr to it.
     // Instead we send back a ptr ref so we can delete it later in the release method
-    return (long) dataChars;
+    return reinterpret_cast<jlong>(dataChars);
 }
 
 extern "C"

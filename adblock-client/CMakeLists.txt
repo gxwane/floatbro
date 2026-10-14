@@ -38,3 +38,12 @@ target_link_libraries(
     adblock-client
     ${log-lib}
 )
+
+target_compile_options(
+    adblock-client
+    PRIVATE
+    -Wall
+    -Wextra
+    -Werror=return-type
+)
+
