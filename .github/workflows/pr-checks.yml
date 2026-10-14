@@ -72,9 +72,10 @@ jobs:
         with:
           ndk-version: r27c
           add-to-path: true
+          link-to-sdk: true
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           key: ${{ runner.os }}-pr-build-ccache-${{ github.ref }}
           restore-keys: |
