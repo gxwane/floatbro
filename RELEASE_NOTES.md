@@ -1,26 +1,30 @@
-# 🚀 FloatBro v0.1.4-beta
+# 🚀 FloatBro v0.1.5-beta
 
-FloatBro v0.1.4-beta 带来了业内首创的**“下一页恶意掉包 / 广告洗流量”四位一体纵深防御体系**，并全面实现了**页面关闭 0ms 瞬间响应性能优化**以及**元素标记器 (Element Zapper) 导航冻结加固**。
+FloatBro v0.1.5-beta 正式引入了**统一本地日志与诊断子系统 (Unified Local Diagnostics & Logging Subsystem)**、**广告拦截规则演进与误杀溯源足迹 (AdFilter Telemetry)**，并以 **PiliPalaZ 级别隐私脱敏与透明审阅规范**保障用户数据安全与完全知情权。
 
 ---
 
-### 🌟 本次关键功能与修复 (Changelog)
+### 🌟 本次关键功能与特性 (Changelog)
 
-1. 🛡️ **“下一页变广告 / 业务流掉包”四位一体纵深防御体系 (Next-Page Hijack Defense)**：
-   - **前端 DOM 翻页脱敏器 (`pagination_sanitizer.js`)**：在捕获期事件监听中彻底抹平流氓站长内联挂载在翻页按钮上的 `touchstart`/`onclick` 广告替换；精确硬排除正文与评论区；对形如 `/book/123/45.html` 的章节自动外推并挂载真实下一页自愈链接；
-   - **内核 PSL 四维豁免守卫 (`NavigationSecurityGuard.kt`)**：支持识别 `.com.cn`、`.co.jp`、`.edu.hk` 等多级复合顶级域名；建立 1500ms 翻页点击时间窗与广告指纹防御上下文，严防全网通用浏览误杀；对百度、必应、谷歌等搜索引擎跳转、OAuth 社交登录与移动支付免检通畅放行；提供单次消费即焚的 BypassToken；
-   - **智能反解直达器 (`UrlTargetUnwrapper.kt`)**：深度限制 $\le 2$ 防死循环重定向风暴，智能识别嵌套或 Base64 编码的真实下一页目标链接；遵循 W3C 规范安全处理 Referer（跨域截断至 Origin，严禁 HTTPS 向 HTTP 泄露）；
-   - **悬浮小窗极简微胶囊与自愈闭环**：拦截到伪装广告时，顶栏药丸变异为 `[🛡️ 已拦截 | ↻ 重试 | ↗ 放行]`；窗口极小（< 300dp）时自动进入紧凑模式隐藏右侧多余图标防排版挤压；自动直达时展示微绿色光效反馈；放行确认卡片采用 In-Window 原生卡片覆盖，彻底杜绝 `WindowManager.BadTokenException`。
+1. 🛡️ **统一本地诊断与致命崩溃急救 (Unified Diagnostics & Crash Recovery)**：
+   - **全局 Timber 树无缝接管 (`DiagnosticTimberTree`)**：全工程 Timber 调用在 Debug/Release 双模式下均统一归流至本地环形缓冲，彻底终结 Release 模式“两眼一抹黑”的排障痛点；
+   - **致命崩溃临终急救 (`FloatBroCrashHandler`)**：捕获未捕获异常并实施零协程 Direct I/O 原子同步刷盘（Emergency Flush），即便 UI Looper 挂起或进程即将被系统强杀，也能确保临终致命堆栈与运行现场 100% 留存；
+   - **全景运行态轨迹记录**：实时记录 FloatBrowserService 悬浮窗生命周期、层级 Z-Order、聚焦抢占互斥与拖拽手势轨迹；捕捉 Chromium WebView 渲染进程崩溃（精准区分 CPU Crash 与 OOM 强杀）及致命网络异常。
 
-2. ⚡ **页面关闭 0ms 瞬间响应优化 (Instant Dismiss Performance)**：
-   - 彻底修复关闭浮窗速度偏慢的问题：关闭按钮有效触控热区由 28dp 扩充至 36dp，告别点不准、偏离误触；
-   - 触控触发瞬间立即执行 `window.visibility = View.GONE`，视觉上实现 0ms 瞬间消隐；
-   - 剔除高延迟、易引发 IPC 导航竞争的 `loadUrl("about:blank")`，改由后台异步平滑释放 WebView、Cookie 与 Session 资源。
+2. 🔍 **广告拦截规则演进与误杀溯源 (AdFilter Telemetry & Rule Evolution)**：
+   - **低开销 SPI 遥测桥接 (`AdFilterTelemetryBridge`)**：通过 SPI 接口解耦挂载到广告过滤内核，在亚毫秒级内完成匹配遥测事件分发；
+   - **关键事件差分采样**：默认屏蔽高频常规放行 (`PASSED`) 请求，重点沉淀阻断 (`BLOCKED`) 与白名单放行 (`ALLOWED_BY_EXCEPTION`) 关键记录，完整保留主站、资源请求域名、资源类型与命中规则明文；
+   - **悬浮窗二级菜单「页面拦截诊断」**：浏览任意网页时，可一键呼出当前页面拦截诊断弹窗并快速复制结构化脱敏足迹，为后续广告规则演进与误杀排查提供精准依据。
 
-3. 🎯 **元素标记器 (Element Zapper) 导航冻结加固**：
-   - 标记消除广告期间在原生内核层实施「全局导航冻结 (Navigation Freeze)」，彻底阻断点击图片广告时的流氓跳转；
-   - 注入 Iframe 代理盾，支持一键点选消除跨域 `<iframe>` 广告容器；
-   - 强力中和全屏透明蒙版（Invisible Full-Screen Click Trap）与非法后台弹窗。
+3. 🔒 **PiliPalaZ 级别隐私脱敏引擎 (Zero-Leakage DiagnosticSanitizer)**：
+   - **严苛隐私清洗**：对所有日志与遥测中的 URL Query 敏感参数（如搜索词 `q`, `wd`, `keyword`、鉴权 `token`, `auth`, `session`, `cookie`、手机号、邮箱等）实施结构化剥离，仅保留 Host 与安全路由；
+   - **系统私有沙箱路径抹平**：全面将 `/data/user/0/...` 替换为安全别名 `[APP_SANDBOX]`，杜绝任何本地账户或目录泄露。
+
+4. 📋 **用户完全知情与自决掌控交互 (Transparency & Review UX)**：
+   - **设置页容量透明感知**：新增「本地诊断与日志」卡片，实时展示诊断文件占用大小（如 `48 KiB / 2.0 MiB`，最多保留 7 天，FIFO 自动循环淘汰）；
+   - **导出前纯文本逐行审阅 (`DiagnosticReviewDialog`)**：支持在分享或复制前，通过纯文本 Markdown 对话框逐行审阅日志明文，保障用户 100% 知情，坚决杜绝后台静默上传；
+   - **设备信息默认非选中 (Opt-in)**：机型、Android 系统版本、Chromium 内核版本等硬件环境信息默认不勾选，由用户按需自决附加；
+   - **多元导出闭环**：支持一键复制到剪贴板、系统原生分享面板、日志清空以及直达 GitHub Issues 快速提交反馈。
 
 ---
 

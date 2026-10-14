@@ -51,6 +51,8 @@ internal class AdFilterImpl(
     private val defaultRulesInstaller: DefaultRulesInstaller =
         DefaultRulesInstaller(appContext, binaryDataStore, filterDataLoader)
 
+    override var telemetryListener: AdFilterTelemetryListener? = null
+
     override val hasInstallation: Boolean
         get() = viewModel.sharedPreferences.hasInstallation
 
@@ -125,6 +127,21 @@ internal class AdFilterImpl(
         val resourceType = ResourceType.from(request)
 
         val result = shouldIntercept(url, documentUrl, resourceType)
+        telemetryListener?.let { listener ->
+            if (result.shouldBlock || result.rule != null) {
+                listener.onResourceEvaluated(
+                    AdFilterResourceEvent(
+                        mainFrameUrl = documentUrl,
+                        resourceUrl = url,
+                        resourceType = resourceType.name,
+                        isBlocked = result.shouldBlock,
+                        isException = result.rule?.startsWith("@@") == true,
+                        matchedRule = result.rule,
+                    ),
+                )
+            }
+        }
+
         if (result.shouldBlock && resourceType.isVisibleResource()) {
             elementHiding.elemhideBlockedResource(webView, url)
         }

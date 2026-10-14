@@ -22,6 +22,10 @@ import android.webkit.WebViewClient
 import io.github.edsuns.adfilter.AdFilter
 import io.github.floatbro.browser.BrowserPreferences
 import io.github.floatbro.browser.UserAgentMode
+import io.github.floatbro.core.common.diagnostics.DiagnosticBreadcrumb
+import io.github.floatbro.core.common.diagnostics.DiagnosticFailureKind
+import io.github.floatbro.core.common.diagnostics.DiagnosticSanitizer
+import io.github.floatbro.core.common.diagnostics.LocalDiagnostics
 import io.github.floatbro.core.webview.bridge.InputFocusBridge
 import io.github.floatbro.core.webview.security.NavigationBlockEvent
 import io.github.floatbro.core.webview.security.NavigationSecurityGuard
@@ -383,7 +387,18 @@ class FloatWebViewClient(
                 Timber.d("Ignoring harmless main frame abort/redirect error: %s (error=%s, code=%d)", failingUrl, desc, code)
                 return
             }
-            Timber.w("Main frame failed loading: %s, error: %s (code=%d)", failingUrl, desc, code)
+            val errorMsg = "Main frame failed loading: ${DiagnosticSanitizer.sanitizeUrl(failingUrl)} (code=$code, desc=$desc)"
+            Timber.w(errorMsg)
+            try {
+                LocalDiagnostics.getInstance(view.context.applicationContext).addBreadcrumb(
+                    DiagnosticBreadcrumb(
+                        timestamp = System.currentTimeMillis(),
+                        category = "WEBVIEW",
+                        event = errorMsg,
+                    ),
+                )
+            } catch (_: Exception) {
+            }
             val errorHtml = generateErrorHtml(failingUrl, desc)
             view.loadDataWithBaseURL(failingUrl, errorHtml, "text/html", "UTF-8", failingUrl)
         }
@@ -404,7 +419,18 @@ class FloatWebViewClient(
             Timber.d("Ignoring harmless main frame abort/redirect error: %s (error=%s, code=%d)", url, desc, errorCode)
             return
         }
-        Timber.w("Main frame failed loading: %s, error: %s (code=%d)", url, desc, errorCode)
+        val errorMsg = "Main frame failed loading: ${DiagnosticSanitizer.sanitizeUrl(url)} (code=$errorCode, desc=$desc)"
+        Timber.w(errorMsg)
+        try {
+            LocalDiagnostics.getInstance(view.context.applicationContext).addBreadcrumb(
+                DiagnosticBreadcrumb(
+                    timestamp = System.currentTimeMillis(),
+                    category = "WEBVIEW",
+                    event = errorMsg,
+                ),
+            )
+        } catch (_: Exception) {
+        }
         val errorHtml = generateErrorHtml(url, desc)
         view.loadDataWithBaseURL(url, errorHtml, "text/html", "UTF-8", url)
     }
@@ -413,7 +439,15 @@ class FloatWebViewClient(
         view: WebView,
         detail: RenderProcessGoneDetail,
     ): Boolean {
-        Timber.e("WebView render process gone (didCrash=%b)", detail.didCrash())
+        val didCrash = detail.didCrash()
+        Timber.e("WebView render process gone (didCrash=%b)", didCrash)
+        try {
+            LocalDiagnostics.getInstance(view.context.applicationContext).recordFailure(
+                kind = DiagnosticFailureKind.WEBVIEW_RENDER_PROCESS_GONE,
+                error = if (didCrash) "Chromium 渲染进程崩溃 (GPU/CPU Crash)" else "系统低内存终止 Chromium 渲染进程 (OOM Kill)",
+            )
+        } catch (_: Exception) {
+        }
         (view.parent as? ViewGroup)?.removeView(view)
         view.destroy()
         return true

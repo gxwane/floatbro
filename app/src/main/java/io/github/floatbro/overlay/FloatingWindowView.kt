@@ -854,6 +854,38 @@ class FloatingWindowView(
             },
         )
 
+        // 5. 页面拦截诊断
+        if (currentUrl.startsWith("http")) {
+            cardLayout.addView(createDivider())
+            cardLayout.addView(
+                createMenuItem("页面拦截诊断") {
+                    val diag =
+                        io.github.floatbro.core.common.diagnostics.LocalDiagnostics
+                            .getInstance(context.applicationContext)
+                    val traces = diag.getAdFilterTracesSnapshot().filter { host.isNotEmpty() && (it.mainFrameHost.contains(host) || host.contains(it.mainFrameHost)) }
+                    val report =
+                        buildString {
+                            appendLine("# 页面广告拦截诊断")
+                            appendLine("- 目标站点: $host")
+                            appendLine("- 拦截状态: $adBlockTitle")
+                            appendLine("- 匹配记录数: ${traces.size}")
+                            if (traces.isEmpty()) {
+                                appendLine("- 暂无触发拦截或白名单的子资源")
+                            } else {
+                                traces.forEach { t ->
+                                    appendLine("  * [${t.action}] [${t.resourceType}] ${t.resourceHost} (规则: ${t.matchedRule ?: "无"})")
+                                }
+                            }
+                        }
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("AdFilter Diagnosis", report))
+                    android.widget.Toast
+                        .makeText(context, "当前页面拦截诊断已复制到剪贴板", android.widget.Toast.LENGTH_SHORT)
+                        .show()
+                },
+            )
+        }
+
         try {
             popup.showAsDropDown(anchor, dp(-74f), dp(4f))
         } catch (e: Exception) {

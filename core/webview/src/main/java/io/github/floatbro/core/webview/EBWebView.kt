@@ -82,7 +82,11 @@ open class EBWebView
 
             // Set up AdFilter hooks
             try {
-                AdFilter.get().setupWebView(this)
+                val filter = AdFilter.get()
+                filter.setupWebView(this)
+                if (filter.telemetryListener == null) {
+                    filter.telemetryListener = AdFilterTelemetryBridge(context.applicationContext)
+                }
             } catch (e: Exception) {
                 Timber.w(e, "AdFilter not initialized yet, skipping setupWebView")
             }

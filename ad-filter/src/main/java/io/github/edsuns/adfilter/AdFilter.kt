@@ -92,6 +92,13 @@ interface AdFilter {
         url: String,
     ) {}
 
+    /**
+     * Optional telemetry listener for rule evaluation diagnostics.
+     */
+    var telemetryListener: AdFilterTelemetryListener?
+        get() = null
+        set(_) {}
+
     companion object {
         const val PACK_EASYLIST = "builtin_easylist"
         const val PACK_CHINA = "builtin_china"

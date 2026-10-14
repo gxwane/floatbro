@@ -5,7 +5,14 @@
 
 ## [Unreleased]
 
-## [0.1.4-beta] - 2026-10-14
+## [0.1.5-beta] - 2026-10-15
+
+### Added
+- **统一本地日志与诊断系统 (Unified Local Diagnostics & AdBlock Telemetry)**：
+  - **常规运行态与致命崩溃临终急救**：接入全局 `DiagnosticTimberTree`，Release 模式不再静默；注册 `FloatBroCrashHandler`，未捕获异常通过零协程 Direct I/O 原子同步刷盘，避免进程强杀时日志丢失；记录 Service 状态、窗口 Z-order、聚焦互斥与拖拽手势轨迹；全面捕捉 Chromium WebView 渲染进程崩溃（区分 CPU Crash 与 OOM 强杀）及致命网络异常；
+  - **广告拦截演进足迹与误杀溯源 (AdFilter Telemetry & Rule Evolution)**：通过 SPI 解耦挂载 `AdFilterTelemetryBridge`，仅记录阻断 (`BLOCKED`) 与白名单放行 (`ALLOWED_BY_EXCEPTION`) 关键事件（默认屏蔽常规海量 `PASSED` 事件），精准留存主站、资源目标域名、资源类型与命中规则明文，为广告规则演进提供可靠证据链；悬浮窗二级菜单新增「页面拦截诊断」一键复制当前站点过滤足迹；
+  - **极致隐私脱敏引擎 (DiagnosticSanitizer)**：深度借鉴 PiliPalaZ 规范，保留 Host 与安全结构化参数，对 URL 搜索词（`q`, `wd`, `keyword` 等）、鉴权 Token（`token`, `auth`, `session`, `cookie` 等）、用户标识以及系统私有沙箱路径（`/data/user/0/...`）实施绝对清洗，坚决杜绝隐私泄露；
+  - **用户完全知情与自决掌控 (Transparency & Review UX)**：设置页新增「本地诊断与日志」卡片，透明感知本地存储占用（如 `48 KiB / 2.0 MiB`，最长保留 7 天，自动 FIFO 衰减）；导出前弹出纯文本审阅弹窗（`DiagnosticReviewDialog`），用户逐行检视 Markdown 明文，绝不静默后台上传；设备兼容信息（机型、系统版本、WebView 内核）默认非选中（Opt-in），由用户自选附加；提供一键复制、系统分享与前往 GitHub 反馈。
 
 ### Added
 - **“下一页恶意掉包 / 广告洗流量”四位一体纵深防御体系**：

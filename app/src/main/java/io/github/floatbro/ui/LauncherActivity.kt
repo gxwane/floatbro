@@ -1549,6 +1549,7 @@ fun SettingsScreen(
     var isClickToFocusEnabled by remember { mutableStateOf(browserPrefs.isClickToFocusEnabled) }
     var showFullHistoryDialog by remember { mutableStateOf(false) }
     var showUpdateCenterDialog by remember { mutableStateOf(false) }
+    var showDiagnosticLogsDialog by remember { mutableStateOf(false) }
 
     var showClearDialog by remember { mutableStateOf(false) }
     var showGesturesDialog by remember { mutableStateOf(false) }
@@ -2102,6 +2103,39 @@ fun SettingsScreen(
                                 modifier = Modifier.size(20.dp),
                             )
                         }
+
+                        HorizontalDivider(color = Slate100)
+
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showDiagnosticLogsDialog = true }
+                                    .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "本地诊断与日志",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.5.sp,
+                                    color = Slate900,
+                                )
+                                Text(
+                                    text = "仅保存在本设备，支持逐行审阅、导出与规则分析",
+                                    fontSize = 11.5.sp,
+                                    color = Slate500,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "查看",
+                                tint = Slate600,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
                     }
                 }
 
@@ -2193,6 +2227,12 @@ fun SettingsScreen(
     if (showUpdateCenterDialog) {
         AppUpdateCenterDialog(
             onDismiss = { showUpdateCenterDialog = false },
+        )
+    }
+
+    if (showDiagnosticLogsDialog) {
+        DiagnosticLogsDialog(
+            onDismiss = { showDiagnosticLogsDialog = false },
         )
     }
 }

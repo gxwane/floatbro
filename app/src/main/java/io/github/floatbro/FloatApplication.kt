@@ -14,6 +14,9 @@ package io.github.floatbro
 import android.app.Application
 import android.os.StrictMode
 import io.github.edsuns.adfilter.AdFilter
+import io.github.floatbro.core.common.diagnostics.LocalDiagnostics
+import io.github.floatbro.diagnostics.DiagnosticTimberTree
+import io.github.floatbro.diagnostics.FloatBroCrashHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,8 +28,21 @@ class FloatApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // 1. Initialize unified local diagnostics subsystem
+        val diagnostics =
+            LocalDiagnostics.getInstance(this).apply {
+                initialize()
+            }
+
+        // 2. Install unhandled crash supervisor with Direct I/O emergency flush
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler(FloatBroCrashHandler(diagnostics, defaultHandler))
+
+        // 3. Plant diagnostic timber tree (handles both logcat in debug and breadcrumb aggregation)
+        Timber.plant(DiagnosticTimberTree(diagnostics))
+
         if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
             StrictMode.setThreadPolicy(
                 StrictMode.ThreadPolicy
                     .Builder()
