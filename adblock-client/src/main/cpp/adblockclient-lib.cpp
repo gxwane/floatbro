@@ -39,19 +39,25 @@ Java_io_github_edsuns_adblockclient_AdBlockClient_createClient(JNIEnv *env,
 extern "C"
 JNIEXPORT void
 JNICALL
-Java_io_github_edsuns_adblockclient_AdBlockClient_releaseClient(JNIEnv *env,
+Java_io_github_edsuns_adblockclient_AdBlockClient_releaseClient(JNIEnv *,
                                                                 jobject,
                                                                 jlong clientPointer,
                                                                 jlong rawDataPointer,
                                                                 jlong processedDataPointer) {
-    auto *client = (AdBlockClient *) clientPointer;
-    delete client;
+    if (clientPointer != 0) {
+        auto *client = reinterpret_cast<AdBlockClient *>(clientPointer);
+        delete client;
+    }
 
-    char *rawData = (char *) rawDataPointer;
-    delete[] rawData;
+    if (rawDataPointer != 0) {
+        char *rawData = reinterpret_cast<char *>(rawDataPointer);
+        delete[] rawData;
+    }
 
-    char *processedData = (char *) processedDataPointer;
-    delete[] processedData;
+    if (processedDataPointer != 0) {
+        char *processedData = reinterpret_cast<char *>(processedDataPointer);
+        delete[] processedData;
+    }
 }
 
 extern "C"

@@ -116,4 +116,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.androidx.arch.core.testing)
+    testImplementation(libs.archunit)
+
+    // Compose Static Quality Gates (Phase 3)
+    lintChecks(libs.slack.compose.lint)
 }

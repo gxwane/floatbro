@@ -52,6 +52,10 @@ mockk = "1.14.11"
 turbine = "1.2.1"
 archCoreTesting = "2.2.0"
 
+# --- 质量与架构守护 (Phase 3) ---
+slackComposeLint = "1.5.5"
+archunit = "1.4.1"
+
 [libraries]
 # AndroidX 核心基础
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -111,6 +115,10 @@ junit = { module = "junit:junit", version.ref = "junit" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 androidx-arch-core-testing = { module = "androidx.arch.core:core-testing", version.ref = "archCoreTesting" }
+
+# 质量与架构守护 (Phase 3)
+slack-compose-lint = { module = "com.slack.lint.compose:compose-lint-checks", version.ref = "slackComposeLint" }
+archunit = { module = "com.tngtech.archunit:archunit-junit4", version.ref = "archunit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -23,7 +23,9 @@ package io.github.edsuns.adblockclient
  *
  * Reference: [github.com/duckduckgo/Android/releases/tag/5.38.1](https://github.com/duckduckgo/Android/releases/tag/5.38.1)
  */
-interface Client {
+import java.io.Closeable
+
+interface Client : Closeable {
     val id: String
 
     var isGenericElementHidingEnabled: Boolean

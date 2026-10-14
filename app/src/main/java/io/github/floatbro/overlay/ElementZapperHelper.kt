@@ -71,8 +71,10 @@ object ElementZapperHelper {
             return null
         }
         // Prevent newline injection or CSS brace escape attacks
-        if (cleanSelector.contains('\r') || cleanSelector.contains('\n') ||
-            cleanSelector.contains('{') || cleanSelector.contains('}')
+        if (cleanSelector.contains('\r') ||
+            cleanSelector.contains('\n') ||
+            cleanSelector.contains('{') ||
+            cleanSelector.contains('}')
         ) {
             return null
         }

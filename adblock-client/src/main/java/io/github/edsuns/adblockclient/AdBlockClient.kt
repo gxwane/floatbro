@@ -17,6 +17,9 @@
 package io.github.edsuns.adblockclient
 
 import android.net.Uri
+import java.io.Closeable
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Modified by Edsuns@qq.com.
@@ -27,10 +30,13 @@ import android.net.Uri
  */
 class AdBlockClient(
     override val id: String,
-) : Client {
+) : Client,
+    Closeable {
     private val nativeClientPointer: Long
-    private var rawDataPointer: Long
-    private var processedDataPointer: Long
+    private val rawDataPointerRef = AtomicLong(0L)
+    private val processedDataPointerRef = AtomicLong(0L)
+    private val isClosed = AtomicBoolean(false)
+    private val cleanable: AdBlockCleaner.Cleanable
 
     /**
      * `/regex/` rules, matched in Kotlin because the native engine is built
@@ -41,8 +47,15 @@ class AdBlockClient(
 
     init {
         nativeClientPointer = createClient()
-        rawDataPointer = 0
-        processedDataPointer = 0
+        val clientPtr = nativeClientPointer
+        val rawRef = rawDataPointerRef
+        val procRef = processedDataPointerRef
+        cleanable =
+            AdBlockCleaner.register(this) {
+                val raw = rawRef.getAndSet(0L)
+                val proc = procRef.getAndSet(0L)
+                releaseClient(clientPtr, raw, proc)
+            }
     }
 
     private external fun createClient(): Long
@@ -54,7 +67,9 @@ class AdBlockClient(
         data: ByteArray,
         preserveRules: Boolean = false,
     ) {
-        rawDataPointer = loadBasicData(nativeClientPointer, data, preserveRules)
+        check(!isClosed.get()) { "AdBlockClient ($id) is closed" }
+        val rawPtr = loadBasicData(nativeClientPointer, data, preserveRules)
+        rawDataPointerRef.set(rawPtr)
         regexFilters = RegexFilterSet.parse(String(data, Charsets.UTF_8))
     }
 
@@ -80,9 +95,11 @@ class AdBlockClient(
      * engine refused it and the caller should discard the persisted data.
      */
     fun loadProcessedData(data: ByteArray): Boolean {
+        check(!isClosed.get()) { "AdBlockClient ($id) is closed" }
         val unpacked = RegexFilterSet.unpack(data)
-        processedDataPointer = loadProcessedData(nativeClientPointer, data, unpacked.nativeLength)
-        if (processedDataPointer == 0L) {
+        val procPtr = loadProcessedData(nativeClientPointer, data, unpacked.nativeLength)
+        processedDataPointerRef.set(procPtr)
+        if (procPtr == 0L) {
             return false
         }
         regexFilters = unpacked.regexSet
@@ -95,11 +112,17 @@ class AdBlockClient(
         length: Int,
     ): Long
 
-    fun getProcessedData(): ByteArray = RegexFilterSet.pack(getProcessedData(nativeClientPointer), regexFilters)
+    fun getProcessedData(): ByteArray {
+        check(!isClosed.get()) { "AdBlockClient ($id) is closed" }
+        return RegexFilterSet.pack(getProcessedData(nativeClientPointer), regexFilters)
+    }
 
     private external fun getProcessedData(clientPointer: Long): ByteArray
 
-    fun getFiltersCount(): Int = getFiltersCount(nativeClientPointer) + regexFilters.size
+    fun getFiltersCount(): Int {
+        if (isClosed.get()) return 0
+        return getFiltersCount(nativeClientPointer) + regexFilters.size
+    }
 
     private external fun getFiltersCount(clientPointer: Long): Int
 
@@ -108,6 +131,7 @@ class AdBlockClient(
         documentUrl: String,
         resourceType: ResourceType,
     ): MatchResult {
+        if (isClosed.get()) return MatchResult(false, null, null)
         val firstPartyDomain = documentUrl.baseHost() ?: return MatchResult(false, null, null)
         val result = matches(nativeClientPointer, url, firstPartyDomain, resourceType.filterOption)
         return regexFilters.combine(result, url, firstPartyDomain, resourceType)
@@ -120,13 +144,25 @@ class AdBlockClient(
         filterOption: Int,
     ): MatchResult
 
-    override fun getElementHidingSelectors(url: String): String? = getElementHidingSelectors(nativeClientPointer, url)
+    override fun getElementHidingSelectors(url: String): String? {
+        if (isClosed.get()) return null
+        return getElementHidingSelectors(nativeClientPointer, url)
+    }
 
-    override fun getExtendedCssSelectors(url: String): Array<String>? = getExtendedCssSelectors(nativeClientPointer, url)
+    override fun getExtendedCssSelectors(url: String): Array<String>? {
+        if (isClosed.get()) return null
+        return getExtendedCssSelectors(nativeClientPointer, url)
+    }
 
-    override fun getCssRules(url: String): Array<String>? = getCssRules(nativeClientPointer, url)
+    override fun getCssRules(url: String): Array<String>? {
+        if (isClosed.get()) return null
+        return getCssRules(nativeClientPointer, url)
+    }
 
-    override fun getScriptlets(url: String): Array<String>? = getScriptlets(nativeClientPointer, url)
+    override fun getScriptlets(url: String): Array<String>? {
+        if (isClosed.get()) return null
+        return getScriptlets(nativeClientPointer, url)
+    }
 
     private external fun getElementHidingSelectors(
         clientPointer: Long,
@@ -148,16 +184,11 @@ class AdBlockClient(
         url: String,
     ): Array<String>?
 
-    @Suppress("unused", "protectedInFinal")
-    protected fun finalize() {
-        releaseClient(nativeClientPointer, rawDataPointer, processedDataPointer)
+    override fun close() {
+        if (isClosed.compareAndSet(false, true)) {
+            cleanable.clean()
+        }
     }
-
-    private external fun releaseClient(
-        clientPointer: Long,
-        rawDataPointer: Long,
-        processedDataPointer: Long,
-    )
 
     private fun String.baseHost(): String? {
         lastBaseHost?.let { (url, host) -> if (url == this) return host }
@@ -176,5 +207,12 @@ class AdBlockClient(
         init {
             System.loadLibrary("adblock-client")
         }
+
+        @JvmStatic
+        private external fun releaseClient(
+            clientPointer: Long,
+            rawDataPointer: Long,
+            processedDataPointer: Long,
+        )
     }
 }

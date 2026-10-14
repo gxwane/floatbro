@@ -43,6 +43,10 @@ internal class DetectorImpl : Detector {
     // null means disabled
     override var customFilterClient: Client? = null
         set(value) {
+            val old = field
+            if (old != null && old !== value) {
+                old.close()
+            }
             if (value != null) {
                 value.isGenericElementHidingEnabled = genericElementHidingEnabled
             }
@@ -61,18 +65,24 @@ internal class DetectorImpl : Detector {
 
     override fun addClient(client: Client) {
         client.isGenericElementHidingEnabled = genericElementHidingEnabled
-        clients.removeAll { it.id == client.id }
+        val replaced = clients.filter { it.id == client.id }
+        clients.removeAll(replaced)
+        replaced.forEach { it.close() }
         clients.add(client)
         Timber.v("Client count: ${clients.size} (after addClient)")
     }
 
     override fun removeClient(id: String) {
-        clients.removeAll { it.id == id }
+        val removed = clients.filter { it.id == id }
+        clients.removeAll(removed)
+        removed.forEach { it.close() }
         Timber.v("Client count: ${clients.size} (after removeClient)")
     }
 
     override fun clearAllClient() {
+        val all = ArrayList(clients)
         clients.clear()
+        all.forEach { it.close() }
         Timber.v("Client count: ${clients.size} (after clearAllClient)")
     }
 
