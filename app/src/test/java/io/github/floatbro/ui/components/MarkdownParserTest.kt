@@ -144,16 +144,62 @@ class MarkdownParserTest {
     }
 
     @Test
-    fun `handles unclosed code blocks safely`() {
+    fun `parses horizontal rules into Divider blocks`() {
         val markdown =
             """
-            ```kotlin
-            val x = 42
+            # Header
+            ---
+            Paragraph
+            ****
+            ___
             """.trimIndent()
         val blocks = MarkdownParser.parseBlocks(markdown)
-        assertEquals(1, blocks.size)
-        assertTrue(blocks[0] is MarkdownBlock.CodeBlock)
-        assertEquals("kotlin", (blocks[0] as MarkdownBlock.CodeBlock).language)
-        assertEquals("val x = 42", (blocks[0] as MarkdownBlock.CodeBlock).code.trim())
+        assertEquals(5, blocks.size)
+        assertTrue(blocks[0] is MarkdownBlock.Heading)
+        assertTrue("Block 1 should be Divider", blocks[1] is MarkdownBlock.Divider)
+        assertTrue(blocks[2] is MarkdownBlock.Paragraph)
+        assertTrue("Block 3 should be Divider", blocks[3] is MarkdownBlock.Divider)
+        assertTrue("Block 4 should be Divider", blocks[4] is MarkdownBlock.Divider)
+    }
+
+    @Test
+    fun `aggregates multiline blockquotes into unified block`() {
+        val markdown =
+            """
+            > Line 1: notice
+            > Line 2: with **bold** and `code`
+            >
+            > Line 3: after internal blank
+            Other paragraph
+            """.trimIndent()
+        val blocks = MarkdownParser.parseBlocks(markdown)
+        assertEquals(2, blocks.size)
+        assertTrue(blocks[0] is MarkdownBlock.Quote)
+        val quote = blocks[0] as MarkdownBlock.Quote
+        assertTrue("Quote contains Line 1", quote.text.contains("Line 1: notice"))
+        assertTrue("Quote contains Line 2", quote.text.contains("Line 2: with **bold** and `code`"))
+        assertTrue("Quote contains Line 3", quote.text.contains("Line 3: after internal blank"))
+        assertTrue(blocks[1] is MarkdownBlock.Paragraph)
+    }
+
+    @Test
+    fun `parses nested backtick code and links inside bold`() {
+        val text = "Support **global (`DiagnosticTimberTree`) feature** and __underscore bold__"
+        val spans = MarkdownParser.parseInline(text)
+        val boldSpan = spans.filterIsInstance<InlineSpan.Bold>().firstOrNull()
+        assertTrue("Bold span exists", boldSpan != null)
+        assertTrue("Bold span has children", boldSpan!!.children.isNotEmpty())
+        assertTrue("Has inline code inside bold", boldSpan.children.any { it is InlineSpan.Code && it.text == "DiagnosticTimberTree" })
+        assertTrue("Has underscore bold", spans.any { it is InlineSpan.Bold && it.text == "underscore bold" })
+    }
+
+    @Test
+    fun `parses underscore italic and asterisk italic`() {
+        val text = "Text with _italic one_ and *italic two*"
+        val spans = MarkdownParser.parseInline(text)
+        val italics = spans.filterIsInstance<InlineSpan.Italic>()
+        assertEquals(2, italics.size)
+        assertEquals("italic one", italics[0].text)
+        assertEquals("italic two", italics[1].text)
     }
 }

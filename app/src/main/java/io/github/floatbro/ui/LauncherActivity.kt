@@ -1546,7 +1546,6 @@ fun SettingsScreen(
     val browserPrefs = remember { BrowserPreferences.getInstance(context) }
     var userAgentMode by remember { mutableStateOf(browserPrefs.userAgentMode) }
     var searchEngine by remember { mutableStateOf(browserPrefs.searchEngine) }
-    var isClickToFocusEnabled by remember { mutableStateOf(browserPrefs.isClickToFocusEnabled) }
     var showFullHistoryDialog by remember { mutableStateOf(false) }
     var showUpdateCenterDialog by remember { mutableStateOf(false) }
     var showDiagnosticLogsDialog by remember { mutableStateOf(false) }
@@ -1905,40 +1904,6 @@ fun SettingsScreen(
                         )
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    text = "非活动浮窗点击仅激活焦点",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.5.sp,
-                                    color = Slate900,
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "开启后点击非活动悬浮网页首击仅切换聚焦与置顶，防止误触页面链接",
-                                    fontSize = 11.5.sp,
-                                    color = Slate500,
-                                    lineHeight = 16.sp,
-                                )
-                            }
-                            Switch(
-                                checked = isClickToFocusEnabled,
-                                onCheckedChange = { checked ->
-                                    isClickToFocusEnabled = checked
-                                    browserPrefs.isClickToFocusEnabled = checked
-                                },
-                            )
-                        }
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = Slate100,
-                        )
-
-                        Row(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
@@ -2115,20 +2080,12 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "本地诊断与日志",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.5.sp,
-                                    color = Slate900,
-                                )
-                                Text(
-                                    text = "仅保存在本设备，支持逐行审阅、导出与规则分析",
-                                    fontSize = 11.5.sp,
-                                    color = Slate500,
-                                    modifier = Modifier.padding(top = 2.dp),
-                                )
-                            }
+                            Text(
+                                text = "本地诊断与日志",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.5.sp,
+                                color = Slate900,
+                            )
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = "查看",
@@ -2509,6 +2466,7 @@ fun AppUpdateCenterDialog(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .heightIn(max = 520.dp)
                         .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -2718,29 +2676,12 @@ fun UpdateReleaseCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = channelName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.5.sp,
-                        color = channelTextColor,
-                    )
-                    if (isBeta) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = if (isDark) Color(0xFF78350F) else Color(0xFFFEF3C7),
-                        ) {
-                            Text(
-                                text = "测试版",
-                                fontSize = 10.sp,
-                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309),
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = channelName,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                    color = channelTextColor,
+                )
                 if (release != null) {
                     Text(
                         text = release.publishedAt,

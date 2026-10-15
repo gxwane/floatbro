@@ -11,8 +11,6 @@
 
 package io.github.floatbro.ui.components
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,7 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,8 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -77,27 +77,32 @@ sealed interface MarkdownBlock {
         val language: String,
         val code: String,
     ) : MarkdownBlock
+
+    data object Divider : MarkdownBlock
 }
 
 sealed interface InlineSpan {
+    val text: String
+
     data class Plain(
-        val text: String,
+        override val text: String,
     ) : InlineSpan
 
     data class Bold(
-        val text: String,
+        override val text: String,
+        val children: List<InlineSpan> = emptyList(),
     ) : InlineSpan
 
     data class Italic(
-        val text: String,
+        override val text: String,
     ) : InlineSpan
 
     data class Code(
-        val text: String,
+        override val text: String,
     ) : InlineSpan
 
     data class Link(
-        val text: String,
+        override val text: String,
         val url: String,
     ) : InlineSpan
 }
@@ -105,7 +110,10 @@ sealed interface InlineSpan {
 object MarkdownParser {
     private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.*)""")
     private val NUMBERED_ITEM_REGEX = Regex("""^(\d+)\.\s+(.*)""")
-    private val INLINE_REGEX = Regex("""(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))""")
+    private val DIVIDER_REGEX =
+        Regex("""^(?:-{3,}|\*{3,}|_{3,}|\s*(?:-\s*){3,}|\s*(?:\*\s*){3,}|\s*(?:_\s*){3,})$""")
+    private val INLINE_REGEX =
+        Regex("""(\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))""")
 
     fun parseBlocks(markdown: String): List<MarkdownBlock> {
         if (markdown.isBlank()) return emptyList()
@@ -115,9 +123,21 @@ object MarkdownParser {
         var codeLanguage = ""
         val codeBuffer = StringBuilder()
 
+        var inQuote = false
+        val quoteBuffer = StringBuilder()
+
+        fun flushQuote() {
+            if (inQuote && quoteBuffer.isNotEmpty()) {
+                blocks.add(MarkdownBlock.Quote(quoteBuffer.toString().trimEnd()))
+                quoteBuffer.clear()
+                inQuote = false
+            }
+        }
+
         for (line in lines) {
             val trimmed = line.trimEnd()
             if (trimmed.startsWith("```")) {
+                flushQuote()
                 if (inCodeBlock) {
                     blocks.add(MarkdownBlock.CodeBlock(codeLanguage, codeBuffer.toString()))
                     codeBuffer.clear()
@@ -136,7 +156,27 @@ object MarkdownParser {
             }
 
             val stripped = line.trim()
-            if (stripped.isEmpty()) continue
+            if (stripped.isEmpty()) {
+                flushQuote()
+                continue
+            }
+
+            if (stripped.startsWith(">")) {
+                inQuote = true
+                val content = stripped.removePrefix(">").trim()
+                if (quoteBuffer.isNotEmpty()) {
+                    quoteBuffer.append("\n")
+                }
+                quoteBuffer.append(content)
+                continue
+            }
+
+            flushQuote()
+
+            if (DIVIDER_REGEX.matches(stripped)) {
+                blocks.add(MarkdownBlock.Divider)
+                continue
+            }
 
             val headingMatch = HEADING_REGEX.matchEntire(stripped)
             val numberedMatch = NUMBERED_ITEM_REGEX.matchEntire(stripped)
@@ -156,10 +196,11 @@ object MarkdownParser {
                     val content = numberedMatch.groupValues[2].trim()
                     blocks.add(MarkdownBlock.NumberedItem(num, content))
                 }
-                stripped.startsWith("> ") -> blocks.add(MarkdownBlock.Quote(stripped.removePrefix("> ").trim()))
                 else -> blocks.add(MarkdownBlock.Paragraph(stripped))
             }
         }
+
+        flushQuote()
 
         if (inCodeBlock && codeBuffer.isNotEmpty()) {
             blocks.add(MarkdownBlock.CodeBlock(codeLanguage, codeBuffer.toString()))
@@ -178,21 +219,7 @@ object MarkdownParser {
             if (matchRange.first > currentIndex) {
                 result.add(InlineSpan.Plain(text.substring(currentIndex, matchRange.first)))
             }
-
-            when {
-                match.value.startsWith("**") && match.value.endsWith("**") -> {
-                    result.add(InlineSpan.Bold(match.groupValues[2]))
-                }
-                match.value.startsWith("*") && match.value.endsWith("*") -> {
-                    result.add(InlineSpan.Italic(match.groupValues[3]))
-                }
-                match.value.startsWith("`") && match.value.endsWith("`") -> {
-                    result.add(InlineSpan.Code(match.groupValues[4]))
-                }
-                match.value.startsWith("[") && match.value.contains("](") -> {
-                    result.add(InlineSpan.Link(text = match.groupValues[5], url = match.groupValues[6]))
-                }
-            }
+            mapMatchToSpan(match)?.let { result.add(it) }
             currentIndex = matchRange.last + 1
         }
 
@@ -202,6 +229,32 @@ object MarkdownParser {
 
         return result
     }
+
+    private fun mapMatchToSpan(match: MatchResult): InlineSpan? {
+        val v = match.value
+        return when {
+            v.startsWith("**") && v.endsWith("**") ->
+                InlineSpan.Bold(match.groupValues[2], parseInnerInline(match.groupValues[2]))
+            v.startsWith("__") && v.endsWith("__") ->
+                InlineSpan.Bold(match.groupValues[3], parseInnerInline(match.groupValues[3]))
+            v.startsWith("*") && v.endsWith("*") ->
+                InlineSpan.Italic(match.groupValues[4])
+            v.startsWith("_") && v.endsWith("_") ->
+                InlineSpan.Italic(match.groupValues[5])
+            v.startsWith("`") && v.endsWith("`") ->
+                InlineSpan.Code(match.groupValues[6])
+            v.startsWith("[") && v.contains("](") ->
+                InlineSpan.Link(text = match.groupValues[7], url = match.groupValues[8])
+            else -> null
+        }
+    }
+
+    private fun parseInnerInline(inner: String): List<InlineSpan> =
+        if (inner.contains("`") || inner.contains("[")) {
+            parseInline(inner)
+        } else {
+            emptyList()
+        }
 }
 
 private val Slate800 = Color(0xFF1E293B)
@@ -215,13 +268,13 @@ private val CodeBorder = Color(0xFFCBD5E1)
 fun MarkdownContent(
     markdown: String,
     modifier: Modifier = Modifier,
-    initialExpanded: Boolean = false,
+    initialExpanded: Boolean = true,
 ) {
     val isDark = isSystemInDarkTheme()
     val blocks = remember(markdown) { MarkdownParser.parseBlocks(markdown) }
     var isExpanded by remember(markdown) { androidx.compose.runtime.mutableStateOf(initialExpanded) }
-    val isLong = blocks.size > 5
-    val visibleBlocks = if (isLong && !isExpanded) blocks.take(4) else blocks
+    val isVeryLong = blocks.size > 20
+    val visibleBlocks = if (isVeryLong && !isExpanded) blocks.take(15) else blocks
 
     val containerColor = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC)
     val borderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
@@ -246,7 +299,7 @@ fun MarkdownContent(
                 RenderBlock(block)
             }
 
-            if (isLong) {
+            if (isVeryLong) {
                 Row(
                     modifier =
                         Modifier
@@ -272,6 +325,13 @@ fun MarkdownContent(
 private fun RenderBlock(block: MarkdownBlock) {
     val isDark = isSystemInDarkTheme()
     when (block) {
+        is MarkdownBlock.Divider -> {
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                thickness = 1.dp,
+                color = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0),
+            )
+        }
         is MarkdownBlock.Heading -> {
             val (fontSize, topPadding) =
                 when (block.level) {
@@ -283,11 +343,14 @@ private fun RenderBlock(block: MarkdownBlock) {
                     else -> 11.5.sp to 2.dp
                 }
             Spacer(modifier = Modifier.height(topPadding))
-            Text(
+            RenderInlineText(
                 text = block.text,
-                fontSize = fontSize,
-                fontWeight = FontWeight.Bold,
-                color = if (isDark) Color(0xFFF8FAFC) else Slate800,
+                baseStyle =
+                    androidx.compose.ui.text.TextStyle(
+                        fontSize = fontSize,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) Color(0xFFF8FAFC) else Slate800,
+                    ),
             )
         }
         is MarkdownBlock.Paragraph -> {
@@ -332,14 +395,14 @@ private fun RenderBlock(block: MarkdownBlock) {
         }
         is MarkdownBlock.Quote -> {
             val quoteBg = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
-            val quoteText = if (isDark) Color(0xFFCBD5E1) else Slate700
+            val quoteTextColor = if (isDark) Color(0xFFCBD5E1) else Slate700
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .background(quoteBg, RoundedCornerShape(4.dp))
                         .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
                 Box(
                     modifier =
@@ -349,14 +412,21 @@ private fun RenderBlock(block: MarkdownBlock) {
                             .background(Slate500, RoundedCornerShape(2.dp)),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = block.text,
-                    fontSize = 11.5.sp,
-                    fontStyle = FontStyle.Italic,
-                    color = quoteText,
-                )
+                Box(modifier = Modifier.weight(1f)) {
+                    RenderInlineText(
+                        text = block.text,
+                        baseStyle =
+                            androidx.compose.ui.text.TextStyle(
+                                fontSize = 11.5.sp,
+                                fontStyle = FontStyle.Italic,
+                                color = quoteTextColor,
+                                lineHeight = 17.sp,
+                            ),
+                    )
+                }
             }
         }
+
         is MarkdownBlock.CodeBlock -> {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -386,82 +456,127 @@ private fun RenderBlock(block: MarkdownBlock) {
 }
 
 @Composable
-private fun RenderInlineText(text: String) {
+private fun RenderInlineText(
+    text: String,
+    baseStyle: androidx.compose.ui.text.TextStyle? = null,
+) {
     val isDark = isSystemInDarkTheme()
-    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val spans = remember(text) { MarkdownParser.parseInline(text) }
 
-    val normalColor = if (isDark) Color(0xFFE2E8F0) else Slate700
-    val boldColor = if (isDark) Color(0xFFF8FAFC) else Slate800
-    val codeBg = if (isDark) Color(0xFF0F172A) else CodeBackground
-    val codeColor = if (isDark) Color(0xFF93C5FD) else Color(0xFF0F172A)
+    val colors =
+        remember(isDark) {
+            MarkdownColors(
+                normal = if (isDark) Color(0xFFE2E8F0) else Slate700,
+                bold = if (isDark) Color(0xFFF8FAFC) else Slate800,
+                codeBg = if (isDark) Color(0xFF0F172A) else CodeBackground,
+                codeText = if (isDark) Color(0xFF93C5FD) else Color(0xFF0F172A),
+            )
+        }
+
+    val defaultStyle =
+        baseStyle ?: androidx.compose.ui.text.TextStyle(
+            fontSize = 12.sp,
+            color = colors.normal,
+            lineHeight = 18.sp,
+        )
 
     val annotatedString =
-        buildAnnotatedString {
-            for (span in spans) {
-                when (span) {
-                    is InlineSpan.Plain -> append(span.text)
-                    is InlineSpan.Bold -> {
-                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = boldColor))
-                        append(span.text)
-                        pop()
-                    }
-                    is InlineSpan.Italic -> {
-                        pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
-                        append(span.text)
-                        pop()
-                    }
-                    is InlineSpan.Code -> {
-                        pushStyle(
-                            SpanStyle(
-                                fontFamily = FontFamily.Monospace,
-                                background = codeBg,
-                                color = codeColor,
-                                fontSize = 11.sp,
-                            ),
-                        )
-                        append(" ${span.text} ")
-                        pop()
-                    }
-                    is InlineSpan.Link -> {
-                        pushStringAnnotation(tag = "URL", annotation = span.url)
-                        pushStyle(
-                            SpanStyle(
-                                color = BrandBlue,
-                                textDecoration = TextDecoration.Underline,
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                        )
-                        append(span.text)
-                        pop()
-                        pop()
-                    }
+        remember(spans, colors) {
+            buildAnnotatedString {
+                for (span in spans) {
+                    appendSpan(span, colors, uriHandler)
                 }
             }
         }
 
-    ClickableText(
+    Text(
         text = annotatedString,
-        style =
-            androidx.compose.ui.text.TextStyle(
-                fontSize = 12.sp,
-                color = normalColor,
-                lineHeight = 18.sp,
-            ),
-        onClick = { offset ->
-            annotatedString
-                .getStringAnnotations(tag = "URL", start = offset, end = offset)
-                .firstOrNull()
-                ?.let { range ->
-                    try {
-                        val intent =
-                            Intent(Intent.ACTION_VIEW, Uri.parse(range.item)).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                    }
-                }
-        },
+        style = defaultStyle,
     )
+}
+
+private data class MarkdownColors(
+    val normal: Color,
+    val bold: Color,
+    val codeBg: Color,
+    val codeText: Color,
+)
+
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendSpan(
+    span: InlineSpan,
+    colors: MarkdownColors,
+    uriHandler: androidx.compose.ui.platform.UriHandler,
+) {
+    when (span) {
+        is InlineSpan.Plain -> append(span.text)
+        is InlineSpan.Bold -> appendBoldSpan(span, colors, uriHandler)
+        is InlineSpan.Italic -> {
+            pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
+            append(span.text)
+            pop()
+        }
+        is InlineSpan.Code -> appendCodeSpan(span.text, colors)
+        is InlineSpan.Link -> appendLinkSpan(span.text, span.url, uriHandler)
+    }
+}
+
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendCodeSpan(
+    text: String,
+    colors: MarkdownColors,
+) {
+    pushStyle(
+        SpanStyle(
+            fontFamily = FontFamily.Monospace,
+            background = colors.codeBg,
+            color = colors.codeText,
+            fontSize = 11.sp,
+        ),
+    )
+    append(" $text ")
+    pop()
+}
+
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendLinkSpan(
+    text: String,
+    url: String,
+    uriHandler: androidx.compose.ui.platform.UriHandler,
+) {
+    val linkAnnotation =
+        LinkAnnotation.Url(
+            url = url,
+            styles =
+                TextLinkStyles(
+                    style =
+                        SpanStyle(
+                            color = BrandBlue,
+                            textDecoration = TextDecoration.Underline,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                ),
+            linkInteractionListener = { uriHandler.openUri(url) },
+        )
+    pushLink(linkAnnotation)
+    append(text)
+    pop()
+}
+
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendBoldSpan(
+    span: InlineSpan.Bold,
+    colors: MarkdownColors,
+    uriHandler: androidx.compose.ui.platform.UriHandler,
+) {
+    pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = colors.bold))
+    if (span.children.isNotEmpty()) {
+        for (child in span.children) {
+            when (child) {
+                is InlineSpan.Code -> appendCodeSpan(child.text, colors)
+                is InlineSpan.Link -> appendLinkSpan(child.text, child.url, uriHandler)
+                else -> append(child.text)
+            }
+        }
+    } else {
+        append(span.text)
+    }
+    pop()
 }
