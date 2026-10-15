@@ -57,6 +57,69 @@ class FloatingWindowManager(
     private val focusMutex = FocusMutexCoordinator(windowManager)
     private val bubbleStack = BubbleStackCoordinator(themedContext, windowManager)
 
+    private var desktopContainer: FloatingDesktopContainer? = null
+    private var desktopParams: WindowManager.LayoutParams? = null
+
+    init {
+        focusMutex.hostWindowProvider = {
+            desktopContainer?.let { container ->
+                desktopParams?.let { params ->
+                    Pair(container, params)
+                }
+            }
+        }
+    }
+
+    private fun ensureDesktopContainerAttached(): FloatingDesktopContainer {
+        var container = desktopContainer
+        if (container == null) {
+            container = FloatingDesktopContainer(themedContext)
+            desktopContainer = container
+        }
+        if (!container.isAttachedToWindow) {
+            val params =
+                WindowManager
+                    .LayoutParams(
+                        WindowManager.LayoutParams.MATCH_PARENT,
+                        WindowManager.LayoutParams.MATCH_PARENT,
+                        getOverlayWindowType(),
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                        PixelFormat.TRANSLUCENT,
+                    ).apply {
+                        gravity = Gravity.TOP or Gravity.START
+                        x = 0
+                        y = 0
+                    }
+            desktopParams = params
+            try {
+                windowManager.addView(container, params)
+                Timber.i("FloatingWindowManager: attached FloatingDesktopContainer to WindowManager")
+            } catch (e: Exception) {
+                Timber.e(e, "FloatingWindowManager: Failed to add FloatingDesktopContainer to WindowManager")
+            }
+        }
+        return container
+    }
+
+    private fun checkAndDetachDesktopContainerIfEmpty() {
+        val container = desktopContainer ?: return
+        val hasActiveWindows = sessions.values.any { it.mode == OverlayMode.WINDOW }
+        if (!hasActiveWindows || container.childCount == 0) {
+            if (container.isAttachedToWindow) {
+                try {
+                    windowManager.removeView(container)
+                    Timber.i("FloatingWindowManager: detached empty FloatingDesktopContainer from WindowManager")
+                } catch (e: Exception) {
+                    Timber.w(e, "FloatingWindowManager: Failed to remove FloatingDesktopContainer")
+                }
+            }
+            desktopContainer = null
+            desktopParams = null
+        }
+    }
+
     // Multi-session registry
     val sessions = LinkedHashMap<String, FloatingSession>()
 
@@ -338,9 +401,16 @@ class FloatingWindowManager(
             }
         }
 
-        // Attach window
+        // Attach window via desktop container
         try {
-            windowManager.addView(windowView, windowParams)
+            val container = ensureDesktopContainerAttached()
+            container.attachChildWindow(
+                windowView,
+                windowParams.x,
+                windowParams.y,
+                windowParams.width,
+                windowParams.height,
+            )
             sessions[targetId] = session
             activeSessionId = targetId
             updateActiveWindowStates()
@@ -381,7 +451,7 @@ class FloatingWindowManager(
     }
 
     /**
-     * Brings the session window to the top of WindowManager with spatial overlap bypass and safe deferred elevation.
+     * Brings the session window to the top of the desktop container with pure in-memory Z-order elevation (zero flicker).
      */
     fun bringSessionToFront(session: FloatingSession) {
         session.lastInteractedTimestamp = System.currentTimeMillis()
@@ -390,46 +460,20 @@ class FloatingWindowManager(
 
         val windowSessions = sessions.values.filter { it.mode == OverlayMode.WINDOW }
         if (windowSessions.size <= 1 || windowSessions.lastOrNull()?.id == session.id) {
-            // Already top-most window or single window; do not re-insert to preserve active touch stream
+            // Already top-most window or single window
             return
         }
 
         if (session.windowView.isFullscreenVideoActive) {
-            // Window is in fullscreen video mode; do not re-add to WindowManager to preserve player surface
+            // Window is in fullscreen video mode; do not reorder to preserve player surface
             return
         }
 
-        // Spatial Overlap Check:
-        // If this window does NOT geometrically overlap with any window above it, DO NOT touch WindowManager
-        // and DO NOT reorder sessions! Physical Z-order in WindowManager hasn't changed.
-        if (!isSessionOverlappingHigherWindows(session)) {
-            Timber.d("Activated session ${session.id} (no spatial overlap with higher windows, zero flicker)")
-            return
-        }
-
-        // For overlapping windows: defer elevation via post to never abort active InputChannel on ACTION_DOWN!
-        val view = session.windowView
-        if (view.isAttachedToWindow && session.mode == OverlayMode.WINDOW) {
-            view.post {
-                if (view.isAttachedToWindow && session.mode == OverlayMode.WINDOW && sessions.values.lastOrNull()?.id != session.id) {
-                    view.isReattachingForZOrder = true
-                    try {
-                        windowManager.removeViewImmediate(view)
-                        windowManager.addView(view, session.windowParams)
-                        sessions.remove(session.id)
-                        sessions[session.id] = session
-                        Timber.d("Elevated overlapping session ${session.id} to front safely")
-                    } catch (e: Exception) {
-                        Timber.w(e, "Safe Z-order re-insertion failed for session ${session.id}")
-                        if (!view.isAttachedToWindow) {
-                            view.exitFullscreenVideo(notifyCallback = true)
-                        }
-                    } finally {
-                        view.isReattachingForZOrder = false
-                    }
-                }
-            }
-        }
+        val container = desktopContainer ?: return
+        container.bringChildWindowToFront(session.windowView)
+        sessions.remove(session.id)
+        sessions[session.id] = session
+        Timber.d("Elevated session ${session.id} to front in desktop container (pure in-memory, 0ms latency)")
     }
 
     /**
@@ -527,7 +571,11 @@ class FloatingWindowManager(
         session.windowView.webView.pauseTimers()
 
         // 2. Remove window view
-        if (session.windowView.isAttachedToWindow) {
+        val container = desktopContainer
+        if (container != null) {
+            container.detachChildWindow(session.windowView)
+            checkAndDetachDesktopContainerIfEmpty()
+        } else if (session.windowView.isAttachedToWindow) {
             try {
                 windowManager.removeView(session.windowView)
             } catch (e: Exception) {
@@ -646,17 +694,22 @@ class FloatingWindowManager(
 
         // 4. Attach window
         val window = session.windowView
-        if (!window.isAttachedToWindow) {
-            try {
-                windowManager.addView(window, session.windowParams)
-                session.mode = OverlayMode.WINDOW
-                sessions.remove(session.id)
-                sessions[session.id] = session
-                bringSessionToFront(session)
-                Timber.d("Restored session ${session.id} to window at ($targetWinX, $targetWinY)")
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to re-add window view during restore for session ${session.id}")
-            }
+        try {
+            val desktop = ensureDesktopContainerAttached()
+            desktop.attachChildWindow(
+                window,
+                session.windowParams.x,
+                session.windowParams.y,
+                session.windowParams.width,
+                session.windowParams.height,
+            )
+            session.mode = OverlayMode.WINDOW
+            sessions.remove(session.id)
+            sessions[session.id] = session
+            bringSessionToFront(session)
+            Timber.d("Restored session ${session.id} to window at ($targetWinX, $targetWinY)")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to re-add window view during restore for session ${session.id}")
         }
     }
 
@@ -685,7 +738,11 @@ class FloatingWindowManager(
 
         // 2. Remove window
         val window = session.windowView
-        if (window.isAttachedToWindow) {
+        val desktop = desktopContainer
+        if (desktop != null) {
+            desktop.detachChildWindow(window)
+            checkAndDetachDesktopContainerIfEmpty()
+        } else if (window.isAttachedToWindow) {
             try {
                 windowManager.removeView(window)
             } catch (e: Exception) {
@@ -812,6 +869,17 @@ class FloatingWindowManager(
         }
         sessions.clear()
         bubbleStack.clear()
+        desktopContainer?.let { container ->
+            if (container.isAttachedToWindow) {
+                try {
+                    windowManager.removeView(container)
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to remove desktopContainer on destroy")
+                }
+            }
+            desktopContainer = null
+            desktopParams = null
+        }
         dismissTargetView?.let { target ->
             if (target.isAttachedToWindow) {
                 try {
@@ -859,11 +927,7 @@ class FloatingWindowManager(
             wp.y = wp.y.coerceIn(minY, maxY)
 
             if (session.mode == OverlayMode.WINDOW && session.windowView.isAttachedToWindow) {
-                try {
-                    windowManager.updateViewLayout(session.windowView, wp)
-                } catch (e: Exception) {
-                    Timber.w(e, "Error updating window layout on config changed")
-                }
+                session.windowView.applyBoundsUpdate()
             } else if (session.mode == OverlayMode.BUBBLE && session.bubbleView?.isAttachedToWindow == true) {
                 val bp = session.bubbleParams
                 val bubbleSize = dpToPx(52f)

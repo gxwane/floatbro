@@ -73,4 +73,22 @@ object WindowBoundsHelper {
 
         return x1 < r2 && r1 > x2 && y1 < b2 && b1 > y2
     }
+
+    /**
+     * Computes the bounding box covering a list of window bounds.
+     * Returns null if the list is empty.
+     */
+    fun computeUnionBoundingBox(boundsList: List<WindowBounds>): WindowBounds? {
+        if (boundsList.isEmpty()) return null
+        val minX = boundsList.minOf { it.x }
+        val minY = boundsList.minOf { it.y }
+        val maxX = boundsList.maxOf { it.x + it.width }
+        val maxY = boundsList.maxOf { it.y + it.height }
+        return WindowBounds(
+            x = minX,
+            y = minY,
+            width = (maxX - minX).coerceAtLeast(0),
+            height = (maxY - minY).coerceAtLeast(0),
+        )
+    }
 }

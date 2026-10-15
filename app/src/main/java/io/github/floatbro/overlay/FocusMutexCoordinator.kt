@@ -28,6 +28,12 @@ class FocusMutexCoordinator(
     private var currentFocusedSession: FloatingSession? = null
 
     /**
+     * Optional provider for single-host multi-window container (Solution B).
+     * Returns the host container view and its WindowManager.LayoutParams.
+     */
+    var hostWindowProvider: (() -> Pair<android.view.View, WindowManager.LayoutParams>?)? = null
+
+    /**
      * Safely grants keyboard focus to the target session while defocusing any active sibling.
      */
     fun acquireFocus(targetSession: FloatingSession) {
@@ -49,14 +55,32 @@ class FocusMutexCoordinator(
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
 
-        val view = targetSession.windowView
-        if (view.isAttachedToWindow) {
+        val host = hostWindowProvider?.invoke()
+        if (host != null && host.first.isAttachedToWindow) {
+            val (hostView, hostParams) = host
+            hostParams.flags = (
+                hostParams.flags
+                    and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            ) or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
             try {
-                windowManager.updateViewLayout(view, targetSession.windowParams)
+                windowManager.updateViewLayout(hostView, hostParams)
                 currentFocusedSession = targetSession
-                Timber.d("FocusMutexCoordinator: Session ${targetSession.id} acquired focus")
+                Timber.d("FocusMutexCoordinator: Session ${targetSession.id} acquired focus via host window")
             } catch (e: Exception) {
-                Timber.e(e, "Failed to apply focus flags for session ${targetSession.id}")
+                Timber.e(e, "Failed to apply focus flags to host window for session ${targetSession.id}")
+            }
+        } else {
+            val view = targetSession.windowView
+            if (view.isAttachedToWindow) {
+                try {
+                    windowManager.updateViewLayout(view, targetSession.windowParams)
+                    currentFocusedSession = targetSession
+                    Timber.d("FocusMutexCoordinator: Session ${targetSession.id} acquired focus")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to apply focus flags for session ${targetSession.id}")
+                }
             }
         }
     }
@@ -73,13 +97,25 @@ class FocusMutexCoordinator(
             currentFocusedSession = null
         }
 
-        val view = session.windowView
-        if (view.isAttachedToWindow && wasFocusable) {
+        val host = hostWindowProvider?.invoke()
+        if (host != null && host.first.isAttachedToWindow) {
+            val (hostView, hostParams) = host
+            hostParams.flags = hostParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             try {
-                windowManager.updateViewLayout(view, session.windowParams)
-                Timber.d("FocusMutexCoordinator: Session ${session.id} released focus")
+                windowManager.updateViewLayout(hostView, hostParams)
+                Timber.d("FocusMutexCoordinator: Session ${session.id} released focus via host window")
             } catch (e: Exception) {
-                Timber.e(e, "Failed to restore NOT_FOCUSABLE for session ${session.id}")
+                Timber.e(e, "Failed to restore NOT_FOCUSABLE on host window for session ${session.id}")
+            }
+        } else {
+            val view = session.windowView
+            if (view.isAttachedToWindow && wasFocusable) {
+                try {
+                    windowManager.updateViewLayout(view, session.windowParams)
+                    Timber.d("FocusMutexCoordinator: Session ${session.id} released focus")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to restore NOT_FOCUSABLE for session ${session.id}")
+                }
             }
         }
     }

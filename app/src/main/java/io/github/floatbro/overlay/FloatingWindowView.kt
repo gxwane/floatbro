@@ -111,7 +111,7 @@ class FloatingWindowView(
     var currentFavicon: Bitmap? = null
         private set
 
-    private var isEditMode = false
+    internal var isEditMode = false
     private var isResizing = false
     private var preEditY: Int? = null
     private var preWebInputAvoidanceY: Int? = null
@@ -156,11 +156,30 @@ class FloatingWindowView(
     var isActiveWindow: Boolean = true
         private set
     private var isInterceptingForClickToFocus = false
-    var isReattachingForZOrder: Boolean = false
     private var wasActiveAtOmnibarDown: Boolean = true
 
     val isFullscreenVideoActive: Boolean
         get() = customVideoView != null
+
+    /**
+     * Applies position and dimension changes to the window layout params,
+     * dispatching to [FloatingDesktopContainer] if mounted inside a multi-window container,
+     * or delegating to [WindowManager.updateViewLayout] as a fallback.
+     */
+    fun applyBoundsUpdate() {
+        if (!isAttachedToWindow) return
+        try {
+            val p = parent
+            if (p is FloatingDesktopContainer) {
+                p.updateChildBounds(this, layoutParams.x, layoutParams.y, layoutParams.width, layoutParams.height)
+            } else {
+                windowManager.updateViewLayout(this, layoutParams)
+            }
+            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
+        } catch (e: Exception) {
+            Timber.w(e, "Error updating window bounds (x=${layoutParams.x}, y=${layoutParams.y})")
+        }
+    }
 
     fun setActiveWindowState(isActive: Boolean) {
         if (isActive) {
@@ -1168,14 +1187,7 @@ class FloatingWindowView(
             )
         if (safeY != layoutParams.y) {
             layoutParams.y = safeY
-            if (isAttachedToWindow) {
-                try {
-                    windowManager.updateViewLayout(this, layoutParams)
-                    onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                } catch (e: Exception) {
-                    Timber.w(e, "Error updating layoutParams.y during enterEditMode keyboard avoidance")
-                }
-            }
+            applyBoundsUpdate()
         }
 
         // 1. Hide left & right buttons to expand omnibar to full header width
@@ -1216,14 +1228,7 @@ class FloatingWindowView(
             val safeY = originalY.coerceIn(minY, maxY)
             if (layoutParams.y != safeY) {
                 layoutParams.y = safeY
-                if (isAttachedToWindow) {
-                    try {
-                        windowManager.updateViewLayout(this, layoutParams)
-                        onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                    } catch (e: Exception) {
-                        Timber.w(e, "Error restoring layoutParams.y during exitEditMode")
-                    }
-                }
+                applyBoundsUpdate()
             }
             preEditY = null
         }
@@ -1319,28 +1324,14 @@ class FloatingWindowView(
                     )
                 if (safeY != layoutParams.y) {
                     layoutParams.y = safeY
-                    if (isAttachedToWindow) {
-                        try {
-                            windowManager.updateViewLayout(this, layoutParams)
-                            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                        } catch (e: Exception) {
-                            Timber.w(e, "Error updating layoutParams.y during handleWebInputFocusChanged")
-                        }
-                    }
+                    applyBoundsUpdate()
                 }
             }
         } else {
             preWebInputAvoidanceY?.let { originalY ->
                 if (!isEditMode && layoutParams.y != originalY) {
                     layoutParams.y = originalY
-                    if (isAttachedToWindow) {
-                        try {
-                            windowManager.updateViewLayout(this, layoutParams)
-                            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                        } catch (e: Exception) {
-                            Timber.w(e, "Error restoring layoutParams.y during handleWebInputFocusChanged")
-                        }
-                    }
+                    applyBoundsUpdate()
                 }
                 preWebInputAvoidanceY = null
             }
@@ -1389,14 +1380,7 @@ class FloatingWindowView(
                 if (hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
                     layoutParams.x = initialWindowX + dx
                     layoutParams.y = initialWindowY + dy
-                    if (isAttachedToWindow) {
-                        try {
-                            windowManager.updateViewLayout(this, layoutParams)
-                            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                        } catch (e: Exception) {
-                            Timber.w(e, "Error updating window layout during drag")
-                        }
-                    }
+                    applyBoundsUpdate()
                     onDragMoved?.invoke(event.rawX, event.rawY)
                 }
                 return true
@@ -1528,14 +1512,7 @@ class FloatingWindowView(
                 val dy = (event.rawY - dragStartY).toInt()
                 layoutParams.x = initialWindowX + dx
                 layoutParams.y = initialWindowY + dy
-                if (isAttachedToWindow) {
-                    try {
-                        windowManager.updateViewLayout(this, layoutParams)
-                        onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                    } catch (e: Exception) {
-                        Timber.w(e, "Error updating window layout during edge drag")
-                    }
-                }
+                applyBoundsUpdate()
                 onDragMoved?.invoke(event.rawX, event.rawY)
                 return true
             }
@@ -1608,14 +1585,7 @@ class FloatingWindowView(
                         interpolator = DecelerateInterpolator()
                         addUpdateListener { animation ->
                             layoutParams.x = animation.animatedValue as Int
-                            if (isAttachedToWindow) {
-                                try {
-                                    windowManager.updateViewLayout(this@FloatingWindowView, layoutParams)
-                                    onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                                } catch (e: Exception) {
-                                    Timber.w(e, "Error updating window layout during snap animation")
-                                }
-                            }
+                            applyBoundsUpdate()
                         }
                         addListener(
                             object : android.animation.AnimatorListenerAdapter() {
@@ -1627,14 +1597,7 @@ class FloatingWindowView(
                         start()
                     }
                 } else {
-                    if (isAttachedToWindow) {
-                        try {
-                            windowManager.updateViewLayout(this, layoutParams)
-                            onBoundsChanged?.invoke(layoutParams.width, layoutParams.height, layoutParams.x, layoutParams.y)
-                        } catch (e: Exception) {
-                            Timber.w(e, "Error updating window layout after snap")
-                        }
-                    }
+                    applyBoundsUpdate()
                     onBringToFrontRequested?.invoke()
                 }
                 true
@@ -1683,14 +1646,7 @@ class FloatingWindowView(
                 if (newWidth != layoutParams.width || newHeight != layoutParams.height) {
                     layoutParams.width = newWidth
                     layoutParams.height = newHeight
-                    if (isAttachedToWindow) {
-                        try {
-                            windowManager.updateViewLayout(this, layoutParams)
-                            onBoundsChanged?.invoke(newWidth, newHeight, layoutParams.x, layoutParams.y)
-                        } catch (e: Exception) {
-                            Timber.w(e, "Error updating window layout during resize")
-                        }
-                    }
+                    applyBoundsUpdate()
                 }
                 return true
             }
@@ -1762,13 +1718,11 @@ class FloatingWindowView(
         isInterceptingForClickToFocus = false
         moreMenuPopup?.dismiss()
         moreMenuPopup = null
-        if (!isReattachingForZOrder) {
-            if (::elementZapperManager.isInitialized) {
-                elementZapperManager.exitZapperMode(quietly = true)
-            }
-            restoreHeaderNormalState()
-            exitFullscreenVideo(notifyCallback = true)
+        if (::elementZapperManager.isInitialized) {
+            elementZapperManager.exitZapperMode(quietly = true)
         }
+        restoreHeaderNormalState()
+        exitFullscreenVideo(notifyCallback = true)
         super.onDetachedFromWindow()
     }
 }

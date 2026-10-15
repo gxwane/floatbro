@@ -13,6 +13,7 @@ package io.github.floatbro.overlay
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -87,5 +88,69 @@ class FloatingSessionLifecycleTest {
                 h2 = windowH,
             )
         assertTrue("Cascading windows with overlapping bounds must report overlap", isOverlapping)
+    }
+
+    @Test
+    fun `scenario - computeUnionBoundingBox returns null for empty list`() {
+        assertNull(WindowBoundsHelper.computeUnionBoundingBox(emptyList()))
+    }
+
+    @Test
+    fun `scenario - computeUnionBoundingBox returns exact bounds for single window`() {
+        val bounds = listOf(WindowBoundsHelper.WindowBounds(x = 100, y = 200, width = 400, height = 600))
+        val union = WindowBoundsHelper.computeUnionBoundingBox(bounds)
+        assertEquals(100, union?.x)
+        assertEquals(200, union?.y)
+        assertEquals(400, union?.width)
+        assertEquals(600, union?.height)
+    }
+
+    @Test
+    fun `scenario - computeUnionBoundingBox computes correct union for multi-window layout`() {
+        val bounds =
+            listOf(
+                WindowBoundsHelper.WindowBounds(x = 50, y = 100, width = 300, height = 400),
+                WindowBoundsHelper.WindowBounds(x = 200, y = 250, width = 350, height = 450),
+            )
+        val union = WindowBoundsHelper.computeUnionBoundingBox(bounds)
+        // minX = 50, minY = 100, maxX = 200+350 = 550, maxY = 250+450 = 700
+        // union width = 550 - 50 = 500, union height = 700 - 100 = 600
+        assertEquals(50, union?.x)
+        assertEquals(100, union?.y)
+        assertEquals(500, union?.width)
+        assertEquals(600, union?.height)
+    }
+
+    @Test
+    fun `scenario - spatial overlap boundary touching without intersecting area returns false`() {
+        // Window A right edge meets Window B left edge at x=400
+        val isOverlapping =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 0,
+                y1 = 0,
+                w1 = 400,
+                h1 = 600,
+                x2 = 400,
+                y2 = 0,
+                w2 = 400,
+                h2 = 600,
+            )
+        assertFalse("Touching borders without area intersection must not overlap", isOverlapping)
+    }
+
+    @Test
+    fun `scenario - fully enclosed window reports overlap`() {
+        val isOverlapping =
+            WindowBoundsHelper.isOverlapping(
+                x1 = 100,
+                y1 = 100,
+                w1 = 600,
+                h1 = 800,
+                x2 = 150,
+                y2 = 150,
+                w2 = 200,
+                h2 = 200,
+            )
+        assertTrue("Enclosed window must report overlap", isOverlapping)
     }
 }
