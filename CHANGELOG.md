@@ -5,6 +5,23 @@
 
 ## [Unreleased]
 
+## [0.1.6-beta] - 2026-10-15
+
+### Added
+- **单容器多窗口 0ms 聚焦切换架构 (Single-Host Desktop Container)**：
+  - **彻底消灭多浮窗切换白屏闪烁**：引入 `FloatingDesktopContainer` 统一管理屏幕上所有 `FloatingWindowView` 实例，将多窗口聚合在同一个 WindowManager Surface 中；
+  - **内存级 View 树瞬间置顶**：窗口聚焦与 Z-order 变更通过纯内存级 `bringChildWindowToFront` 完成，完全消除以往创建与销毁独立 Surface 导致的白闪与延迟；
+  - **触控区域智能穿透代理**：依托 `InternalInsetsHelper` 计算所有子窗口的联合可见区域，空白区域 100% 穿透至底层宿主或桌面，底层 App 点击操作丝滑无阻碍。
+
+### Fixed
+- **Markdown 复杂富文本与嵌套排版引擎优化**：
+  - **格式与排版加固**：增加对 `---`, `***`, `___` 水平分割线的原生渲染；支持连续引用块（Blockquote）合并呈现与富文本内联；支持粗体内部嵌套行内代码与链接解析；
+  - **现代化组件迁移**：淘汰已废弃的 `ClickableText`，升级为现代 Compose `LinkAnnotation.Url`；
+  - **完整呈现更新日志**：移除原有的 `take(4)` 强制截断规则，解决长篇更新日志无法展开阅读的问题。
+- **界面微噪净化与弹性限高**：
+  - 更新发布日志卡片增加 `heightIn(max = 520.dp)` 弹性自适应最大高度限制，防止对话框撑破屏幕；
+  - 简化设置页文案，移除「本地诊断与日志」冗长副标题，将“非活动浮窗点击仅激活焦点”沉淀为底层引擎默认规范，减轻认知负担。
+
 ## [0.1.5-beta] - 2026-10-15
 
 ### Added

@@ -14,8 +14,8 @@ android {
         applicationId = "io.github.floatbro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10006
-        versionName = "0.1.5-beta"
+        versionCode = 10007
+        versionName = "0.1.6-beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
