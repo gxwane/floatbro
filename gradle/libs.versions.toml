@@ -53,7 +53,7 @@ turbine = "1.2.1"
 archCoreTesting = "2.2.0"
 
 # --- 质量与架构守护 (Phase 3) ---
-slackComposeLint = "1.5.5"
+slackComposeLint = "1.6.1"
 archunit = "1.4.1"
 
 # --- 开源合规与许可证审计 (Phase 4) ---
