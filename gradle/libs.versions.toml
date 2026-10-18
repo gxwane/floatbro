@@ -54,7 +54,7 @@ archCoreTesting = "2.2.0"
 
 # --- 质量与架构守护 (Phase 3) ---
 slackComposeLint = "1.5.5"
-archunit = "1.4.1"
+archunit = "1.5.1"
 
 # --- 开源合规与许可证审计 (Phase 4) ---
 license = "0.9.91"
