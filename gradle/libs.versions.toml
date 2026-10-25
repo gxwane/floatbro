@@ -30,7 +30,7 @@ lifecycle = "2.8.7"
 datastore = "1.2.1"
 
 # --- Web 内核与网络通信 ---
-webkit = "1.17.1"
+webkit = "1.18.0"
 okhttp = "4.12.0"
 okhttpSse = "4.12.0"
 httpRequest = "0.2"
