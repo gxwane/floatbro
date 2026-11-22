@@ -84,7 +84,7 @@ jobs:
           link-to-sdk: true
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2.24
+        uses: hendrikmuhs/ccache-action@v1.2.26
         with:
           key: ${{ runner.os }}-pr-build-ccache-${{ github.ref }}
           restore-keys: |
